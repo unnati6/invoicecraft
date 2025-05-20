@@ -1,0 +1,165 @@
+'use client';
+
+import * as React from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { AppHeader } from '@/components/layout/app-header';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DataTable } from '@/components/ui/data-table';
+import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
+import { Badge } from '@/components/ui/badge';
+import { PlusCircle, Edit, Eye, Trash2 } from 'lucide-react';
+import type { Invoice } from '@/types';
+import { getAllInvoices, removeInvoice } from '@/lib/actions';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+
+export default function InvoicesPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [invoices, setInvoices] = React.useState<Invoice[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const data = await getAllInvoices();
+        setInvoices(data);
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to fetch invoices.", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [toast]);
+
+  const handleDeleteInvoice = async (id: string) => {
+    try {
+      await removeInvoice(id);
+      setInvoices(prev => prev.filter(inv => inv.id !== id));
+      toast({ title: "Success", description: "Invoice deleted successfully." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete invoice.", variant: "destructive" });
+    }
+  };
+
+  const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case 'Paid': return 'default'; // Default (primary) often green-ish in themes or use custom variant
+      case 'Sent': return 'secondary';
+      case 'Overdue': return 'destructive';
+      case 'Draft': return 'outline';
+      default: return 'outline';
+    }
+  };
+  // Custom color for 'Paid' badge
+  const paidBadgeClass = "bg-accent text-accent-foreground hover:bg-accent/80";
+
+
+  const columns = [
+    { accessorKey: 'invoiceNumber', header: 'Number', cell: (row: Invoice) => row.invoiceNumber, size: 100 },
+    { accessorKey: 'customerName', header: 'Customer', cell: (row: Invoice) => row.customerName || 'N/A', size: 200 },
+    { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: Invoice) => format(new Date(row.issueDate), 'PP'), size: 120 },
+    { accessorKey: 'dueDate', header: 'Due Date', cell: (row: Invoice) => format(new Date(row.dueDate), 'PP'), size: 120 },
+    { accessorKey: 'total', header: 'Total', cell: (row: Invoice) => `$${row.total.toFixed(2)}`, size: 100 },
+    { 
+      accessorKey: 'status', 
+      header: 'Status', 
+      cell: (row: Invoice) => (
+        <Badge variant={getStatusVariant(row.status)} className={row.status === 'Paid' ? paidBadgeClass : ''}>
+          {row.status}
+        </Badge>
+      ),
+      size: 100
+    },
+    {
+      accessorKey: 'actions',
+      header: 'Actions',
+      cell: (row: Invoice) => (
+        <div className="flex space-x-1">
+          <InvoicePreviewDialog 
+            invoice={row} 
+            trigger={
+              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Preview Invoice">
+                <Eye className="h-4 w-4" />
+              </Button>
+            }
+          />
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/invoices/${row.id}`); }} title="Edit Invoice">
+            <Edit className="h-4 w-4" />
+          </Button>
+          <DeleteConfirmationDialog 
+            onConfirm={() => handleDeleteInvoice(row.id)} 
+            itemName={`invoice ${row.invoiceNumber}`}
+            trigger={
+               <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Delete Invoice">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            }
+          />
+        </div>
+      ),
+      size: 150
+    },
+  ];
+  
+  if (loading) {
+    return (
+      <>
+        <AppHeader title="Invoices">
+          <Link href="/invoices/new">
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" /> Create Invoice
+            </Button>
+          </Link>
+        </AppHeader>
+        <main className="flex-1 p-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>All Invoices</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <AppHeader title="Invoices">
+        <Link href="/invoices/new">
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" /> Create Invoice
+          </Button>
+        </Link>
+      </AppHeader>
+      <main className="flex-1 p-4 md:p-6 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>All Invoices</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DataTable
+              columns={columns}
+              data={invoices}
+              onRowClick={(row) => router.push(`/invoices/${row.id}`)}
+              noResultsMessage="No invoices found. Create your first invoice!"
+            />
+          </CardContent>
+        </Card>
+      </main>
+    </>
+  );
+}
