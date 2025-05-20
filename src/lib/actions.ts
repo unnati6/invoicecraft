@@ -114,53 +114,6 @@ const escapeCsvField = (field: string | number | undefined | null): string => {
   return str;
 };
 
-
-export async function downloadInvoiceAsPDF(invoiceId: string): Promise<{ success: boolean; message: string; fileName?: string; fileData?: string; mimeType?: string; }> {
-  const invoice = await fetchInvoiceById(invoiceId);
-  if (!invoice) {
-    return { success: false, message: 'Invoice not found.' };
-  }
-
-  let content = `INVOICE\n`;
-  content += `Invoice #: ${invoice.invoiceNumber}\n`;
-  content += `Status: ${invoice.status}\n\n`;
-
-  content += `BILL TO:\n`;
-  content += `${invoice.customerName || 'N/A'}\n`;
-  // Assuming customer details might be sparse or fetched separately if needed fully.
-  // For this text version, customerName from invoice is used.
-
-  content += `\nIssue Date: ${format(new Date(invoice.issueDate), 'PPP')}\n`;
-  content += `Due Date: ${format(new Date(invoice.dueDate), 'PPP')}\n\n`;
-
-  content += `ITEMS:\n`;
-  content += `--------------------------------------------------\n`;
-  content += `Description              Qty    Rate      Amount\n`;
-  content += `--------------------------------------------------\n`;
-  invoice.items.forEach(item => {
-    content += `${item.description.padEnd(25)} ${item.quantity.toString().padStart(3)} ${item.rate.toFixed(2).padStart(8)} ${item.amount.toFixed(2).padStart(9)}\n`;
-  });
-  content += `--------------------------------------------------\n\n`;
-
-  content += `Subtotal: $${invoice.subtotal.toFixed(2)}\n`;
-  content += `Tax (${invoice.taxRate}%): $${invoice.taxAmount.toFixed(2)}\n`;
-  content += `Total: $${invoice.total.toFixed(2)}\n\n`;
-
-  if (invoice.termsAndConditions) {
-    content += `Terms & Conditions:\n${invoice.termsAndConditions}\n\n`;
-  }
-  content += `Thank you for your business!\n`;
-  
-  const fileData = Buffer.from(content).toString('base64');
-  return { 
-    success: true, 
-    message: "Text file generated.", 
-    fileName: `Invoice_${invoice.invoiceNumber}.txt`,
-    fileData: fileData,
-    mimeType: 'text/plain'
-  };
-}
-
 export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ success: boolean; message: string; fileName?: string; fileData?: string; mimeType?: string; }> {
   const invoice = await fetchInvoiceById(invoiceId);
   if (!invoice) {

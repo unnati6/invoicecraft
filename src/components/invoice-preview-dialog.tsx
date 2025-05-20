@@ -18,8 +18,10 @@ import type { Invoice, Customer } from '@/types';
 import { format } from 'date-fns';
 import { Download, Printer, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { downloadInvoiceAsPDF, downloadInvoiceAsExcel } from '@/lib/actions';
+import { downloadInvoiceAsExcel } from '@/lib/actions';
 import { useState } from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface InvoicePreviewDialogProps {
   invoice: Invoice;
@@ -34,30 +36,50 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
 
   const handleDownload = async (type: 'pdf' | 'excel') => {
     const setLoading = type === 'pdf' ? setIsDownloadingPdf : setIsDownloadingExcel;
-    const action = type === 'pdf' ? downloadInvoiceAsPDF : downloadInvoiceAsExcel;
-    const fileTypeDisplay = type === 'pdf' ? 'TXT (PDF Content)' : 'CSV (Excel Content)';
+    const fileNameBase = `Invoice_${invoice.invoiceNumber}`;
 
     setLoading(true);
-    toast({ title: 'Processing...', description: `Generating ${fileTypeDisplay}...` });
+    toast({ title: 'Processing...', description: `Generating ${type === 'pdf' ? 'PDF' : 'CSV (Excel Content)'}...` });
     
     try {
-      const result = await action(invoice.id);
+      if (type === 'pdf') {
+        const input = document.getElementById('invoicePrintArea');
+        if (!input) {
+          toast({ title: 'Error', description: 'Preview content not found for PDF generation.', variant: 'destructive' });
+          setLoading(false);
+          return;
+        }
+        const canvas = await html2canvas(input, { scale: 2 }); // Increase scale for better quality
+        const imgData = canvas.toDataURL('image/png');
+        
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'pt', // points, matches html2canvas output
+          format: [canvas.width, canvas.height] // use canvas dimensions
+        });
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save(`${fileNameBase}.pdf`);
+        toast({ title: 'Success!', description: `${fileNameBase}.pdf downloaded.` });
 
-      if (result.success && result.fileData && result.mimeType && result.fileName) {
-        const dataUri = `data:${result.mimeType};base64,${result.fileData}`;
-        const link = document.createElement('a');
-        link.href = dataUri;
-        link.download = result.fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast({ title: 'Success!', description: `${result.fileName} downloaded.` });
-      } else {
-        toast({ title: 'Error', description: result.message || `Failed to generate ${fileTypeDisplay}.`, variant: 'destructive' });
+      } else if (type === 'excel') {
+        const result = await downloadInvoiceAsExcel(invoice.id);
+        if (result.success && result.fileData && result.mimeType && result.fileName) {
+          const dataUri = `data:${result.mimeType};base64,${result.fileData}`;
+          const link = document.createElement('a');
+          link.href = dataUri;
+          link.download = result.fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          toast({ title: 'Success!', description: `${result.fileName} downloaded.` });
+        } else {
+          toast({ title: 'Error', description: result.message || `Failed to generate CSV.`, variant: 'destructive' });
+        }
       }
     } catch (error) {
       console.error(`Error downloading ${type}:`, error);
-      toast({ title: 'Error', description: `An unexpected error occurred while generating ${fileTypeDisplay}.`, variant: 'destructive' });
+      toast({ title: 'Error', description: `An unexpected error occurred while generating the file.`, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -72,10 +94,10 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
       <DialogContent className="max-w-4xl w-full">
         <DialogHeader>
           <DialogTitle>Invoice Preview: {invoice.invoiceNumber}</DialogTitle>
-          <DialogDescription>Review the invoice details below. PDF download will provide a TXT file, Excel download a CSV file.</DialogDescription>
+          <DialogDescription>Review the invoice details below. PDF download will generate a PDF from this preview. Excel download provides a CSV file.</DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[70vh] p-1 pr-6"> {/* Added p-1 pr-6 for scrollbar spacing */}
-          <div className="p-6 bg-card rounded-lg shadow-sm border print-area">
+        <ScrollArea className="max-h-[70vh] p-1 pr-6">
+          <div id="invoicePrintArea" className="p-6 bg-card rounded-lg shadow-sm border print-area">
             {/* Header */}
             <div className="flex justify-between items-start mb-8">
               <div>
@@ -175,7 +197,32 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
           <Button onClick={() => handleDownload('excel')} variant="outline" disabled={isDownloadingExcel}>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> {isDownloadingExcel ? 'Downloading...' : 'Download Excel'}
           </Button>
-          <Button variant="outline" onClick={() => window.print()}> {/* Basic print */}
+          <Button variant="outline" onClick={() => {
+             const printArea = document.getElementById('invoicePrintArea');
+             if (printArea) {
+                const printWindow = window.open('', '_blank');
+                printWindow?.document.write('<html><head><title>Print Invoice</title>');
+                // You might want to link your global CSS here for better print fidelity
+                const styles = Array.from(document.styleSheets)
+                    .map(styleSheet => {
+                        try {
+                            return Array.from(styleSheet.cssRules)
+                                .map(rule => rule.cssText)
+                                .join('');
+                        } catch (e) {
+                            // Catches CORS errors on external stylesheets
+                            return '';
+                        }
+                    })
+                    .join('');
+                printWindow?.document.write(`<style>${styles}</style>`);
+                printWindow?.document.write('</head><body>');
+                printWindow?.document.write(printArea.innerHTML);
+                printWindow?.document.write('</body></html>');
+                printWindow?.document.close();
+                printWindow?.print();
+             }
+          }}>
             <Printer className="mr-2 h-4 w-4" /> Print
           </Button>
           <DialogClose asChild>
