@@ -1,9 +1,12 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import * as Data from './data';
 import type { Customer, Invoice, InvoiceItem } from '@/types';
 import type { CustomerFormData, InvoiceFormData, TermsFormData } from './schemas';
+import { format } from 'date-fns';
+import { Buffer } from 'buffer'; // Needed for Base64 encoding
 
 // Customer Actions
 export async function getAllCustomers(): Promise<Customer[]> {
@@ -87,14 +90,7 @@ export async function removeInvoice(id: string): Promise<boolean> {
 export async function saveInvoiceTerms(id: string, data: TermsFormData): Promise<Invoice | null> {
   const invoice = await Data.getInvoiceById(id);
   if (!invoice) return null;
-
-  const updatedInvoiceData = {
-    ...invoice, // Spread existing invoice data
-    termsAndConditions: data.termsAndConditions, // Update T&C
-  };
   
-  // The updateInvoice function in data.ts needs to handle partial updates correctly.
-  // Let's ensure it can update just T&C.
   const updated = await Data.updateInvoice(id, { termsAndConditions: data.termsAndConditions });
 
   if (updated) {
@@ -108,17 +104,102 @@ export async function fetchNextInvoiceNumber(): Promise<string> {
     return Data.getNextInvoiceNumber();
 }
 
-// Placeholder for PDF/Excel generation
-export async function downloadInvoiceAsPDF(invoiceId: string): Promise<{ success: boolean; message: string; fileName?: string }> {
-  // In a real app, this would generate a PDF and return a URL or file stream
-  console.log(`Placeholder: Generate PDF for invoice ${invoiceId}`);
-  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate generation
-  return { success: true, message: "PDF generation initiated (mock).", fileName: `Invoice_${invoiceId}.pdf` };
+// Helper to escape CSV fields
+const escapeCsvField = (field: string | number | undefined | null): string => {
+  if (field === undefined || field === null) return '';
+  const str = String(field);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+};
+
+
+export async function downloadInvoiceAsPDF(invoiceId: string): Promise<{ success: boolean; message: string; fileName?: string; fileData?: string; mimeType?: string; }> {
+  const invoice = await fetchInvoiceById(invoiceId);
+  if (!invoice) {
+    return { success: false, message: 'Invoice not found.' };
+  }
+
+  let content = `INVOICE\n`;
+  content += `Invoice #: ${invoice.invoiceNumber}\n`;
+  content += `Status: ${invoice.status}\n\n`;
+
+  content += `BILL TO:\n`;
+  content += `${invoice.customerName || 'N/A'}\n`;
+  // Assuming customer details might be sparse or fetched separately if needed fully.
+  // For this text version, customerName from invoice is used.
+
+  content += `\nIssue Date: ${format(new Date(invoice.issueDate), 'PPP')}\n`;
+  content += `Due Date: ${format(new Date(invoice.dueDate), 'PPP')}\n\n`;
+
+  content += `ITEMS:\n`;
+  content += `--------------------------------------------------\n`;
+  content += `Description              Qty    Rate      Amount\n`;
+  content += `--------------------------------------------------\n`;
+  invoice.items.forEach(item => {
+    content += `${item.description.padEnd(25)} ${item.quantity.toString().padStart(3)} ${item.rate.toFixed(2).padStart(8)} ${item.amount.toFixed(2).padStart(9)}\n`;
+  });
+  content += `--------------------------------------------------\n\n`;
+
+  content += `Subtotal: $${invoice.subtotal.toFixed(2)}\n`;
+  content += `Tax (${invoice.taxRate}%): $${invoice.taxAmount.toFixed(2)}\n`;
+  content += `Total: $${invoice.total.toFixed(2)}\n\n`;
+
+  if (invoice.termsAndConditions) {
+    content += `Terms & Conditions:\n${invoice.termsAndConditions}\n\n`;
+  }
+  content += `Thank you for your business!\n`;
+  
+  const fileData = Buffer.from(content).toString('base64');
+  return { 
+    success: true, 
+    message: "Text file generated.", 
+    fileName: `Invoice_${invoice.invoiceNumber}.txt`,
+    fileData: fileData,
+    mimeType: 'text/plain'
+  };
 }
 
-export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ success: boolean; message: string; fileName?: string }> {
-  // In a real app, this would generate an Excel file
-  console.log(`Placeholder: Generate Excel for invoice ${invoiceId}`);
-  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate generation
-  return { success: true, message: "Excel generation initiated (mock).", fileName: `Invoice_${invoiceId}.xlsx` };
+export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ success: boolean; message: string; fileName?: string; fileData?: string; mimeType?: string; }> {
+  const invoice = await fetchInvoiceById(invoiceId);
+  if (!invoice) {
+    return { success: false, message: 'Invoice not found.' };
+  }
+
+  const headers = [
+    'Invoice Number', 'Customer Name', 'Issue Date', 'Due Date', 'Status',
+    'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
+    'Invoice Subtotal', 'Invoice Tax Rate (%)', 'Invoice Tax Amount', 'Invoice Total'
+  ];
+  
+  let csvContent = headers.map(escapeCsvField).join(',') + '\n';
+
+  invoice.items.forEach(item => {
+    const row = [
+      invoice.invoiceNumber,
+      invoice.customerName,
+      format(new Date(invoice.issueDate), 'yyyy-MM-dd'),
+      format(new Date(invoice.dueDate), 'yyyy-MM-dd'),
+      invoice.status,
+      item.description,
+      item.quantity,
+      item.rate,
+      item.amount,
+      invoice.subtotal,
+      invoice.taxRate,
+      invoice.taxAmount,
+      invoice.total
+    ];
+    csvContent += row.map(escapeCsvField).join(',') + '\n';
+  });
+  
+  const fileData = Buffer.from(csvContent).toString('base64');
+  return { 
+    success: true, 
+    message: "CSV file generated.",
+    fileName: `Invoice_${invoice.invoiceNumber}.csv`,
+    fileData: fileData,
+    mimeType: 'text/csv'
+  };
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -17,7 +18,7 @@ import type { Invoice, Customer } from '@/types';
 import { format } from 'date-fns';
 import { Download, Printer, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { downloadInvoiceAsPDF, downloadInvoiceAsExcel } from '@/lib/actions'; // Assuming actions.ts exists
+import { downloadInvoiceAsPDF, downloadInvoiceAsExcel } from '@/lib/actions';
 import { useState } from 'react';
 
 interface InvoicePreviewDialogProps {
@@ -31,33 +32,35 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
 
-  const handleDownloadPDF = async () => {
-    setIsDownloadingPdf(true);
-    toast({ title: 'Processing...', description: 'Generating PDF...' });
-    // Simulate API call
-    const result = await downloadInvoiceAsPDF(invoice.id);
-    if (result.success) {
-      toast({ title: 'Success!', description: result.message });
-      // In a real app, you would trigger a download here, e.g. window.open(result.url) or similar.
-      // For mock, we can just log.
-      console.log(`Mock Download: ${result.fileName}`);
-    } else {
-      toast({ title: 'Error', description: result.message, variant: 'destructive' });
-    }
-    setIsDownloadingPdf(false);
-  };
+  const handleDownload = async (type: 'pdf' | 'excel') => {
+    const setLoading = type === 'pdf' ? setIsDownloadingPdf : setIsDownloadingExcel;
+    const action = type === 'pdf' ? downloadInvoiceAsPDF : downloadInvoiceAsExcel;
+    const fileTypeDisplay = type === 'pdf' ? 'TXT (PDF Content)' : 'CSV (Excel Content)';
 
-  const handleDownloadExcel = async () => {
-    setIsDownloadingExcel(true);
-    toast({ title: 'Processing...', description: 'Generating Excel...' });
-    const result = await downloadInvoiceAsExcel(invoice.id);
-    if (result.success) {
-      toast({ title: 'Success!', description: result.message });
-      console.log(`Mock Download: ${result.fileName}`);
-    } else {
-      toast({ title: 'Error', description: result.message, variant: 'destructive' });
+    setLoading(true);
+    toast({ title: 'Processing...', description: `Generating ${fileTypeDisplay}...` });
+    
+    try {
+      const result = await action(invoice.id);
+
+      if (result.success && result.fileData && result.mimeType && result.fileName) {
+        const dataUri = `data:${result.mimeType};base64,${result.fileData}`;
+        const link = document.createElement('a');
+        link.href = dataUri;
+        link.download = result.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({ title: 'Success!', description: `${result.fileName} downloaded.` });
+      } else {
+        toast({ title: 'Error', description: result.message || `Failed to generate ${fileTypeDisplay}.`, variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error(`Error downloading ${type}:`, error);
+      toast({ title: 'Error', description: `An unexpected error occurred while generating ${fileTypeDisplay}.`, variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
-    setIsDownloadingExcel(false);
   };
   
   const customerToDisplay = customer || { name: invoice.customerName, email: 'N/A', address: undefined };
@@ -69,7 +72,7 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
       <DialogContent className="max-w-4xl w-full">
         <DialogHeader>
           <DialogTitle>Invoice Preview: {invoice.invoiceNumber}</DialogTitle>
-          <DialogDescription>Review the invoice details below.</DialogDescription>
+          <DialogDescription>Review the invoice details below. PDF download will provide a TXT file, Excel download a CSV file.</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] p-1 pr-6"> {/* Added p-1 pr-6 for scrollbar spacing */}
           <div className="p-6 bg-card rounded-lg shadow-sm border print-area">
@@ -166,10 +169,10 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
           </div>
         </ScrollArea>
         <DialogFooter className="sm:justify-start gap-2 pt-4">
-          <Button onClick={handleDownloadPDF} disabled={isDownloadingPdf}>
+          <Button onClick={() => handleDownload('pdf')} disabled={isDownloadingPdf}>
             <Download className="mr-2 h-4 w-4" /> {isDownloadingPdf ? 'Downloading...' : 'Download PDF'}
           </Button>
-          <Button onClick={handleDownloadExcel} variant="outline" disabled={isDownloadingExcel}>
+          <Button onClick={() => handleDownload('excel')} variant="outline" disabled={isDownloadingExcel}>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> {isDownloadingExcel ? 'Downloading...' : 'Download Excel'}
           </Button>
           <Button variant="outline" onClick={() => window.print()}> {/* Basic print */}
@@ -187,4 +190,3 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
 }
 
 InvoicePreviewDialog.displayName = "InvoicePreviewDialog";
-
