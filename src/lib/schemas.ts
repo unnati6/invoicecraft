@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export const customerSchema = z.object({
@@ -41,3 +42,24 @@ export const termsSchema = z.object({
   termsAndConditions: z.string().optional(),
 });
 export type TermsFormData = z.infer<typeof termsSchema>;
+
+// Schemas for Quotes
+export const quoteItemSchema = z.object({ // Similar to InvoiceItemSchema
+  id: z.string().optional(),
+  description: z.string().min(1, { message: "Description cannot be empty." }),
+  quantity: z.number().min(0.01, { message: "Quantity must be positive." }),
+  rate: z.number().min(0, { message: "Rate must be non-negative." }),
+});
+export type QuoteItemFormData = z.infer<typeof quoteItemSchema>;
+
+export const quoteSchema = z.object({
+  customerId: z.string().min(1, { message: "Customer is required." }),
+  quoteNumber: z.string().min(1, { message: "Quote number is required." }),
+  issueDate: z.date({ required_error: "Issue date is required." }),
+  expiryDate: z.date({ required_error: "Expiry date is required." }),
+  items: z.array(quoteItemSchema).min(1, { message: "At least one item is required." }),
+  taxRate: z.number().min(0).max(100).optional().default(0),
+  termsAndConditions: z.string().optional(),
+  status: z.enum(['Draft', 'Sent', 'Accepted', 'Declined', 'Expired']).default('Draft'),
+});
+export type QuoteFormData = z.infer<typeof quoteSchema>;

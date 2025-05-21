@@ -3,8 +3,8 @@
 
 import { revalidatePath } from 'next/cache';
 import * as Data from './data';
-import type { Customer, Invoice, InvoiceItem } from '@/types';
-import type { CustomerFormData, InvoiceFormData, TermsFormData } from './schemas';
+import type { Customer, Invoice, InvoiceItem, Quote, QuoteItem } from '@/types';
+import type { CustomerFormData, InvoiceFormData, TermsFormData, QuoteFormData } from './schemas';
 import { format } from 'date-fns';
 import { Buffer } from 'buffer'; // Needed for Base64 encoding
 
@@ -54,14 +54,13 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     taxRate: data.taxRate || 0,
     termsAndConditions: data.termsAndConditions,
     status: data.status,
-    items: data.items, // items here are Omit<InvoiceItem, 'id' | 'amount'>[]
+    items: data.items, 
   };
 
   if (id) {
     const existingInvoice = await Data.getInvoiceById(id);
     if (!existingInvoice) return null;
 
-    // Merge existing T&C if not provided in form (e.g. if form doesn't have T&C field but T&C page does)
     const finalData = {
       ...invoiceDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
@@ -104,6 +103,74 @@ export async function fetchNextInvoiceNumber(): Promise<string> {
     return Data.getNextInvoiceNumber();
 }
 
+// Quote Actions
+export async function getAllQuotes(): Promise<Quote[]> {
+  return Data.getQuotes();
+}
+
+export async function fetchQuoteById(id: string): Promise<Quote | undefined> {
+  return Data.getQuoteById(id);
+}
+
+export async function saveQuote(data: QuoteFormData, id?: string): Promise<Quote | null> {
+  const quoteDataCore = {
+    customerId: data.customerId,
+    quoteNumber: data.quoteNumber,
+    issueDate: data.issueDate,
+    expiryDate: data.expiryDate,
+    taxRate: data.taxRate || 0,
+    termsAndConditions: data.termsAndConditions,
+    status: data.status,
+    items: data.items,
+  };
+
+  if (id) {
+    const existingQuote = await Data.getQuoteById(id);
+    if (!existingQuote) return null;
+
+    const finalData = {
+      ...quoteDataCore,
+      termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingQuote.termsAndConditions,
+    };
+
+    const updated = await Data.updateQuote(id, finalData);
+    if (updated) {
+      revalidatePath('/quotes');
+      revalidatePath(`/quotes/${id}`);
+      revalidatePath(`/quotes/${id}/terms`);
+    }
+    return updated;
+  } else {
+    const newQuote = await Data.createQuote(quoteDataCore);
+    if(newQuote) revalidatePath('/quotes');
+    return newQuote;
+  }
+}
+
+export async function removeQuote(id: string): Promise<boolean> {
+  const success = await Data.deleteQuote(id);
+  if (success) revalidatePath('/quotes');
+  return success;
+}
+
+export async function saveQuoteTerms(id: string, data: TermsFormData): Promise<Quote | null> {
+  const quote = await Data.getQuoteById(id);
+  if (!quote) return null;
+  
+  const updated = await Data.updateQuote(id, { termsAndConditions: data.termsAndConditions });
+
+  if (updated) {
+    revalidatePath(`/quotes/${id}`);
+    revalidatePath(`/quotes/${id}/terms`);
+  }
+  return updated;
+}
+
+export async function fetchNextQuoteNumber(): Promise<string> {
+    return Data.getNextQuoteNumber();
+}
+
+
 // Helper to escape CSV fields
 const escapeCsvField = (field: string | number | undefined | null): string => {
   if (field === undefined || field === null) return '';
@@ -126,7 +193,7 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
     'Invoice Subtotal', 'Invoice Tax Rate (%)', 'Invoice Tax Amount', 'Invoice Total'
   ];
   
-  let csvContent = headers.map(escapeCsvField).join(',') + '\n';
+  let csvContent = headers.map(escapeCsvField).join(',') + '\\n';
 
   invoice.items.forEach(item => {
     const row = [
@@ -144,7 +211,7 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
       invoice.taxAmount,
       invoice.total
     ];
-    csvContent += row.map(escapeCsvField).join(',') + '\n';
+    csvContent += row.map(escapeCsvField).join(',') + '\\n';
   });
   
   const fileData = Buffer.from(csvContent).toString('base64');
@@ -156,3 +223,47 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
     mimeType: 'text/csv'
   };
 }
+
+export async function downloadQuoteAsExcel(quoteId: string): Promise<{ success: boolean; message: string; fileName?: string; fileData?: string; mimeType?: string; }> {
+  const quote = await fetchQuoteById(quoteId);
+  if (!quote) {
+    return { success: false, message: 'Quote not found.' };
+  }
+
+  const headers = [
+    'Quote Number', 'Customer Name', 'Issue Date', 'Expiry Date', 'Status',
+    'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
+    'Quote Subtotal', 'Quote Tax Rate (%)', 'Quote Tax Amount', 'Quote Total'
+  ];
+  
+  let csvContent = headers.map(escapeCsvField).join(',') + '\\n';
+
+  quote.items.forEach(item => {
+    const row = [
+      quote.quoteNumber,
+      quote.customerName,
+      format(new Date(quote.issueDate), 'yyyy-MM-dd'),
+      format(new Date(quote.expiryDate), 'yyyy-MM-dd'),
+      quote.status,
+      item.description,
+      item.quantity,
+      item.rate,
+      item.amount,
+      quote.subtotal,
+      quote.taxRate,
+      quote.taxAmount,
+      quote.total
+    ];
+    csvContent += row.map(escapeCsvField).join(',') + '\\n';
+  });
+  
+  const fileData = Buffer.from(csvContent).toString('base64');
+  return { 
+    success: true, 
+    message: "CSV file generated.",
+    fileName: `Quote_${quote.quoteNumber}.csv`,
+    fileData: fileData,
+    mimeType: 'text/csv'
+  };
+}
+

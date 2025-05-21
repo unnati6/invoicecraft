@@ -1,3 +1,4 @@
+
 export interface Customer {
   id: string;
   name: string;
@@ -35,5 +36,30 @@ export interface Invoice {
   total: number;
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
+  createdAt: Date;
+}
+
+export interface QuoteItem { // Similar to InvoiceItem
+  id: string;
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+}
+
+export interface Quote {
+  id: string;
+  quoteNumber: string;
+  customerId: string;
+  customerName?: string;
+  issueDate: Date;
+  expiryDate: Date; // Quotes typically have an expiry date
+  items: QuoteItem[];
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  termsAndConditions?: string;
+  status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   createdAt: Date;
 }

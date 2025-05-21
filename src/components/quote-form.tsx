@@ -1,0 +1,460 @@
+
+'use client';
+
+import * as React from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { quoteSchema, type QuoteFormData } from '@/lib/schemas';
+import type { Quote, Customer } from '@/types';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink } from 'lucide-react';
+import { getAllCustomers, fetchNextQuoteNumber } from '@/lib/actions';
+import Link from 'next/link';
+
+interface QuoteFormProps {
+  onSubmit: (data: QuoteFormData) => Promise<void>;
+  initialData?: Quote | null;
+  isSubmitting?: boolean;
+}
+
+export function QuoteForm({ onSubmit, initialData, isSubmitting = false }: QuoteFormProps) {
+  const [customers, setCustomers] = React.useState<Customer[]>([]);
+  const [isLoadingCustomers, setIsLoadingCustomers] = React.useState(true);
+  const [isLoadingQuoteNumber, setIsLoadingQuoteNumber] = React.useState(!initialData);
+
+  const form = useForm<QuoteFormData>({
+    resolver: zodResolver(quoteSchema),
+    defaultValues: initialData
+      ? {
+          ...initialData,
+          issueDate: new Date(initialData.issueDate),
+          expiryDate: new Date(initialData.expiryDate),
+          items: initialData.items.map(item => ({
+            id: item.id,
+            description: item.description,
+            quantity: item.quantity,
+            rate: item.rate,
+          })),
+        }
+      : {
+          quoteNumber: '',
+          issueDate: new Date(),
+          expiryDate: new Date(new Date().setDate(new Date().getDate() + 30)), // Default expiry 30 days from now
+          items: [{ description: '', quantity: 1, rate: 0 }],
+          taxRate: 0,
+          termsAndConditions: 'This quote is valid for 30 days.',
+          status: 'Draft',
+          customerId: '',
+        },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'items',
+  });
+
+  React.useEffect(() => {
+    async function loadCustomers() {
+      setIsLoadingCustomers(true);
+      try {
+        const fetchedCustomers = await getAllCustomers();
+        setCustomers(fetchedCustomers);
+      } catch (error) {
+        console.error("Failed to fetch customers", error);
+      } finally {
+        setIsLoadingCustomers(false);
+      }
+    }
+    loadCustomers();
+  }, []);
+  
+  React.useEffect(() => {
+    async function loadNextQuoteNumber() {
+      if (!initialData) { 
+        setIsLoadingQuoteNumber(true);
+        try {
+          const nextQuoteNum = await fetchNextQuoteNumber();
+          form.setValue('quoteNumber', nextQuoteNum);
+        } catch (error) {
+          console.error("Failed to fetch next quote number", error);
+          form.setValue('quoteNumber', 'QUO-ERROR');
+        } finally {
+          setIsLoadingQuoteNumber(false);
+        }
+      }
+    }
+    loadNextQuoteNumber();
+  }, [initialData, form]);
+
+  const watchedItems = form.watch('items');
+  const watchedTaxRate = form.watch('taxRate');
+
+  const subtotal = React.useMemo(() => {
+    return watchedItems.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.rate) || 0), 0);
+  }, [watchedItems]);
+
+  const taxAmount = React.useMemo(() => {
+    return subtotal * ((Number(watchedTaxRate) || 0) / 100);
+  }, [subtotal, watchedTaxRate]);
+
+  const total = React.useMemo(() => {
+    return subtotal + taxAmount;
+  }, [subtotal, taxAmount]);
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{initialData ? 'Edit Quote' : 'Create New Quote'}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="customerId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Customer *</FormLabel>
+                        <div className="flex items-center gap-2">
+                        <Select 
+                            onValueChange={field.onChange} 
+                            defaultValue={field.value}
+                            disabled={isLoadingCustomers}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={isLoadingCustomers ? "Loading..." : "Select a customer"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {customers.map((customer) => (
+                              <SelectItem key={customer.id} value={customer.id}>
+                                {customer.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" size="icon" asChild>
+                            <Link href="/customers/new" target="_blank"><PlusCircle className="h-4 w-4"/></Link>
+                        </Button>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="quoteNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quote Number *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. QUO-001" {...field} disabled={isLoadingQuoteNumber || !!initialData} />
+                        </FormControl>
+                         {isLoadingQuoteNumber && <p className="text-xs text-muted-foreground">Fetching next quote number...</p>}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="issueDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Issue Date *</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={'outline'}
+                                className={cn(
+                                  'w-full pl-3 text-left font-normal',
+                                  !field.value && 'text-muted-foreground'
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, 'PPP')
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="expiryDate"
+                    render={({ field }) => (
+                       <FormItem className="flex flex-col">
+                        <FormLabel>Expiry Date *</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={'outline'}
+                                className={cn(
+                                  'w-full pl-3 text-left font-normal',
+                                  !field.value && 'text-muted-foreground'
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, 'PPP')
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                 <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {['Draft', 'Sent', 'Accepted', 'Declined', 'Expired'].map(status => (
+                              <SelectItem key={status} value={status}>{status}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Quote Items</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {fields.map((field, index) => (
+                  <div key={field.id} className="grid grid-cols-12 gap-x-4 gap-y-2 items-start p-3 border rounded-md relative">
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.description`}
+                      render={({ field: descField }) => (
+                        <FormItem className="col-span-12 md:col-span-5">
+                          {index === 0 && <FormLabel className="text-xs">Description *</FormLabel>}
+                          <FormControl>
+                            <Input placeholder="Item or service description" {...descField} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.quantity`}
+                      render={({ field: qtyField }) => (
+                        <FormItem className="col-span-4 md:col-span-2">
+                           {index === 0 && <FormLabel className="text-xs">Quantity *</FormLabel>}
+                          <FormControl>
+                            <Input type="number" placeholder="1" {...qtyField} onChange={e => qtyField.onChange(parseFloat(e.target.value) || 0)}/>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.rate`}
+                      render={({ field: rateField }) => (
+                        <FormItem className="col-span-4 md:col-span-2">
+                          {index === 0 && <FormLabel className="text-xs">Rate *</FormLabel>}
+                          <FormControl>
+                            <Input type="number" placeholder="0.00" {...rateField} onChange={e => rateField.onChange(parseFloat(e.target.value) || 0)} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <div className="col-span-4 md:col-span-2 flex items-end h-full">
+                        {index === 0 && <FormLabel className="text-xs md:invisible">Amount</FormLabel>}
+                         <p className="py-2 text-sm font-medium min-w-[60px] text-right">
+                           ${((Number(watchedItems[index]?.quantity) || 0) * (Number(watchedItems[index]?.rate) || 0)).toFixed(2)}
+                         </p>
+                     </div>
+                    <div className="col-span-12 md:col-span-1 flex items-end justify-end h-full pt-2 md:pt-0">
+                      {fields.length > 1 && (
+                         <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => remove(index)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                 {form.formState.errors.items && typeof form.formState.errors.items === 'string' && (
+                    <p className="text-sm font-medium text-destructive">{form.formState.errors.items.message}</p>
+                )}
+                {Array.isArray(form.formState.errors.items) && form.formState.errors.items.length === 0 && form.formState.errors.items.message && (
+                     <p className="text-sm font-medium text-destructive">{form.formState.errors.items.message}</p>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => append({ description: '', quantity: 1, rate: 0 })}
+                  className="mt-2"
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Item
+                </Button>
+              </CardContent>
+            </Card>
+            
+            {initialData && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Terms & Conditions</CardTitle>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/quotes/${initialData.id}/terms`}>
+                      Edit Terms <ExternalLink className="ml-2 h-3 w-3"/>
+                    </Link>
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {initialData.termsAndConditions ? (
+                     <Textarea
+                        readOnly
+                        value={initialData.termsAndConditions}
+                        className="min-h-[100px] bg-muted/30"
+                      />
+                  ): (
+                    <p className="text-sm text-muted-foreground">No terms and conditions set. <Link href={`/quotes/${initialData.id}/terms`} className="underline">Add them now</Link>.</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            {!initialData && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Terms & Conditions</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <FormField
+                            control={form.control}
+                            name="termsAndConditions"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormControl>
+                                        <Textarea placeholder="Enter terms and conditions..." {...field} className="min-h-[100px]" />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </CardContent>
+                 </Card>
+            )}
+          </div>
+
+          <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-20 self-start">
+            <Card>
+              <CardHeader>
+                <CardTitle>Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="taxRate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tax Rate (%)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="e.g. 10" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tax ({form.getValues('taxRate') || 0}%):</span>
+                    <span>${taxAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-semibold border-t pt-2 mt-2">
+                    <span>Total:</span>
+                    <span>${total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex-col items-stretch gap-2">
+                 <Button type="submit" disabled={isSubmitting} className="w-full">
+                   <Save className="mr-2 h-4 w-4" />
+                   {isSubmitting ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Quote')}
+                 </Button>
+              </CardFooter>
+            </Card>
+          </div>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
+QuoteForm.displayName = "QuoteForm";

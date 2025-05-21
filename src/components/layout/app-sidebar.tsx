@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -13,7 +14,7 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { FileText, Users, Settings, LogOut } from 'lucide-react';
+import { FileText, Users, Settings, LogOut, Quote as QuoteIconLucide } from 'lucide-react'; // Changed Quote to QuoteIconLucide to avoid conflict
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
@@ -24,7 +25,7 @@ const AppLogo = () => (
       width={120} 
       height={30} 
       data-ai-hint="logo company" 
-      className="dark:invert" // Basic inversion for dark mode, replace with proper dark logo if available
+      className="dark:invert" 
     />
   </Link>
 );
@@ -36,7 +37,7 @@ const AppIcon = () => (
       width={28} 
       height={28} 
       data-ai-hint="logo icon"
-      className="dark:invert" // Basic inversion for dark mode
+      className="dark:invert"
     />
 );
 
@@ -46,6 +47,7 @@ export function AppSidebar() {
 
   const menuItems = [
     { href: '/invoices', label: 'Invoices', icon: FileText },
+    { href: '/quotes', label: 'Quotes', icon: QuoteIconLucide },
     { href: '/customers', label: 'Customers', icon: Users },
   ];
 
@@ -92,7 +94,6 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-             {/* For a real app, this would trigger a logout action */}
             <Link href="/login"> 
               <SidebarMenuButton tooltip="Logout" className="justify-start w-full">
                 <LogOut className="h-5 w-5" />

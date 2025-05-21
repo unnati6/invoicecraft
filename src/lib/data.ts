@@ -1,4 +1,5 @@
-import type { Customer, Invoice, InvoiceItem } from '@/types';
+
+import type { Customer, Invoice, InvoiceItem, Quote, QuoteItem } from '@/types';
 
 // In-memory store for mock data
 let mockCustomers: Customer[] = [
@@ -45,6 +46,29 @@ let mockInvoices: Invoice[] = [
     createdAt: new Date(2023, 11, 1)
   }
 ];
+
+let mockQuotes: Quote[] = [
+  {
+    id: 'quo_1',
+    quoteNumber: 'QUO-001',
+    customerId: 'cust_1',
+    customerName: 'Alice Wonderland',
+    issueDate: new Date(2024, 0, 10),
+    expiryDate: new Date(2024, 1, 9),
+    items: [
+      { id: 'q_item_1', description: 'Initial Project Scoping', quantity: 1, rate: 500, amount: 500 },
+      { id: 'q_item_2', description: 'Phase 1 Development Estimate', quantity: 1, rate: 2500, amount: 2500 },
+    ],
+    subtotal: 3000,
+    taxRate: 10,
+    taxAmount: 300,
+    total: 3300,
+    termsAndConditions: 'This quote is valid for 30 days. Prices subject to change thereafter.',
+    status: 'Sent',
+    createdAt: new Date(2024, 0, 10),
+  },
+];
+
 
 // Helper to generate unique IDs
 const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -104,7 +128,7 @@ export const getInvoiceById = async (id: string): Promise<Invoice | undefined> =
   return undefined;
 };
 
-export const createInvoice = async (data: Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items'> & { items: Omit<InvoiceItem, 'id' | 'amount'>[] } ): Promise<Invoice> => {
+export const createInvoice = async (data: Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'> & { items: Omit<InvoiceItem, 'id' | 'amount'>[] } ): Promise<Invoice> => {
   await new Promise(resolve => setTimeout(resolve, 500));
   
   const itemsWithAmounts: InvoiceItem[] = data.items.map(item => ({
@@ -133,7 +157,7 @@ export const createInvoice = async (data: Omit<Invoice, 'id' | 'createdAt' | 'su
   return newInvoice;
 };
 
-export const updateInvoice = async (id: string, data: Partial<Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items'>> & { items?: Omit<InvoiceItem, 'id' | 'amount'>[] }): Promise<Invoice | null> => {
+export const updateInvoice = async (id: string, data: Partial<Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'>> & { items?: Omit<InvoiceItem, 'id' | 'amount'>[] }): Promise<Invoice | null> => {
   await new Promise(resolve => setTimeout(resolve, 500));
   const index = mockInvoices.findIndex(i => i.id === id);
   if (index === -1) return null;
@@ -146,7 +170,7 @@ export const updateInvoice = async (id: string, data: Partial<Omit<Invoice, 'id'
       description: item.description,
       quantity: item.quantity,
       rate: item.rate,
-    amount: item.quantity * item.rate,
+      amount: item.quantity * item.rate,
     }));
     
     const subtotal = itemsWithAmounts.reduce((sum, item) => sum + item.amount, 0);
@@ -168,7 +192,6 @@ export const updateInvoice = async (id: string, data: Partial<Omit<Invoice, 'id'
      const customer = await getCustomerById(data.customerId);
      updatedInvoice.customerName = customer?.name || 'Unknown Customer';
   }
-
 
   mockInvoices[index] = updatedInvoice;
   return mockInvoices[index];
@@ -193,4 +216,115 @@ export const getNextInvoiceNumber = async (): Promise<string> => {
     } catch (e) {
         return `INV-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`; // fallback
     }
-}
+};
+
+// Quote Functions
+export const getQuotes = async (): Promise<Quote[]> => {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return [...mockQuotes].map(quo => ({
+    ...quo,
+    customerName: mockCustomers.find(c => c.id === quo.customerId)?.name || 'Unknown Customer'
+  }));
+};
+
+export const getQuoteById = async (id: string): Promise<Quote | undefined> => {
+  await new Promise(resolve => setTimeout(resolve, 300));
+  const quote = mockQuotes.find(q => q.id === id);
+  if (quote) {
+    return {
+      ...quote,
+      customerName: mockCustomers.find(c => c.id === quote.customerId)?.name || 'Unknown Customer'
+    }
+  }
+  return undefined;
+};
+
+export const createQuote = async (data: Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'> & { items: Omit<QuoteItem, 'id' | 'amount'>[] }): Promise<Quote> => {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const itemsWithAmounts: QuoteItem[] = data.items.map(item => ({
+    ...item,
+    id: generateId('q_item'),
+    amount: item.quantity * item.rate,
+  }));
+  
+  const subtotal = itemsWithAmounts.reduce((sum, item) => sum + item.amount, 0);
+  const taxAmount = subtotal * (data.taxRate / 100);
+  const total = subtotal + taxAmount;
+
+  const customer = await getCustomerById(data.customerId);
+
+  const newQuote: Quote = {
+    ...data,
+    id: generateId('quo'),
+    customerName: customer?.name || 'Unknown Customer',
+    items: itemsWithAmounts,
+    subtotal,
+    taxAmount,
+    total,
+    createdAt: new Date(),
+  };
+  mockQuotes.push(newQuote);
+  return newQuote;
+};
+
+export const updateQuote = async (id: string, data: Partial<Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'>> & { items?: Omit<QuoteItem, 'id' | 'amount'>[] }): Promise<Quote | null> => {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  const index = mockQuotes.findIndex(q => q.id === id);
+  if (index === -1) return null;
+
+  let updatedQuote = { ...mockQuotes[index], ...data };
+
+  if (data.items || data.taxRate !== undefined) {
+    const itemsWithAmounts: QuoteItem[] = (data.items || updatedQuote.items).map((item: any) => ({
+      id: item.id || generateId('q_item'),
+      description: item.description,
+      quantity: item.quantity,
+      rate: item.rate,
+      amount: item.quantity * item.rate,
+    }));
+    
+    const subtotal = itemsWithAmounts.reduce((sum, item) => sum + item.amount, 0);
+    const taxRate = data.taxRate !== undefined ? data.taxRate : updatedQuote.taxRate;
+    const taxAmount = subtotal * (taxRate / 100);
+    const total = subtotal + taxAmount;
+
+    updatedQuote = {
+      ...updatedQuote,
+      items: itemsWithAmounts,
+      subtotal,
+      taxRate,
+      taxAmount,
+      total,
+    };
+  }
+  
+  if (data.customerId) {
+     const customer = await getCustomerById(data.customerId);
+     updatedQuote.customerName = customer?.name || 'Unknown Customer';
+  }
+
+  mockQuotes[index] = updatedQuote;
+  return mockQuotes[index];
+};
+
+export const deleteQuote = async (id: string): Promise<boolean> => {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  const initialLength = mockQuotes.length;
+  mockQuotes = mockQuotes.filter(q => q.id !== id);
+  return mockQuotes.length < initialLength;
+};
+
+export const getNextQuoteNumber = async (): Promise<string> => {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const lastQuote = mockQuotes.length > 0 ? mockQuotes.sort((a,b) => a.quoteNumber.localeCompare(b.quoteNumber))[mockQuotes.length-1] : null;
+    if (!lastQuote || !lastQuote.quoteNumber.startsWith("QUO-")) {
+        return "QUO-001";
+    }
+    try {
+        const num = parseInt(lastQuote.quoteNumber.split("-")[1]);
+        return `QUO-${(num + 1).toString().padStart(3, '0')}`;
+    } catch (e) {
+        return `QUO-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`; // fallback
+    }
+};
