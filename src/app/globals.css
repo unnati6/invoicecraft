@@ -90,6 +90,27 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Tiptap Editor Styling */
+  .ProseMirror {
+    @apply min-h-[150px] p-2 outline-none;
+  }
+  .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: hsl(var(--muted-foreground));
+    opacity: 0.6;
+    pointer-events: none;
+    height: 0;
+  }
+  .ProseMirror h1 { @apply text-3xl font-bold my-4; }
+  .ProseMirror h2 { @apply text-2xl font-semibold my-3; }
+  .ProseMirror h3 { @apply text-xl font-semibold my-2; }
+  .ProseMirror ul { @apply list-disc list-inside my-2 pl-4; }
+  .ProseMirror ol { @apply list-decimal list-inside my-2 pl-4; }
+  .ProseMirror li { @apply my-1; }
+  .ProseMirror strong { @apply font-bold; }
+  .ProseMirror em { @apply italic; }
 }
 
 @layer utilities {

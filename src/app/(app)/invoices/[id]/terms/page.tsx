@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -8,7 +9,7 @@ import { AppHeader } from '@/components/layout/app-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/rich-text-editor'; // Changed
 import { termsSchema, type TermsFormData } from '@/lib/schemas';
 import { fetchInvoiceById, saveInvoiceTerms } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -41,7 +42,7 @@ export default function InvoiceTermsPage() {
           const data = await fetchInvoiceById(invoiceId);
           if (data) {
             setInvoice(data);
-            form.reset({ termsAndConditions: data.termsAndConditions || '' });
+            form.reset({ termsAndConditions: data.termsAndConditions || '<p></p>' }); // Default to empty paragraph for Tiptap
           } else {
             toast({ title: "Error", description: "Invoice not found.", variant: "destructive" });
             router.push('/invoices');
@@ -59,7 +60,9 @@ export default function InvoiceTermsPage() {
   const handleSubmit = async (data: TermsFormData) => {
     setIsSubmitting(true);
     try {
-      const updatedInvoice = await saveInvoiceTerms(invoiceId, data);
+      // Ensure empty editor content is saved as an empty string or null
+      const termsToSave = data.termsAndConditions === '<p></p>' ? '' : data.termsAndConditions;
+      const updatedInvoice = await saveInvoiceTerms(invoiceId, { termsAndConditions: termsToSave });
       if (updatedInvoice) {
         toast({ title: "Success", description: "Terms and conditions updated." });
         router.push(`/invoices/${invoiceId}`);
@@ -85,7 +88,7 @@ export default function InvoiceTermsPage() {
               <Skeleton className="h-4 w-1/2 mt-1" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-40 w-full" /> {/* Placeholder for editor */}
             </CardContent>
             <CardFooter>
               <Skeleton className="h-10 w-24" />
@@ -113,9 +116,9 @@ export default function InvoiceTermsPage() {
           <form onSubmit={form.handleSubmit(handleSubmit)}>
             <Card>
               <CardHeader>
-                <CardTitle>Edit Terms & Conditions</CardTitle>
+                <CardTitle>Edit Terms &amp; Conditions</CardTitle>
                 <CardDescription>
-                  Specify the terms and conditions for this invoice. This will be displayed on the invoice preview and PDF.
+                  Use the editor below to format the terms and conditions for this invoice.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -124,12 +127,12 @@ export default function InvoiceTermsPage() {
                   name="termsAndConditions"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="sr-only">Terms & Conditions</FormLabel>
+                      <FormLabel className="sr-only">Terms &amp; Conditions</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="e.g., Payment due within 30 days. Late fees of 1.5% per month will be applied to overdue balances."
-                          className="min-h-[200px] resize-y"
-                          {...field}
+                        <RichTextEditor
+                          value={field.value || ''}
+                          onChange={field.onChange}
+                          disabled={isSubmitting}
                         />
                       </FormControl>
                       <FormMessage />
@@ -150,4 +153,3 @@ export default function InvoiceTermsPage() {
     </>
   );
 }
-
