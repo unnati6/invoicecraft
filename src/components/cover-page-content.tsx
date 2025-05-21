@@ -6,6 +6,7 @@ import type { Invoice, OrderForm, Customer } from '@/types';
 import { format } from 'date-fns';
 import Image from 'next/image';
 
+const LOGO_STORAGE_KEY = 'branding_company_logo_data_url'; // Added
 const COMPANY_INFO_KEYS = {
   NAME: 'branding_company_name',
 };
@@ -23,7 +24,7 @@ function replacePlaceholders(
   if (!content) return '';
   let processedContent = content;
   const placeholders: Record<string, () => string | undefined> = {
-    '{{customerName}}': () => customer?.name,
+    '{{customerName}}': () => customer?.name || (doc as any).customerName, // Added fallback for customerName
     '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
   };
 
@@ -37,16 +38,24 @@ function replacePlaceholders(
 
 export function CoverPageContent({ document: doc, customer }: CoverPageContentProps) {
   const [yourCompanyName, setYourCompanyName] = _React.useState('Your Awesome Company LLC');
+  const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>('/images/revynox_logo_black.png'); // Default to Revynox logo
 
   _React.useEffect(() => {
     const isClient = typeof window !== 'undefined';
     if (isClient) {
       const name = localStorage.getItem(COMPANY_INFO_KEYS.NAME);
       if (name) setYourCompanyName(name);
+
+      const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY); // Load logo from localStorage
+      if (storedLogo) {
+        setCompanyLogoUrl(storedLogo);
+      } else {
+        setCompanyLogoUrl('/images/revynox_logo_black.png'); // Fallback if nothing in localStorage
+      }
     }
   }, []);
 
-  const title = "Master Service Agreement";
+  const title = "Master Service Agreement"; // Hardcoded title
   const preparedFor = customer?.name || (doc as any).customerName || 'Valued Client';
   const dateString = format(new Date(doc.issueDate), 'PPP');
 
@@ -58,20 +67,22 @@ export function CoverPageContent({ document: doc, customer }: CoverPageContentPr
             flexDirection: 'column', 
             justifyContent: 'center', 
             alignItems: 'center', 
-            height: '100%', // For html2canvas, ensure it captures the intended page size
-            minHeight: '1000px', // A4-like height for consistent PDF page
+            height: '100%', 
+            minHeight: '1000px', 
             boxSizing: 'border-box',
             textAlign: 'center',
         }}
     >
       <div style={{ marginBottom: '3rem' }}>
-        <Image 
-            src="/images/revynox_logo_black.png" 
-            alt={`${yourCompanyName} Logo`} 
-            width={200} 
-            height={60} 
-            style={{ objectFit: 'contain' }} 
-        />
+        {companyLogoUrl && ( // Conditional rendering for logo
+            <Image 
+                src={companyLogoUrl} 
+                alt={`${yourCompanyName} Logo`} 
+                width={200} 
+                height={60} 
+                style={{ objectFit: 'contain', maxHeight: '60px' }}
+            />
+        )}
       </div>
 
       <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'hsl(var(--primary))', marginBottom: '1.5rem' }}>
@@ -87,11 +98,11 @@ export function CoverPageContent({ document: doc, customer }: CoverPageContentPr
         <p>Date: {replacePlaceholders('{{issueDate}}', doc, customer)}</p>
       </div>
 
-      <div style={{ marginTop: 'auto' }}> {/* Pushes client logo to bottom if space allows */}
+      <div style={{ marginTop: 'auto' }}> 
         <p style={{ fontSize: '0.9rem', color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}>Client:</p>
         <Image 
             src="https://placehold.co/150x50.png" 
-            alt="Client Logo" 
+            alt="Client Logo Placeholder" 
             width={150} 
             height={50} 
             style={{ objectFit: 'contain' }} 
@@ -103,4 +114,3 @@ export function CoverPageContent({ document: doc, customer }: CoverPageContentPr
 }
 
 CoverPageContent.displayName = "CoverPageContent";
-
