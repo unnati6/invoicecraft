@@ -2,7 +2,7 @@
 'use client';
 
 import * as _React from 'react';
-import type { Quote, Customer, AdditionalChargeItem } from '@/types';
+import type { Quote, Customer } from '@/types';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { getCurrencySymbol } from '@/lib/currency-utils';
@@ -17,36 +17,103 @@ interface QuotePreviewContentProps {
   customer?: Customer;
 }
 
+function replacePlaceholders(
+  content: string | undefined,
+  doc: Quote,
+  customer?: Customer
+): string {
+  if (!content) return '';
+  let processedContent = content;
+
+  const currencySymbol = getCurrencySymbol(customer?.currency || doc.currencyCode);
+
+  const placeholders: Record<string, () => string | undefined> = {
+    '{{customerName}}': () => customer?.name,
+    '{{customerEmail}}': () => customer?.email,
+    '{{customerPhone}}': () => customer?.phone,
+    '{{customerBillingAddress.street}}': () => customer?.billingAddress?.street,
+    '{{customerBillingAddress.city}}': () => customer?.billingAddress?.city,
+    '{{customerBillingAddress.state}}': () => customer?.billingAddress?.state,
+    '{{customerBillingAddress.zip}}': () => customer?.billingAddress?.zip,
+    '{{customerBillingAddress.country}}': () => customer?.billingAddress?.country,
+    '{{customerShippingAddress.street}}': () => customer?.shippingAddress?.street,
+    '{{customerShippingAddress.city}}': () => customer?.shippingAddress?.city,
+    '{{customerShippingAddress.state}}': () => customer?.shippingAddress?.state,
+    '{{customerShippingAddress.zip}}': () => customer?.shippingAddress?.zip,
+    '{{customerShippingAddress.country}}': () => customer?.shippingAddress?.country,
+    '{{documentNumber}}': () => doc.quoteNumber,
+    '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
+    '{{expiryDate}}': () => format(new Date(doc.expiryDate), 'PPP'),
+    '{{totalAmount}}': () => `${currencySymbol}${doc.total.toFixed(2)}`,
+  };
+
+  for (const placeholder in placeholders) {
+    const tag = placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); // Escape for regex
+    const value = placeholders[placeholder]();
+    processedContent = processedContent.replace(new RegExp(tag, 'g'), value || '');
+  }
+  
+  const signaturePanelHtml = `
+    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+      <h4 style="margin-bottom: 15px; font-size: 1.1em;">Signatures</h4>
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+        <tr>
+          <td style="width: 50%; padding: 10px 5px; vertical-align: bottom;">
+            <div style="border-bottom: 1px solid #333; height: 40px; margin-bottom: 5px;"></div>
+            <p style="margin: 0;">Authorized Signature (Your Company)</p>
+          </td>
+          <td style="width: 50%; padding: 10px 5px; vertical-align: bottom;">
+            <div style="border-bottom: 1px solid #333; height: 40px; margin-bottom: 5px;"></div>
+            <p style="margin: 0;">Client Signature</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 5px;">
+            <p style="margin: 0;">Printed Name: _________________________</p>
+          </td>
+          <td style="padding: 5px;">
+            <p style="margin: 0;">Printed Name: _________________________</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 5px;">
+            <p style="margin: 0;">Date: _________________________</p>
+          </td>
+          <td style="padding: 5px;">
+            <p style="margin: 0;">Date: _________________________</p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+  processedContent = processedContent.replace(/{{signaturePanel}}/g, signaturePanelHtml);
+
+  return processedContent;
+}
+
+
 export function QuotePreviewContent({ document: quote, customer }: QuotePreviewContentProps) {
   const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
   const [companySignatureUrl, setCompanySignatureUrl] = _React.useState<string | null>(null);
 
   _React.useEffect(() => {
-    const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
+    const storedLogo = typeof window !== 'undefined' ? localStorage.getItem(LOGO_STORAGE_KEY) : null;
     if (storedLogo) {
       setCompanyLogoUrl(storedLogo);
     }
-    const storedSignature = localStorage.getItem(SIGNATURE_STORAGE_KEY);
+    const storedSignature = typeof window !== 'undefined' ? localStorage.getItem(SIGNATURE_STORAGE_KEY) : null;
     if (storedSignature) {
       setCompanySignatureUrl(storedSignature);
     }
   }, []);
 
    const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
-    name: quote.customerName || 'N/A',
-    email: 'N/A', // Placeholder, should be updated if customer object is present
-    billingAddress: undefined,
-    shippingAddress: undefined,
-    currency: 'USD' // Default currency
+    name: quote.customerName || customer?.name || 'N/A',
+    email: customer?.email || 'N/A',
+    billingAddress: customer?.billingAddress || undefined,
+    shippingAddress: customer?.shippingAddress || undefined,
+    currency: customer?.currency || quote.currencyCode || 'USD'
   };
-
-  if (customer) {
-    customerToDisplay.name = customer.name;
-    customerToDisplay.email = customer.email;
-    customerToDisplay.currency = customer.currency || 'USD'; // Use customer's currency, fallback to USD
-    customerToDisplay.billingAddress = customer.billingAddress;
-    customerToDisplay.shippingAddress = customer.shippingAddress;
-  }
 
   const currencySymbol = getCurrencySymbol(customerToDisplay.currency);
 
@@ -65,6 +132,8 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
   const hasShippingAddress = customerToDisplay.shippingAddress &&
                              (customerToDisplay.shippingAddress.street ||
                               customerToDisplay.shippingAddress.city);
+  
+  const processedTermsAndConditions = replacePlaceholders(quote.termsAndConditions, quote, customer);
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
@@ -218,11 +287,11 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
       </div>
 
       {/* Terms and Conditions */}
-      {quote.termsAndConditions && (
+      {processedTermsAndConditions && (
         <div className="mb-8 prose prose-sm max-w-none">
           <h3 className="font-semibold mb-2 text-muted-foreground">Terms & Conditions:</h3>
           <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-            {quote.termsAndConditions}
+            {processedTermsAndConditions}
           </ReactMarkdown>
         </div>
       )}
@@ -264,3 +333,5 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
 }
 
 QuotePreviewContent.displayName = "QuotePreviewContent";
+
+    
