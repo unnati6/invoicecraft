@@ -48,6 +48,18 @@ export const invoiceSchema = z.object({
   taxRate: z.number().min(0).max(100).optional().default(0),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Paid', 'Overdue']).default('Draft'),
+  paymentTerms: z.string().optional(),
+  commitmentPeriod: z.string().optional(),
+  serviceStartDate: z.date().optional().nullable(),
+  serviceEndDate: z.date().optional().nullable(),
+}).refine(data => {
+  if (data.serviceStartDate && data.serviceEndDate) {
+    return data.serviceEndDate >= data.serviceStartDate;
+  }
+  return true;
+}, {
+  message: "End date cannot be before start date",
+  path: ["serviceEndDate"],
 });
 
 export type InvoiceFormData = z.infer<typeof invoiceSchema>;
@@ -57,24 +69,42 @@ export const termsSchema = z.object({
 });
 export type TermsFormData = z.infer<typeof termsSchema>;
 
-export const quoteItemSchema = baseItemSchema; 
-export type QuoteItemFormData = z.infer<typeof quoteItemSchema>;
+export const orderFormItemSchema = baseItemSchema; 
+export type OrderFormItemFormData = z.infer<typeof orderFormItemSchema>;
 
-export const quoteSchema = z.object({
+export const orderFormSchema = z.object({
   customerId: z.string().min(1, { message: "Customer is required." }),
-  quoteNumber: z.string().min(1, { message: "Quote number is required." }),
+  orderFormNumber: z.string().min(1, { message: "Order Form number is required." }),
   issueDate: z.date({ required_error: "Issue date is required." }),
-  expiryDate: z.date({ required_error: "Expiry date is required." }),
-  items: z.array(quoteItemSchema).min(1, { message: "At least one item is required." }),
+  validUntilDate: z.date({ required_error: "Valid until date is required." }),
+  items: z.array(orderFormItemSchema).min(1, { message: "At least one item is required." }),
   additionalCharges: z.array(additionalChargeFormSchema).optional(), 
   taxRate: z.number().min(0).max(100).optional().default(0),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Accepted', 'Declined', 'Expired']).default('Draft'),
+  paymentTerms: z.string().optional(),
+  commitmentPeriod: z.string().optional(),
+  serviceStartDate: z.date().optional().nullable(),
+  serviceEndDate: z.date().optional().nullable(),
+}).refine(data => {
+  if (data.serviceStartDate && data.serviceEndDate) {
+    return data.serviceEndDate >= data.serviceStartDate;
+  }
+  return true;
+}, {
+  message: "End date cannot be before start date",
+  path: ["serviceEndDate"],
 });
-export type QuoteFormData = z.infer<typeof quoteSchema>;
+export type OrderFormFormData = z.infer<typeof orderFormSchema>;
 
 export const termsTemplateSchema = z.object({
   name: z.string().min(2, { message: "Template name must be at least 2 characters." }),
-  content: z.string().optional().default('<p></p>'), // Default to empty paragraph for Tiptap
+  content: z.string().optional().default('<p></p>'), 
 });
 export type TermsTemplateFormData = z.infer<typeof termsTemplateSchema>;
+
+export const brandingSettingsSchema = z.object({
+  invoicePrefix: z.string().optional().default("INV-"),
+  orderFormPrefix: z.string().optional().default("OF-"),
+});
+export type BrandingSettingsFormData = z.infer<typeof brandingSettingsSchema>;

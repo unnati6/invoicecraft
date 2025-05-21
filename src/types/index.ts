@@ -54,10 +54,14 @@ export interface Invoice {
   total: number; 
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
+  paymentTerms?: string;
+  commitmentPeriod?: string;
+  serviceStartDate?: Date;
+  serviceEndDate?: Date;
   createdAt: Date;
 }
 
-export interface QuoteItem { 
+export interface OrderFormItem { 
   id: string;
   description: string;
   quantity: number;
@@ -65,15 +69,15 @@ export interface QuoteItem {
   amount: number;
 }
 
-export interface Quote {
+export interface OrderForm {
   id: string;
-  quoteNumber: string;
+  orderFormNumber: string;
   customerId: string;
   customerName?: string;
   currencyCode?: string; 
   issueDate: Date;
-  expiryDate: Date; 
-  items: QuoteItem[];
+  validUntilDate: Date; 
+  items: OrderFormItem[];
   additionalCharges?: AdditionalChargeItem[];
   subtotal: number; 
   taxRate: number;
@@ -81,6 +85,10 @@ export interface Quote {
   total: number; 
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
+  paymentTerms?: string;
+  commitmentPeriod?: string;
+  serviceStartDate?: Date;
+  serviceEndDate?: Date;
   createdAt: Date;
 }
 

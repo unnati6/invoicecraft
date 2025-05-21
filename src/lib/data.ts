@@ -1,6 +1,7 @@
 
-import type { Customer, Invoice, InvoiceItem, Quote, QuoteItem, AdditionalChargeItem, TermsTemplate } from '@/types';
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate } from '@/types';
 import type { AdditionalChargeFormData, TermsTemplateFormData } from './schemas'; 
+import { addDays } from 'date-fns';
 
 let mockCustomers: Customer[] = [
   { 
@@ -33,6 +34,10 @@ let mockInvoices: Invoice[] = [
     currencyCode: 'INR',
     issueDate: new Date(2023, 10, 15), 
     dueDate: new Date(2023, 11, 15),
+    paymentTerms: "Net 30 Days",
+    commitmentPeriod: "N/A",
+    serviceStartDate: new Date(2023, 10, 1),
+    serviceEndDate: new Date(2023, 10, 30),
     items: [
       { id: 'item_1', description: 'Web Design Service', quantity: 1, rate: 1200, amount: 1200 },
       { id: 'item_2', description: 'Hosting (1 year)', quantity: 1, rate: 100, amount: 100 },
@@ -56,6 +61,7 @@ let mockInvoices: Invoice[] = [
     currencyCode: 'GBP',
     issueDate: new Date(2023, 11, 1), 
     dueDate: new Date(2023, 12, 1),
+    paymentTerms: "Due on Receipt",
     items: [
       { id: 'item_3', description: 'Consultation', quantity: 5, rate: 80, amount: 400 },
     ],
@@ -69,27 +75,31 @@ let mockInvoices: Invoice[] = [
   }
 ];
 
-let mockQuotes: Quote[] = [
+let mockOrderForms: OrderForm[] = [
   {
-    id: 'quo_1',
-    quoteNumber: 'QUO-001',
+    id: 'of_1',
+    orderFormNumber: 'OF-001',
     customerId: 'cust_1',
     customerName: 'Alice Wonderland',
     currencyCode: 'INR',
     issueDate: new Date(2024, 0, 10),
-    expiryDate: new Date(2024, 1, 9),
+    validUntilDate: new Date(2024, 1, 9),
+    paymentTerms: "Net 15 Days",
+    commitmentPeriod: "3 Months",
+    serviceStartDate: new Date(2024, 0, 15),
+    serviceEndDate: new Date(2024, 3, 14),
     items: [
-      { id: 'q_item_1', description: 'Initial Project Scoping', quantity: 1, rate: 500, amount: 500 },
-      { id: 'q_item_2', description: 'Phase 1 Development Estimate', quantity: 1, rate: 2500, amount: 2500 },
+      { id: 'of_item_1', description: 'Initial Project Scoping', quantity: 1, rate: 500, amount: 500 },
+      { id: 'of_item_2', description: 'Phase 1 Development Estimate', quantity: 1, rate: 2500, amount: 2500 },
     ],
     additionalCharges: [
-      { id: 'q_ac_1', description: 'Rush Fee', valueType: 'percentage', value: 5, calculatedAmount: 150 } 
+      { id: 'of_ac_1', description: 'Rush Fee', valueType: 'percentage', value: 5, calculatedAmount: 150 } 
     ],
     subtotal: 3000, 
     taxRate: 10,
     taxAmount: 315, 
     total: 3465, 
-    termsAndConditions: 'This quote is valid for 30 days. Prices subject to change thereafter.',
+    termsAndConditions: 'This order form is valid for 30 days. Prices subject to change thereafter.',
     status: 'Sent',
     createdAt: new Date(2024, 0, 10),
   },
@@ -154,11 +164,11 @@ export const deleteCustomer = async (id: string): Promise<boolean> => {
 };
 
 function calculateTotalsAndCharges(
-    itemsData: Omit<InvoiceItem, 'id' | 'amount'>[] | Omit<QuoteItem, 'id' | 'amount'>[],
+    itemsData: Omit<InvoiceItem, 'id' | 'amount'>[] | Omit<OrderFormItem, 'id' | 'amount'>[],
     additionalChargesData: AdditionalChargeFormData[] | undefined,
     taxRateInput: number
 ): {
-    processedItems: (InvoiceItem[] | QuoteItem[]);
+    processedItems: (InvoiceItem[] | OrderFormItem[]);
     processedAdditionalCharges: AdditionalChargeItem[];
     mainItemsSubtotal: number;
     totalAdditionalChargesValue: number;
@@ -195,7 +205,7 @@ function calculateTotalsAndCharges(
     const grandTotal = taxableBase + taxAmount;
 
     return {
-        processedItems: processedItems as (InvoiceItem[] | QuoteItem[]),
+        processedItems: processedItems as (InvoiceItem[] | OrderFormItem[]),
         processedAdditionalCharges,
         mainItemsSubtotal,
         totalAdditionalChargesValue,
@@ -203,7 +213,6 @@ function calculateTotalsAndCharges(
         grandTotal,
     };
 }
-
 
 // Invoice Functions
 export const getInvoices = async (): Promise<Invoice[]> => {
@@ -256,6 +265,10 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     taxRate: taxRate,
     taxAmount: taxAmount,
     total: grandTotal,
+    paymentTerms: data.paymentTerms,
+    commitmentPeriod: data.commitmentPeriod,
+    serviceStartDate: data.serviceStartDate,
+    serviceEndDate: data.serviceEndDate,
     createdAt: new Date(),
   };
   mockInvoices.push(newInvoice);
@@ -264,7 +277,6 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
 
 type UpdateInvoiceInputData = Partial<Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'>> & 
                               { items?: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
-
 
 export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): Promise<Invoice | null> => {
   const index = mockInvoices.findIndex(i => i.id === id);
@@ -298,6 +310,10 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
       taxRate: taxRateForCalc,
       taxAmount: taxAmount,
       total: grandTotal,
+      paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingInvoice.paymentTerms,
+      commitmentPeriod: data.commitmentPeriod !== undefined ? data.commitmentPeriod : existingInvoice.commitmentPeriod,
+      serviceStartDate: data.serviceStartDate !== undefined ? data.serviceStartDate : existingInvoice.serviceStartDate,
+      serviceEndDate: data.serviceEndDate !== undefined ? data.serviceEndDate : existingInvoice.serviceEndDate,
   };
   
   mockInvoices[index] = updatedData;
@@ -311,36 +327,44 @@ export const deleteInvoice = async (id: string): Promise<boolean> => {
 };
 
 export const getNextInvoiceNumber = async (): Promise<string> => {
-    const lastInvoice = mockInvoices.length > 0 ? mockInvoices.sort((a,b) => a.invoiceNumber.localeCompare(b.invoiceNumber))[mockInvoices.length-1] : null;
-    if (!lastInvoice || !lastInvoice.invoiceNumber.startsWith("INV-")) {
-        return "INV-001";
+    // For prototype, prefix is hardcoded here. In production, this would come from settings.
+    const prefix = "INV-"; 
+    const relevantInvoices = mockInvoices.filter(inv => inv.invoiceNumber.startsWith(prefix));
+    if (relevantInvoices.length === 0) {
+        return `${prefix}001`;
     }
+    const lastInvoice = relevantInvoices.sort((a,b) => {
+        const numA = parseInt(a.invoiceNumber.substring(prefix.length), 10);
+        const numB = parseInt(b.invoiceNumber.substring(prefix.length), 10);
+        return numA - numB;
+    })[relevantInvoices.length - 1];
+    
     try {
-        const num = parseInt(lastInvoice.invoiceNumber.split("-")[1]);
-        return `INV-${(num + 1).toString().padStart(3, '0')}`;
+        const num = parseInt(lastInvoice.invoiceNumber.substring(prefix.length));
+        return `${prefix}${(num + 1).toString().padStart(3, '0')}`;
     } catch (e) {
-        return `INV-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
+        return `${prefix}${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
     }
 };
 
-// Quote Functions
-export const getQuotes = async (): Promise<Quote[]> => {
-  return [...mockQuotes].map(quo => {
-    const customer = mockCustomers.find(c => c.id === quo.customerId);
+// OrderForm Functions
+export const getOrderForms = async (): Promise<OrderForm[]> => {
+  return [...mockOrderForms].map(of => {
+    const customer = mockCustomers.find(c => c.id === of.customerId);
     return {
-      ...quo,
+      ...of,
       customerName: customer?.name || 'Unknown Customer',
       currencyCode: customer?.currency || 'USD'
     };
   });
 };
 
-export const getQuoteById = async (id: string): Promise<Quote | undefined> => {
-  const quote = mockQuotes.find(q => q.id === id);
-  if (quote) {
-     const customer = mockCustomers.find(c => c.id === quote.customerId);
+export const getOrderFormById = async (id: string): Promise<OrderForm | undefined> => {
+  const orderForm = mockOrderForms.find(q => q.id === id);
+  if (orderForm) {
+     const customer = mockCustomers.find(c => c.id === orderForm.customerId);
     return {
-      ...quote,
+      ...orderForm,
       customerName: customer?.name || 'Unknown Customer',
       currencyCode: customer?.currency || 'USD'
     };
@@ -348,10 +372,10 @@ export const getQuoteById = async (id: string): Promise<Quote | undefined> => {
   return undefined;
 };
 
-type CreateQuoteInputData = Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'> & 
-                           { items: Omit<QuoteItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
+type CreateOrderFormInputData = Omit<OrderForm, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'> & 
+                           { items: Omit<OrderFormItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
-export const createQuote = async (data: CreateQuoteInputData): Promise<Quote> => {
+export const createOrderForm = async (data: CreateOrderFormInputData): Promise<OrderForm> => {
   const customer = mockCustomers.find(c => c.id === data.customerId);
   const taxRate = data.taxRate || 0;
 
@@ -363,41 +387,45 @@ export const createQuote = async (data: CreateQuoteInputData): Promise<Quote> =>
     grandTotal 
   } = calculateTotalsAndCharges(data.items, data.additionalCharges, taxRate);
 
-  const newQuote: Quote = {
+  const newOrderForm: OrderForm = {
     ...data,
-    id: generateId('quo'),
+    id: generateId('of'),
     customerName: customer?.name || 'Unknown Customer',
     currencyCode: customer?.currency || 'USD',
-    items: processedItems.map(item => ({...item, id: generateId('q_item')})) as QuoteItem[],
-    additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: generateId('q_ac')})),
+    items: processedItems.map(item => ({...item, id: generateId('of_item')})) as OrderFormItem[],
+    additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: generateId('of_ac')})),
     subtotal: mainItemsSubtotal,
     taxRate: taxRate,
     taxAmount: taxAmount,
     total: grandTotal,
+    paymentTerms: data.paymentTerms,
+    commitmentPeriod: data.commitmentPeriod,
+    serviceStartDate: data.serviceStartDate,
+    serviceEndDate: data.serviceEndDate,
     createdAt: new Date(),
   };
-  mockQuotes.push(newQuote);
-  return newQuote;
+  mockOrderForms.push(newOrderForm);
+  return newOrderForm;
 };
 
-type UpdateQuoteInputData = Partial<Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'>> & 
-                            { items?: Omit<QuoteItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
+type UpdateOrderFormInputData = Partial<Omit<OrderForm, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'>> & 
+                            { items?: Omit<OrderFormItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
-export const updateQuote = async (id: string, data: UpdateQuoteInputData): Promise<Quote | null> => {
-  const index = mockQuotes.findIndex(q => q.id === id);
+export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData): Promise<OrderForm | null> => {
+  const index = mockOrderForms.findIndex(q => q.id === id);
   if (index === -1) return null;
 
-  let existingQuote = mockQuotes[index];
-  let updatedData = { ...existingQuote, ...data };
+  let existingOrderForm = mockOrderForms[index];
+  let updatedData = { ...existingOrderForm, ...data };
 
-  const customerIdForLookup = data.customerId || existingQuote.customerId;
+  const customerIdForLookup = data.customerId || existingOrderForm.customerId;
   const customer = mockCustomers.find(c => c.id === customerIdForLookup);
   updatedData.customerName = customer?.name || 'Unknown Customer';
   updatedData.currencyCode = customer?.currency || 'USD';
 
-  const itemsForCalc = data.items || existingQuote.items.map(item => ({description: item.description, quantity: item.quantity, rate: item.rate }));
-  const additionalChargesForCalc = data.additionalCharges || existingQuote.additionalCharges?.map(ac => ({ id: ac.id, description: ac.description, valueType: ac.valueType, value: ac.value })) || [];
-  const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingQuote.taxRate;
+  const itemsForCalc = data.items || existingOrderForm.items.map(item => ({description: item.description, quantity: item.quantity, rate: item.rate }));
+  const additionalChargesForCalc = data.additionalCharges || existingOrderForm.additionalCharges?.map(ac => ({ id: ac.id, description: ac.description, valueType: ac.valueType, value: ac.value })) || [];
+  const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingOrderForm.taxRate;
 
   const {
     processedItems,
@@ -409,34 +437,46 @@ export const updateQuote = async (id: string, data: UpdateQuoteInputData): Promi
 
   updatedData = {
       ...updatedData,
-      items: processedItems.map(item => ({...item, id: (data.items?.find(i => i.description === item.description)?.id || item.id || generateId('q_item'))  })) as QuoteItem[],
-      additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description)?.id || ac.id || generateId('q_ac')) })),
+      items: processedItems.map(item => ({...item, id: (data.items?.find(i => i.description === item.description)?.id || item.id || generateId('of_item'))  })) as OrderFormItem[],
+      additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description)?.id || ac.id || generateId('of_ac')) })),
       subtotal: mainItemsSubtotal,
       taxRate: taxRateForCalc,
       taxAmount: taxAmount,
       total: grandTotal,
+      paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingOrderForm.paymentTerms,
+      commitmentPeriod: data.commitmentPeriod !== undefined ? data.commitmentPeriod : existingOrderForm.commitmentPeriod,
+      serviceStartDate: data.serviceStartDate !== undefined ? data.serviceStartDate : existingOrderForm.serviceStartDate,
+      serviceEndDate: data.serviceEndDate !== undefined ? data.serviceEndDate : existingOrderForm.serviceEndDate,
   };
   
-  mockQuotes[index] = updatedData;
-  return mockQuotes[index];
+  mockOrderForms[index] = updatedData;
+  return mockOrderForms[index];
 };
 
-export const deleteQuote = async (id: string): Promise<boolean> => {
-  const initialLength = mockQuotes.length;
-  mockQuotes = mockQuotes.filter(q => q.id !== id);
-  return mockQuotes.length < initialLength;
+export const deleteOrderForm = async (id: string): Promise<boolean> => {
+  const initialLength = mockOrderForms.length;
+  mockOrderForms = mockOrderForms.filter(q => q.id !== id);
+  return mockOrderForms.length < initialLength;
 };
 
-export const getNextQuoteNumber = async (): Promise<string> => {
-    const lastQuote = mockQuotes.length > 0 ? mockQuotes.sort((a,b) => a.quoteNumber.localeCompare(b.quoteNumber))[mockQuotes.length-1] : null;
-    if (!lastQuote || !lastQuote.quoteNumber.startsWith("QUO-")) {
-        return "QUO-001";
+export const getNextOrderFormNumber = async (): Promise<string> => {
+    // For prototype, prefix is hardcoded here. In production, this would come from settings.
+    const prefix = "OF-"; 
+    const relevantOrderForms = mockOrderForms.filter(of => of.orderFormNumber.startsWith(prefix));
+    if (relevantOrderForms.length === 0) {
+        return `${prefix}001`;
     }
+    const lastOrderForm = relevantOrderForms.sort((a,b) => {
+        const numA = parseInt(a.orderFormNumber.substring(prefix.length), 10);
+        const numB = parseInt(b.orderFormNumber.substring(prefix.length), 10);
+        return numA - numB;
+    })[relevantOrderForms.length - 1];
+    
     try {
-        const num = parseInt(lastQuote.quoteNumber.split("-")[1]);
-        return `QUO-${(num + 1).toString().padStart(3, '0')}`;
+        const num = parseInt(lastOrderForm.orderFormNumber.substring(prefix.length));
+        return `${prefix}${(num + 1).toString().padStart(3, '0')}`;
     } catch (e) {
-        return `QUO-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
+        return `${prefix}${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
     }
 };
 

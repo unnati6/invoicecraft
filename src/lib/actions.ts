@@ -3,8 +3,8 @@
 
 import { revalidatePath } from 'next/cache';
 import * as Data from './data';
-import type { Customer, Invoice, InvoiceItem, Quote, QuoteItem, TermsTemplate } from '@/types';
-import type { CustomerFormData, InvoiceFormData, TermsFormData, QuoteFormData, TermsTemplateFormData } from './schemas';
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate } from '@/types';
+import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData } from './schemas';
 import { format, addDays } from 'date-fns';
 import { Buffer } from 'buffer'; 
 
@@ -23,14 +23,14 @@ export async function saveCustomer(data: CustomerFormData, id?: string): Promise
     if (updated) {
       revalidatePath('/customers');
       revalidatePath(`/customers/${id}/edit`);
-      revalidatePath('/(app)/dashboard', 'page'); // Revalidate dashboard for customer name changes
+      revalidatePath('/(app)/dashboard', 'page'); 
     }
     return updated;
   } else {
     const newCustomer = await Data.createCustomer(data);
     if (newCustomer) {
       revalidatePath('/customers');
-      revalidatePath('/(app)/dashboard', 'page'); // Revalidate dashboard for new customers
+      revalidatePath('/(app)/dashboard', 'page'); 
     }
     return newCustomer;
   }
@@ -40,7 +40,7 @@ export async function removeCustomer(id: string): Promise<boolean> {
   const success = await Data.deleteCustomer(id);
   if (success) {
     revalidatePath('/customers');
-    revalidatePath('/(app)/dashboard', 'page'); // Revalidate dashboard
+    revalidatePath('/(app)/dashboard', 'page'); 
   }
   return success;
 }
@@ -65,6 +65,10 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     status: data.status,
     items: data.items,
     additionalCharges: data.additionalCharges,
+    paymentTerms: data.paymentTerms,
+    commitmentPeriod: data.commitmentPeriod,
+    serviceStartDate: data.serviceStartDate,
+    serviceEndDate: data.serviceEndDate,
   };
 
   if (id) { 
@@ -121,129 +125,137 @@ export async function fetchNextInvoiceNumber(): Promise<string> {
     return Data.getNextInvoiceNumber();
 }
 
-// Quote Actions
-export async function getAllQuotes(): Promise<Quote[]> {
-  return Data.getQuotes();
+// OrderForm Actions
+export async function getAllOrderForms(): Promise<OrderForm[]> {
+  return Data.getOrderForms();
 }
 
-export async function fetchQuoteById(id: string): Promise<Quote | undefined> {
-  return Data.getQuoteById(id);
+export async function fetchOrderFormById(id: string): Promise<OrderForm | undefined> {
+  return Data.getOrderFormById(id);
 }
 
-export async function saveQuote(data: QuoteFormData, id?: string): Promise<Quote | null> {
-  const quoteDataCore = {
+export async function saveOrderForm(data: OrderFormFormData, id?: string): Promise<OrderForm | null> {
+  const orderFormDataCore = {
     customerId: data.customerId,
-    quoteNumber: data.quoteNumber,
+    orderFormNumber: data.orderFormNumber,
     issueDate: data.issueDate,
-    expiryDate: data.expiryDate,
+    validUntilDate: data.validUntilDate,
     taxRate: data.taxRate || 0,
     termsAndConditions: data.termsAndConditions,
     status: data.status,
     items: data.items,
     additionalCharges: data.additionalCharges,
+    paymentTerms: data.paymentTerms,
+    commitmentPeriod: data.commitmentPeriod,
+    serviceStartDate: data.serviceStartDate,
+    serviceEndDate: data.serviceEndDate,
   };
 
   if (id) { 
-    const existingQuote = await Data.getQuoteById(id);
-    if (!existingQuote) return null;
+    const existingOrderForm = await Data.getOrderFormById(id);
+    if (!existingOrderForm) return null;
 
     const finalData = {
-      ...quoteDataCore,
-      termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingQuote.termsAndConditions,
+      ...orderFormDataCore,
+      termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
     };
 
-    const updated = await Data.updateQuote(id, finalData);
+    const updated = await Data.updateOrderForm(id, finalData);
     if (updated) {
-      revalidatePath('/quotes'); 
-      revalidatePath(`/quotes/${id}`); 
-      revalidatePath(`/quotes/${id}/terms`); 
+      revalidatePath('/orderforms'); 
+      revalidatePath(`/orderforms/${id}`); 
+      revalidatePath(`/orderforms/${id}/terms`); 
     }
     return updated;
   } else { 
-    const newQuote = await Data.createQuote(quoteDataCore);
-    if(newQuote) {
-      revalidatePath('/quotes'); 
-      revalidatePath(`/quotes/${newQuote.id}`); 
+    const newOrderForm = await Data.createOrderForm(orderFormDataCore);
+    if(newOrderForm) {
+      revalidatePath('/orderforms'); 
+      revalidatePath(`/orderforms/${newOrderForm.id}`); 
     }
-    return newQuote;
+    return newOrderForm;
   }
 }
 
-export async function removeQuote(id: string): Promise<boolean> {
-  const success = await Data.deleteQuote(id);
-  if (success) revalidatePath('/quotes');
+export async function removeOrderForm(id: string): Promise<boolean> {
+  const success = await Data.deleteOrderForm(id);
+  if (success) revalidatePath('/orderforms');
   return success;
 }
 
-export async function saveQuoteTerms(id: string, data: TermsFormData): Promise<Quote | null> {
-  const quote = await Data.getQuoteById(id);
-  if (!quote) return null;
+export async function saveOrderFormTerms(id: string, data: TermsFormData): Promise<OrderForm | null> {
+  const orderForm = await Data.getOrderFormById(id);
+  if (!orderForm) return null;
   
-  const updated = await Data.updateQuote(id, { termsAndConditions: data.termsAndConditions });
+  const updated = await Data.updateOrderForm(id, { termsAndConditions: data.termsAndConditions });
 
   if (updated) {
-    revalidatePath(`/quotes/${id}`);
-    revalidatePath(`/quotes/${id}/terms`);
+    revalidatePath(`/orderforms/${id}`);
+    revalidatePath(`/orderforms/${id}/terms`);
   }
   return updated;
 }
 
-export async function fetchNextQuoteNumber(): Promise<string> {
-    return Data.getNextQuoteNumber();
+export async function fetchNextOrderFormNumber(): Promise<string> {
+    return Data.getNextOrderFormNumber();
 }
 
-export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice | null> {
-  const quote = await Data.getQuoteById(quoteId);
-  if (!quote) {
-    console.error('Quote not found for conversion:', quoteId);
+export async function convertOrderFormToInvoice(orderFormId: string): Promise<Invoice | null> {
+  const orderForm = await Data.getOrderFormById(orderFormId);
+  if (!orderForm) {
+    console.error('OrderForm not found for conversion:', orderFormId);
     return null;
   }
 
   const nextInvoiceNumber = await Data.getNextInvoiceNumber();
   
   const newInvoiceData: Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'> & { items: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: any[] } = {
-    customerId: quote.customerId,
+    customerId: orderForm.customerId,
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
     dueDate: addDays(new Date(), 30), 
-    items: quote.items.map(item => ({ 
+    items: orderForm.items.map(item => ({ 
       description: item.description,
       quantity: item.quantity,
       rate: item.rate,
     })),
-    additionalCharges: quote.additionalCharges ? quote.additionalCharges.map(ac => ({
+    additionalCharges: orderForm.additionalCharges ? orderForm.additionalCharges.map(ac => ({
       description: ac.description,
       valueType: ac.valueType,
       value: ac.value,
     })) : [],
-    taxRate: quote.taxRate,
-    termsAndConditions: quote.termsAndConditions,
+    taxRate: orderForm.taxRate,
+    termsAndConditions: orderForm.termsAndConditions,
     status: 'Draft' as Invoice['status'],
+    paymentTerms: orderForm.paymentTerms,
+    commitmentPeriod: orderForm.commitmentPeriod,
+    serviceStartDate: orderForm.serviceStartDate,
+    serviceEndDate: orderForm.serviceEndDate,
   };
 
   const newInvoice = await Data.createInvoice(newInvoiceData);
 
   if (newInvoice) {
-    await Data.updateQuote(quoteId, { status: 'Accepted' });
+    await Data.updateOrderForm(orderFormId, { status: 'Accepted' });
     revalidatePath('/invoices'); 
     revalidatePath(`/invoices/${newInvoice.id}`); 
-    revalidatePath('/quotes');
-    revalidatePath(`/quotes/${quoteId}`); 
+    revalidatePath('/orderforms');
+    revalidatePath(`/orderforms/${orderFormId}`); 
     revalidatePath('/(app)/dashboard', 'page');
   } else {
-    console.error('Failed to create invoice from quote:', quoteId);
+    console.error('Failed to create invoice from order form:', orderFormId);
   }
   
   return newInvoice;
 }
 
-export async function convertMultipleQuotesToInvoices(quoteIds: string[]): Promise<{ successCount: number; errorCount: number; newInvoiceIds: string[] }> {
+export async function convertMultipleOrderFormsToInvoices(orderFormIds: string[]): Promise<{ successCount: number; errorCount: number; newInvoiceIds: string[] }> {
   let successCount = 0;
   let errorCount = 0;
   const newInvoiceIds: string[] = [];
 
-  for (const quoteId of quoteIds) {
-    const newInvoice = await convertQuoteToInvoice(quoteId);
+  for (const orderFormId of orderFormIds) {
+    const newInvoice = await convertOrderFormToInvoice(orderFormId);
     if (newInvoice) {
       successCount++;
       newInvoiceIds.push(newInvoice.id);
@@ -253,7 +265,7 @@ export async function convertMultipleQuotesToInvoices(quoteIds: string[]): Promi
   }
   if (successCount > 0) {
     revalidatePath('/invoices');
-    revalidatePath('/quotes');
+    revalidatePath('/orderforms');
     revalidatePath('/(app)/dashboard', 'page');
   }
   return { successCount, errorCount, newInvoiceIds };
@@ -276,8 +288,8 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
 
   const headers = [
     'Invoice Number', 'Customer Name', 'Issue Date', 'Due Date', 'Status',
+    'Payment Terms', 'Commitment Period', 'Service Start Date', 'Service End Date',
     'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
-    // TODO: Add additional charges here if needed
     'Invoice Subtotal', 'Invoice Tax Rate (%)', 'Invoice Tax Amount', 'Invoice Total'
   ];
   
@@ -290,6 +302,10 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
       format(new Date(invoice.issueDate), 'yyyy-MM-dd'),
       format(new Date(invoice.dueDate), 'yyyy-MM-dd'),
       invoice.status,
+      invoice.paymentTerms,
+      invoice.commitmentPeriod,
+      invoice.serviceStartDate ? format(new Date(invoice.serviceStartDate), 'yyyy-MM-dd') : '',
+      invoice.serviceEndDate ? format(new Date(invoice.serviceEndDate), 'yyyy-MM-dd') : '',
       item.description,
       item.quantity,
       item.rate,
@@ -312,36 +328,40 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
   };
 }
 
-export async function downloadQuoteAsExcel(quoteId: string): Promise<{ success: boolean; message: string; fileName?: string; fileData?: string; mimeType?: string; }> {
-  const quote = await fetchQuoteById(quoteId);
-  if (!quote) {
-    return { success: false, message: 'Quote not found.' };
+export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ success: boolean; message: string; fileName?: string; fileData?: string; mimeType?: string; }> {
+  const orderForm = await fetchOrderFormById(orderFormId);
+  if (!orderForm) {
+    return { success: false, message: 'Order Form not found.' };
   }
 
   const headers = [
-    'Quote Number', 'Customer Name', 'Issue Date', 'Expiry Date', 'Status',
+    'OrderForm Number', 'Customer Name', 'Issue Date', 'Valid Until Date', 'Status',
+    'Payment Terms', 'Commitment Period', 'Service Start Date', 'Service End Date',
     'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
-    // TODO: Add additional charges here if needed
-    'Quote Subtotal', 'Quote Tax Rate (%)', 'Quote Tax Amount', 'Quote Total'
+    'OrderForm Subtotal', 'OrderForm Tax Rate (%)', 'OrderForm Tax Amount', 'OrderForm Total'
   ];
   
   let csvContent = headers.map(escapeCsvField).join(',') + '\\n';
 
-  quote.items.forEach(item => {
+  orderForm.items.forEach(item => {
     const row = [
-      quote.quoteNumber,
-      quote.customerName,
-      format(new Date(quote.issueDate), 'yyyy-MM-dd'),
-      format(new Date(quote.expiryDate), 'yyyy-MM-dd'),
-      quote.status,
+      orderForm.orderFormNumber,
+      orderForm.customerName,
+      format(new Date(orderForm.issueDate), 'yyyy-MM-dd'),
+      format(new Date(orderForm.validUntilDate), 'yyyy-MM-dd'),
+      orderForm.status,
+      orderForm.paymentTerms,
+      orderForm.commitmentPeriod,
+      orderForm.serviceStartDate ? format(new Date(orderForm.serviceStartDate), 'yyyy-MM-dd') : '',
+      orderForm.serviceEndDate ? format(new Date(orderForm.serviceEndDate), 'yyyy-MM-dd') : '',
       item.description,
       item.quantity,
       item.rate,
       item.amount,
-      quote.subtotal,
-      quote.taxRate,
-      quote.taxAmount,
-      quote.total
+      orderForm.subtotal,
+      orderForm.taxRate,
+      orderForm.taxAmount,
+      orderForm.total
     ];
     csvContent += row.map(escapeCsvField).join(',') + '\\n';
   });
@@ -350,7 +370,7 @@ export async function downloadQuoteAsExcel(quoteId: string): Promise<{ success: 
   return { 
     success: true, 
     message: "CSV file generated.",
-    fileName: `Quote_${quote.quoteNumber}.csv`,
+    fileName: `OrderForm_${orderForm.orderFormNumber}.csv`,
     fileData: fileData,
     mimeType: 'text/csv'
   };

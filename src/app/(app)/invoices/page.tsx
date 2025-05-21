@@ -22,7 +22,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils';
 import { getCurrencySymbol } from '@/lib/currency-utils';
@@ -185,16 +184,8 @@ export default function InvoicesPage() {
         </AppHeader>
         <main className="flex-1 p-6 space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>All Invoices</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            </CardContent>
+            <CardHeader><CardTitle>All Invoices</CardTitle></CardHeader>
+            <CardContent><div className="space-y-2">{[...Array(5)].map((_, i) => (<Skeleton key={i} className="h-12 w-full" />))}</div></CardContent>
           </Card>
         </main>
       </>
@@ -214,12 +205,8 @@ export default function InvoicesPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={handleDownloadIndividualPdfs} disabled={isDownloading}>
-                Download as Individual PDFs
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={handleDownloadCombinedPdf} disabled={isDownloading}>
-                Download as Single PDF
-              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleDownloadIndividualPdfs} disabled={isDownloading}>Download as Individual PDFs</DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleDownloadCombinedPdf} disabled={isDownloading}>Download as Single PDF</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -230,20 +217,14 @@ export default function InvoicesPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => router.push('/invoices/new')}>
-              Create Invoice
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => router.push('/quotes/new')}>
-              Create Quote
-            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push('/invoices/new')}>Create Invoice</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push('/orderforms/new')}>Create Order Form</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </AppHeader>
       <main className="flex-1 p-4 md:p-6 space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle>All Invoices</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>All Invoices</CardTitle></CardHeader>
           <CardContent>
             <DataTable
               columns={columns}
@@ -260,4 +241,3 @@ export default function InvoicesPage() {
     </>
   );
 }
-

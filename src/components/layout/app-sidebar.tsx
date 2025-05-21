@@ -13,8 +13,7 @@ import {
   SidebarMenuButton,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
-import { FileText, Users, Settings, LogOut, Quote as QuoteIconLucide, Image as ImageIcon, LayoutDashboard, ClipboardList } from 'lucide-react'; 
+import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList } from 'lucide-react'; 
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
@@ -46,13 +45,13 @@ export function AppSidebar() {
   const menuItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/invoices', label: 'Invoices', icon: FileText },
-    { href: '/quotes', label: 'Quotes', icon: QuoteIconLucide },
+    { href: '/orderforms', label: 'Order Forms', icon: OrderFormIcon },
     { href: '/customers', label: 'Customers', icon: Users },
     { href: '/templates/terms', label: 'Templates', icon: ClipboardList },
   ];
 
   const settingsMenuItems = [
-     { href: '/branding', label: 'Branding', icon: ImageIcon },
+     { href: '/branding', label: 'Branding', icon: ImageIconLucide },
   ];
 
   return (

@@ -18,21 +18,21 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { invoiceSchema, type InvoiceFormData, type AdditionalChargeFormData } from '@/lib/schemas';
-import type { Invoice, Customer, TermsTemplate } from '@/types';
+import { orderFormSchema, type OrderFormFormData, type AdditionalChargeFormData } from '@/lib/schemas';
+import type { OrderForm, Customer, TermsTemplate } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink } from 'lucide-react';
-import { getAllCustomers, fetchNextInvoiceNumber, getAllTermsTemplates, saveInvoiceTerms } from '@/lib/actions';
+import { getAllCustomers, fetchNextOrderFormNumber, getAllTermsTemplates, saveOrderFormTerms } from '@/lib/actions';
 import Link from 'next/link';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 import { RichTextEditor } from '@/components/rich-text-editor';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 
-interface InvoiceFormProps {
-  onSubmit: (data: InvoiceFormData) => Promise<void>;
-  initialData?: Invoice | null;
+interface OrderFormFormProps {
+  onSubmit: (data: OrderFormFormData) => Promise<void>;
+  initialData?: OrderForm | null;
   isSubmitting?: boolean;
 }
 
@@ -63,24 +63,23 @@ const commitmentPeriodOptions = [
   { value: "Custom", label: "Custom" },
 ];
 
-
-export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: InvoiceFormProps) {
+export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: OrderFormFormProps) {
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = React.useState(true);
-  const [isLoadingInvNumber, setIsLoadingInvNumber] = React.useState(!initialData);
+  const [isLoadingOFNumber, setIsLoadingOFNumber] = React.useState(!initialData);
   const [currentCurrencySymbol, setCurrentCurrencySymbol] = React.useState('$');
   const [termsTemplates, setTermsTemplates] = React.useState<TermsTemplate[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = React.useState(true);
   const { toast } = useToast();
   const [isAutoSavingTerms, setIsAutoSavingTerms] = React.useState(false);
 
-  const form = useForm<InvoiceFormData>({
-    resolver: zodResolver(invoiceSchema),
+  const form = useForm<OrderFormFormData>({
+    resolver: zodResolver(orderFormSchema),
     defaultValues: initialData
       ? {
           ...initialData,
           issueDate: new Date(initialData.issueDate),
-          dueDate: new Date(initialData.dueDate),
+          validUntilDate: new Date(initialData.validUntilDate),
           items: initialData.items.map(item => ({ 
             id: item.id,
             description: item.description,
@@ -100,9 +99,9 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
           serviceEndDate: initialData.serviceEndDate ? new Date(initialData.serviceEndDate) : null,
         }
       : {
-          invoiceNumber: '',
+          orderFormNumber: '',
           issueDate: new Date(),
-          dueDate: new Date(new Date().setDate(new Date().getDate() + 30)), 
+          validUntilDate: new Date(new Date().setDate(new Date().getDate() + 30)), 
           items: [{ description: '', quantity: 1, rate: 0 }],
           additionalCharges: [],
           taxRate: 0,
@@ -148,22 +147,22 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   }, []);
   
   React.useEffect(() => {
-    async function loadNextInvoiceNumber() {
+    async function loadNextOrderFormNumber() {
       if (!initialData) { 
-        setIsLoadingInvNumber(true);
+        setIsLoadingOFNumber(true);
         try {
           // TODO: Get prefix from localStorage if available or settings
-          const nextInvNum = await fetchNextInvoiceNumber();
-          form.setValue('invoiceNumber', nextInvNum);
+          const nextOFNum = await fetchNextOrderFormNumber();
+          form.setValue('orderFormNumber', nextOFNum);
         } catch (error) {
-          console.error("Failed to fetch next invoice number", error);
-          form.setValue('invoiceNumber', 'INV-ERROR');
+          console.error("Failed to fetch next order form number", error);
+          form.setValue('orderFormNumber', 'OF-ERROR');
         } finally {
-          setIsLoadingInvNumber(false);
+          setIsLoadingOFNumber(false);
         }
       }
     }
-    loadNextInvoiceNumber();
+    loadNextOrderFormNumber();
   }, [initialData, form]);
 
   const watchedCustomerId = form.watch('customerId');
@@ -219,7 +218,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
       if (!docId || isSubmitting) return;
       setIsAutoSavingTerms(true);
       try {
-        await saveInvoiceTerms(docId, { termsAndConditions: terms });
+        await saveOrderFormTerms(docId, { termsAndConditions: terms });
         toast({ title: "Terms Auto-Saved", description: "Your terms and conditions have been saved." });
       } catch (error) {
         console.error("Failed to auto-save terms:", error);
@@ -237,7 +236,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>{initialData ? 'Edit Invoice' : 'Create New Invoice'}</CardTitle>
+                <CardTitle>{initialData ? 'Edit Order Form' : 'Create New Order Form'}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -276,14 +275,14 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                   />
                   <FormField
                     control={form.control}
-                    name="invoiceNumber"
+                    name="orderFormNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Invoice Number *</FormLabel>
+                        <FormLabel>Order Form Number *</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. INV-001" {...field} disabled={isLoadingInvNumber || !!initialData} />
+                          <Input placeholder="e.g. OF-001" {...field} disabled={isLoadingOFNumber || !!initialData} />
                         </FormControl>
-                         {isLoadingInvNumber && <p className="text-xs text-muted-foreground">Fetching next invoice number...</p>}
+                         {isLoadingOFNumber && <p className="text-xs text-muted-foreground">Fetching next order form number...</p>}
                         <FormMessage />
                       </FormItem>
                     )}
@@ -315,10 +314,10 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                   />
                   <FormField
                     control={form.control}
-                    name="dueDate"
+                    name="validUntilDate"
                     render={({ field }) => (
                        <FormItem className="flex flex-col">
-                        <FormLabel>Due Date *</FormLabel>
+                        <FormLabel>Valid Until Date *</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -346,7 +345,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl>
                           <SelectContent>
-                            {['Draft', 'Sent', 'Paid', 'Overdue'].map(status => (<SelectItem key={status} value={status}>{status}</SelectItem>))}
+                            {['Draft', 'Sent', 'Accepted', 'Declined', 'Expired'].map(status => (<SelectItem key={status} value={status}>{status}</SelectItem>))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -356,7 +355,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
               </CardContent>
             </Card>
 
-             <Card>
+            <Card>
               <CardHeader><CardTitle>Payment &amp; Service Details</CardTitle></CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -445,7 +444,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
             </Card>
 
             <Card>
-              <CardHeader><CardTitle>Invoice Items</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Order Form Items</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 {itemFields.map((field, index) => (
                   <div key={field.id} className="grid grid-cols-12 gap-x-4 gap-y-2 items-start p-3 border rounded-md relative">
@@ -497,7 +496,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                     <FormField control={form.control} name={`additionalCharges.${index}.description`} render={({ field: descField }) => (
                       <FormItem className="col-span-12 md:col-span-5">
                         {index === 0 && <FormLabel className="text-xs">Description *</FormLabel>}
-                        <FormControl><Input placeholder="e.g. Shipping, Handling Fee" {...descField} /></FormControl>
+                        <FormControl><Input placeholder="e.g. Expedited Shipping" {...descField} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}/>
@@ -535,11 +534,11 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
             <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
-                      <CardTitle>Terms &amp; Conditions</CardTitle>
-                      <div className="flex items-center gap-2">
-                        {isAutoSavingTerms && <span className="text-xs text-muted-foreground">Saving terms...</span>}
-                        {initialData && (<Button variant="outline" size="sm" asChild><Link href={`/invoices/${initialData.id}/terms`}>Edit in Full Page <ExternalLink className="ml-2 h-3 w-3"/></Link></Button>)}
-                      </div>
+                        <CardTitle>Terms &amp; Conditions</CardTitle>
+                        <div className="flex items-center gap-2">
+                            {isAutoSavingTerms && <span className="text-xs text-muted-foreground">Saving terms...</span>}
+                            {initialData && (<Button variant="outline" size="sm" asChild><Link href={`/orderforms/${initialData.id}/terms`}>Edit in Full Page <ExternalLink className="ml-2 h-3 w-3"/></Link></Button>)}
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -599,7 +598,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
               <CardFooter className="flex-col items-stretch gap-2">
                  <Button type="submit" disabled={isSubmitting || isAutoSavingTerms} className="w-full">
                    <Save className="mr-2 h-4 w-4" />
-                   {isSubmitting ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Invoice')}
+                   {isSubmitting ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Order Form')}
                  </Button>
               </CardFooter>
             </Card>
@@ -610,4 +609,4 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   );
 }
 
-InvoiceForm.displayName = "InvoiceForm";
+OrderFormForm.displayName = "OrderFormForm";
