@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox'; // Added Checkbox
+import { cn } from '@/lib/utils'; // Added this line
 
 interface ColumnDef<T> {
   accessorKey: keyof T | string;
@@ -103,7 +104,7 @@ export function DataTable<T extends { id: string }>({
       size: 50,
     };
     return [selectionColumn, ...columns];
-  }, [columns, isSelectable, rowSelection, paginatedData, allSelectedOnPage, someSelectedOnPage]);
+  }, [columns, isSelectable, rowSelection, paginatedData, allSelectedOnPage, someSelectedOnPage, handleSelectAllClick, handleRowSelectClick]);
 
 
   return (
@@ -114,7 +115,7 @@ export function DataTable<T extends { id: string }>({
             <TableRow>
               {tableColumns.map((column, index) => (
                 <TableHead key={String(column.accessorKey) + index} style={{ width: column.size ? `${column.size}px` : undefined }}>
-                  {typeof column.header === 'function' ? column.header(null) : column.header}
+                  {typeof column.header === 'function' ? column.header(null as any) : column.header}
                 </TableHead>
               ))}
             </TableRow>
