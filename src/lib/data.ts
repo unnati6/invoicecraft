@@ -9,7 +9,7 @@ let mockCustomers: Customer[] = [
     name: 'Alice Wonderland', 
     email: 'alice@example.com', 
     phone: '123-456-7890', 
-    currency: 'USD',
+    currency: 'INR', // Changed to INR for Alice
     billingAddress: { street: '123 Rabbit Hole', city: 'Storyville', state: 'CA', zip: '90210', country: 'USA' }, 
     shippingAddress: { street: '123 Rabbit Hole', city: 'Storyville', state: 'CA', zip: '90210', country: 'USA' },
     createdAt: new Date() 
@@ -422,3 +422,4 @@ export const getNextQuoteNumber = async (): Promise<string> => {
         return `QUO-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
     }
 };
+

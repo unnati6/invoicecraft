@@ -26,6 +26,7 @@ import { format } from 'date-fns';
 import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink } from 'lucide-react';
 import { getAllCustomers, fetchNextInvoiceNumber } from '@/lib/actions';
 import Link from 'next/link';
+import { getCurrencySymbol } from '@/lib/currency-utils';
 
 interface InvoiceFormProps {
   onSubmit: (data: InvoiceFormData) => Promise<void>;
@@ -37,6 +38,8 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = React.useState(true);
   const [isLoadingInvNumber, setIsLoadingInvNumber] = React.useState(!initialData);
+  const [currentCurrencySymbol, setCurrentCurrencySymbol] = React.useState('$');
+
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
@@ -114,6 +117,32 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
     loadNextInvoiceNumber();
   }, [initialData, form]);
 
+  const watchedCustomerId = form.watch('customerId');
+
+  React.useEffect(() => {
+    let custCurrencyCode: string | undefined = 'USD'; // Default
+  
+    const determineCurrency = () => {
+      const currentFormCustomerId = form.getValues('customerId');
+  
+      if (currentFormCustomerId && customers.length > 0) {
+        const customer = customers.find(c => c.id === currentFormCustomerId);
+        if (customer?.currency) {
+          custCurrencyCode = customer.currency;
+        }
+      } else if (initialData?.customerId && customers.length > 0) {
+        const customer = customers.find(c => c.id === initialData.customerId);
+        if (customer?.currency) {
+          custCurrencyCode = customer.currency;
+        }
+      }
+      setCurrentCurrencySymbol(getCurrencySymbol(custCurrencyCode));
+    };
+  
+    determineCurrency();
+  
+  }, [watchedCustomerId, customers, initialData?.customerId, form]);
+
 
   const watchedItems = form.watch('items');
   const watchedAdditionalCharges = form.watch('additionalCharges');
@@ -168,7 +197,12 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                         <FormLabel>Customer *</FormLabel>
                         <div className="flex items-center gap-2">
                         <Select 
-                            onValueChange={field.onChange} 
+                            onValueChange={(value) => {
+                                field.onChange(value);
+                                // Trigger currency update
+                                const customer = customers.find(c => c.id === value);
+                                setCurrentCurrencySymbol(getCurrencySymbol(customer?.currency || 'USD'));
+                            }}
                             defaultValue={field.value}
                             disabled={isLoadingCustomers}
                         >
@@ -350,7 +384,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                       name={`items.${index}.rate`}
                       render={({ field: rateField }) => (
                         <FormItem className="col-span-4 md:col-span-2">
-                          {index === 0 && <FormLabel className="text-xs">Rate *</FormLabel>}
+                          {index === 0 && <FormLabel className="text-xs">Rate ({currentCurrencySymbol}) *</FormLabel>}
                           <FormControl>
                             <Input type="number" placeholder="0.00" {...rateField} onChange={e => rateField.onChange(parseFloat(e.target.value) || 0)} />
                           </FormControl>
@@ -361,7 +395,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                      <div className="col-span-4 md:col-span-2 flex items-end h-full">
                         {index === 0 && <FormLabel className="text-xs md:invisible md:block">Amount</FormLabel>}
                          <p className="py-2 text-sm font-medium min-w-[60px] text-right">
-                           ${((Number(watchedItems[index]?.quantity) || 0) * (Number(watchedItems[index]?.rate) || 0)).toFixed(2)}
+                           {currentCurrencySymbol}{((Number(watchedItems[index]?.quantity) || 0) * (Number(watchedItems[index]?.rate) || 0)).toFixed(2)}
                          </p>
                      </div>
                     <div className="col-span-12 md:col-span-1 flex items-end justify-end h-full pt-2 md:pt-0">
@@ -430,7 +464,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                                <SelectItem value="fixed">Fixed ($)</SelectItem>
+                                <SelectItem value="fixed">Fixed ({currentCurrencySymbol})</SelectItem>
                                 <SelectItem value="percentage">Percentage (%)</SelectItem>
                             </SelectContent>
                            </Select>
@@ -531,15 +565,15 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                  <div className="space-y-2 pt-2">
                   <div className="flex justify-between">
                     <span>Subtotal (Items):</span>
-                    <span>${mainItemsSubtotal.toFixed(2)}</span>
+                    <span>{currentCurrencySymbol}{mainItemsSubtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Additional Charges:</span>
-                    <span>${totalCalculatedAdditionalCharges.toFixed(2)}</span>
+                    <span>{currentCurrencySymbol}{totalCalculatedAdditionalCharges.toFixed(2)}</span>
                   </div>
                    <div className="flex justify-between font-medium border-t pt-1 mt-1">
                     <span>Taxable Amount:</span>
-                    <span>${taxableAmount.toFixed(2)}</span>
+                    <span>{currentCurrencySymbol}{taxableAmount.toFixed(2)}</span>
                   </div>
                 </div>
                 <FormField
@@ -558,11 +592,11 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                 <div className="space-y-2 pt-2 border-t">
                   <div className="flex justify-between">
                     <span>Tax Amount:</span>
-                    <span>${taxAmount.toFixed(2)}</span>
+                    <span>{currentCurrencySymbol}{taxAmount.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-lg font-semibold border-t pt-2 mt-2">
                     <span>Total:</span>
-                    <span>${total.toFixed(2)}</span>
+                    <span>{currentCurrencySymbol}{total.toFixed(2)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -581,3 +615,4 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
 }
 
 InvoiceForm.displayName = "InvoiceForm";
+
