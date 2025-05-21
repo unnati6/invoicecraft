@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 const AppLogo = () => (
   <Link href="/invoices" className="flex items-center gap-2 px-2 py-1 text-lg font-semibold">
     <Image 
-      src="/revynox_logo_black.png" 
+      src="/images/revynox_logo_black.png" 
       alt="Revynox Logo" 
       width={120} 
       height={30} 
@@ -31,7 +31,7 @@ const AppLogo = () => (
 
 const AppIcon = () => (
    <Image 
-      src="/revynox_logo_black.png" 
+      src="/images/revynox_logo_black.png" 
       alt="Revynox Icon" 
       width={28} 
       height={28} 

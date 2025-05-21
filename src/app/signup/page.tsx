@@ -26,7 +26,7 @@ export default function SignUpPage() {
       <div className="w-full max-w-sm"> 
         <div className="mb-8 flex w-full justify-center"> 
           <Image 
-            src="/revynox_logo_black.png" 
+            src="/images/revynox_logo_black.png" 
             alt="Revynox Logo" 
             width={200} 
             height={50} 
