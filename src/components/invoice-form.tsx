@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -23,17 +22,29 @@ import type { Invoice, Customer, TermsTemplate } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink } from 'lucide-react';
-import { getAllCustomers, fetchNextInvoiceNumber, getAllTermsTemplates } from '@/lib/actions';
+import { getAllCustomers, fetchNextInvoiceNumber, getAllTermsTemplates, saveInvoiceTerms } from '@/lib/actions';
 import Link from 'next/link';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 import { RichTextEditor } from '@/components/rich-text-editor';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 interface InvoiceFormProps {
   onSubmit: (data: InvoiceFormData) => Promise<void>;
   initialData?: Invoice | null;
   isSubmitting?: boolean;
 }
+
+// Simple debounce function
+const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) => {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<F>): Promise<ReturnType<F>> =>
+    new Promise(resolve => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => resolve(func(...args)), waitFor);
+    });
+};
+
 
 export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: InvoiceFormProps) {
   const [customers, setCustomers] = React.useState<Customer[]>([]);
@@ -42,6 +53,8 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   const [currentCurrencySymbol, setCurrentCurrencySymbol] = React.useState('$');
   const [termsTemplates, setTermsTemplates] = React.useState<TermsTemplate[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = React.useState(true);
+  const { toast } = useToast();
+  const [isAutoSavingTerms, setIsAutoSavingTerms] = React.useState(false);
 
 
   const form = useForm<InvoiceFormData>({
@@ -72,7 +85,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
           items: [{ description: '', quantity: 1, rate: 0 }],
           additionalCharges: [],
           taxRate: 0,
-          termsAndConditions: '<p></p>', // Default to empty paragraph for RichTextEditor
+          termsAndConditions: '<p></p>', 
           status: 'Draft',
           customerId: '',
         },
@@ -101,7 +114,6 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
         setTermsTemplates(fetchedTemplates);
       } catch (error) {
         console.error("Failed to fetch initial data for form", error);
-        // Optionally set error state or show toast
       } finally {
         setIsLoadingCustomers(false);
         setIsLoadingTemplates(false);
@@ -150,7 +162,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
       setCurrentCurrencySymbol(getCurrencySymbol(custCurrencyCode));
     };
   
-    if (!isLoadingCustomers) { // Ensure customers are loaded before determining currency
+    if (!isLoadingCustomers) { 
         determineCurrency();
     }
   
@@ -192,7 +204,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
 
   const handleTemplateSelect = (templateId: string) => {
     if (templateId === "none" || !templateId) {
-      form.setValue('termsAndConditions', '<p></p>', { shouldDirty: true, shouldValidate: true }); // Clear or set to default empty
+      form.setValue('termsAndConditions', '<p></p>', { shouldDirty: true, shouldValidate: true }); 
       return;
     }
     const selectedTemplate = termsTemplates.find(t => t.id === templateId);
@@ -201,13 +213,28 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
     }
   };
 
+  const debouncedSaveTerms = React.useCallback(
+    debounce(async (terms: string, docId: string) => {
+      if (!docId || isSubmitting) return; // Don't auto-save if main form is submitting
+      setIsAutoSavingTerms(true);
+      try {
+        await saveInvoiceTerms(docId, { termsAndConditions: terms });
+        toast({ title: "Terms Auto-Saved", description: "Your terms and conditions have been saved." });
+      } catch (error) {
+        console.error("Failed to auto-save terms:", error);
+        toast({ title: "Auto-Save Failed", description: "Could not auto-save terms and conditions.", variant: "destructive" });
+      } finally {
+        setIsAutoSavingTerms(false);
+      }
+    }, 1500), // 1.5 seconds debounce
+    [toast, isSubmitting] 
+  );
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
-            {/* Invoice Details Card */}
             <Card>
               <CardHeader>
                 <CardTitle>{initialData ? 'Edit Invoice' : 'Create New Invoice'}</CardTitle>
@@ -367,7 +394,6 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
               </CardContent>
             </Card>
 
-            {/* Items Card */}
             <Card>
               <CardHeader>
                 <CardTitle>Invoice Items</CardTitle>
@@ -452,7 +478,6 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
               </CardContent>
             </Card>
 
-            {/* Additional Charges Card */}
             <Card>
               <CardHeader>
                 <CardTitle>Additional Charges</CardTitle>
@@ -534,14 +559,17 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
             <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
-                    <CardTitle>Terms & Conditions</CardTitle>
-                    {initialData && (
-                        <Button variant="outline" size="sm" asChild>
-                        <Link href={`/invoices/${initialData.id}/terms`}>
-                            Edit in Full Page <ExternalLink className="ml-2 h-3 w-3"/>
-                        </Link>
-                        </Button>
-                    )}
+                      <CardTitle>Terms &amp; Conditions</CardTitle>
+                      <div className="flex items-center gap-2">
+                        {isAutoSavingTerms && <span className="text-xs text-muted-foreground">Saving terms...</span>}
+                        {initialData && (
+                            <Button variant="outline" size="sm" asChild>
+                            <Link href={`/invoices/${initialData.id}/terms`}>
+                                Edit in Full Page <ExternalLink className="ml-2 h-3 w-3"/>
+                            </Link>
+                            </Button>
+                        )}
+                      </div>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -572,12 +600,17 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                         name="termsAndConditions"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel className="sr-only">Terms & Conditions Content</FormLabel>
+                            <FormLabel className="sr-only">Terms &amp; Conditions Content</FormLabel>
                             <FormControl>
                                 <RichTextEditor
-                                value={field.value || '<p></p>'}
-                                onChange={field.onChange}
-                                disabled={isSubmitting}
+                                  value={field.value || '<p></p>'}
+                                  onChange={(newTerms) => {
+                                    field.onChange(newTerms); // Update react-hook-form state
+                                    if (initialData?.id) {
+                                      debouncedSaveTerms(newTerms, initialData.id);
+                                    }
+                                  }}
+                                  disabled={isSubmitting || isAutoSavingTerms}
                                 />
                             </FormControl>
                             <FormMessage />
@@ -588,7 +621,6 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
             </Card>
           </div>
 
-          {/* Summary Card (Right Sidebar) */}
           <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-20 self-start">
             <Card>
               <CardHeader>
@@ -634,7 +666,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                 </div>
               </CardContent>
               <CardFooter className="flex-col items-stretch gap-2">
-                 <Button type="submit" disabled={isSubmitting} className="w-full">
+                 <Button type="submit" disabled={isSubmitting || isAutoSavingTerms} className="w-full">
                    <Save className="mr-2 h-4 w-4" />
                    {isSubmitting ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Invoice')}
                  </Button>
@@ -648,4 +680,3 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
 }
 
 InvoiceForm.displayName = "InvoiceForm";
-
