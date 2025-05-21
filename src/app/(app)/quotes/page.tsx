@@ -10,12 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Eye, Trash2, FileText as QuoteIcon, Download, ChevronDown, FileSignature } from 'lucide-react';
-import type { Quote, Customer } from '@/types';
-import { getAllQuotes, removeQuote, fetchCustomerById, convertMultipleQuotesToInvoices } from '@/lib/actions';
+import { PlusCircle, Edit, Eye, Trash2, Download, ChevronDown, FileSignature as OrderFormIcon } from 'lucide-react'; // Changed QuoteIcon to OrderFormIcon
+import type { OrderForm, Customer } from '@/types'; // Changed Quote to OrderForm
+import { getAllOrderForms, removeOrderForm, fetchCustomerById, convertMultipleOrderFormsToInvoices } from '@/lib/actions'; // Changed to OrderForm actions
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { QuotePreviewDialog } from '@/components/quote-preview-dialog';
+import { OrderFormPreviewDialog } from '@/components/orderform-preview-dialog'; // Changed to OrderFormPreviewDialog
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -26,11 +26,11 @@ import {
 import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 
-export default function QuotesPage() {
+export default function OrderFormsPage() { // Renamed component
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
-  const [quotes, setQuotes] = React.useState<Quote[]>([]);
+  const [orderForms, setOrderForms] = React.useState<OrderForm[]>([]); // Changed to OrderForm
   const [loading, setLoading] = React.useState(true);
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isDownloading, setIsDownloading] = React.useState(false);
@@ -40,10 +40,10 @@ export default function QuotesPage() {
     async function fetchData() {
       setLoading(true);
       try {
-        const data = await getAllQuotes();
-        setQuotes(data);
+        const data = await getAllOrderForms(); // Changed to getAllOrderForms
+        setOrderForms(data);
       } catch (error) {
-        toast({ title: "Error", description: "Failed to fetch quotes.", variant: "destructive" });
+        toast({ title: "Error", description: "Failed to fetch order forms.", variant: "destructive" });
       } finally {
         setLoading(false);
       }
@@ -51,49 +51,49 @@ export default function QuotesPage() {
     fetchData();
   }, [toast, pathname]);
 
-  const handleDeleteQuote = async (id: string) => {
+  const handleDeleteOrderForm = async (id: string) => { // Renamed
     try {
-      await removeQuote(id);
-      setQuotes(prev => prev.filter(q => q.id !== id));
+      await removeOrderForm(id); // Changed to removeOrderForm
+      setOrderForms(prev => prev.filter(of => of.id !== id));
       setRowSelection(prev => {
         const newSelection = {...prev};
         delete newSelection[id];
         return newSelection;
       });
-      toast({ title: "Success", description: "Quote deleted successfully." });
+      toast({ title: "Success", description: "Order Form deleted successfully." });
     } catch (error) {
-      toast({ title: "Error", description: "Failed to delete quote.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to delete order form.", variant: "destructive" });
     }
   };
   
-  const getSelectedQuotes = (): Quote[] => {
+  const getSelectedOrderForms = (): OrderForm[] => { // Renamed
     return Object.entries(rowSelection)
       .filter(([_, isSelected]) => isSelected)
-      .map(([id]) => quotes.find(q => q.id === id))
-      .filter((q): q is Quote => !!q);
+      .map(([id]) => orderForms.find(of => of.id === id))
+      .filter((of): of is OrderForm => !!of);
   };
 
   const handleDownloadIndividualPdfs = async () => {
-    const selectedQuotes = getSelectedQuotes();
-    if (selectedQuotes.length === 0) {
-      toast({ title: "No Selection", description: "Please select quotes to download.", variant: "destructive" });
+    const selectedOrderForms = getSelectedOrderForms(); // Renamed
+    if (selectedOrderForms.length === 0) {
+      toast({ title: "No Selection", description: "Please select order forms to download.", variant: "destructive" });
       return;
     }
 
     setIsDownloading(true);
-    toast({ title: "Processing PDFs...", description: `Preparing ${selectedQuotes.length} quote(s) for download.` });
+    toast({ title: "Processing PDFs...", description: `Preparing ${selectedOrderForms.length} order form(s) for download.` });
 
-    for (const quote of selectedQuotes) {
+    for (const orderForm of selectedOrderForms) { // Renamed
       try {
         let customer: Customer | undefined = undefined;
-        if (quote.customerId) {
-           customer = await fetchCustomerById(quote.customerId);
+        if (orderForm.customerId) {
+           customer = await fetchCustomerById(orderForm.customerId);
         }
-        await downloadPdfForDocument(quote, customer);
-        if (selectedQuotes.length > 1) await new Promise(resolve => setTimeout(resolve, 500));
+        await downloadPdfForDocument(orderForm, customer);
+        if (selectedOrderForms.length > 1) await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
-        console.error("Error downloading PDF for quote:", quote.quoteNumber, error);
-        toast({ title: "Download Error", description: `Failed to download PDF for ${quote.quoteNumber}.`, variant: "destructive" });
+        console.error("Error downloading PDF for order form:", orderForm.orderFormNumber, error); // Renamed
+        toast({ title: "Download Error", description: `Failed to download PDF for ${orderForm.orderFormNumber}.`, variant: "destructive" });
       }
     }
     setIsDownloading(false);
@@ -101,46 +101,45 @@ export default function QuotesPage() {
   };
 
   const handleDownloadCombinedPdf = async () => {
-    const selectedQuotes = getSelectedQuotes();
-    if (selectedQuotes.length === 0) {
-      toast({ title: "No Selection", description: "Please select quotes for combined PDF.", variant: "destructive" });
+    const selectedOrderForms = getSelectedOrderForms(); // Renamed
+    if (selectedOrderForms.length === 0) {
+      toast({ title: "No Selection", description: "Please select order forms for combined PDF.", variant: "destructive" });
       return;
     }
     setIsDownloading(true);
      const customers = await Promise.all(
-        selectedQuotes.map(q => q.customerId ? fetchCustomerById(q.customerId) : Promise.resolve(undefined))
+        selectedOrderForms.map(of => of.customerId ? fetchCustomerById(of.customerId) : Promise.resolve(undefined))
     );
-    await downloadMultipleDocumentsAsSinglePdf(selectedQuotes, customers, 'Combined_Quotes.pdf');
+    await downloadMultipleDocumentsAsSinglePdf(selectedOrderForms, customers, 'Combined_OrderForms.pdf'); // Renamed
     setIsDownloading(false);
     setRowSelection({});
   };
 
   const handleBulkConvertToInvoices = async () => {
-    const selectedQuoteIds = Object.entries(rowSelection)
+    const selectedOrderFormIds = Object.entries(rowSelection) // Renamed
       .filter(([_, isSelected]) => isSelected)
       .map(([id]) => id);
 
-    if (selectedQuoteIds.length === 0) {
-      toast({ title: "No Selection", description: "Please select quotes to convert.", variant: "destructive" });
+    if (selectedOrderFormIds.length === 0) {
+      toast({ title: "No Selection", description: "Please select order forms to convert.", variant: "destructive" });
       return;
     }
 
     setIsBulkConverting(true);
-    toast({ title: "Processing...", description: `Converting ${selectedQuoteIds.length} quote(s) to invoices.` });
+    toast({ title: "Processing...", description: `Converting ${selectedOrderFormIds.length} order form(s) to invoices.` });
 
     try {
-      const result = await convertMultipleQuotesToInvoices(selectedQuoteIds);
+      const result = await convertMultipleOrderFormsToInvoices(selectedOrderFormIds); // Corrected function name
       if (result.successCount > 0) {
-        toast({ title: "Conversion Successful", description: `${result.successCount} quote(s) converted to invoices.` });
+        toast({ title: "Conversion Successful", description: `${result.successCount} order form(s) converted to invoices.` });
       }
       if (result.errorCount > 0) {
-        toast({ title: "Conversion Partially Failed", description: `${result.errorCount} quote(s) could not be converted.`, variant: "destructive" });
+        toast({ title: "Conversion Partially Failed", description: `${result.errorCount} order form(s) could not be converted.`, variant: "destructive" });
       }
-      // Refresh current page (quotes) and potentially redirect or notify about new invoices
-      setQuotes(prev => prev.filter(q => !selectedQuoteIds.includes(q.id))); // Optimistic update or re-fetch
-      router.push('/invoices'); // Navigate to invoices page to see new invoices
+      setOrderForms(prev => prev.filter(of => !selectedOrderFormIds.includes(of.id))); 
+      router.push('/invoices'); 
     } catch (error) {
-      console.error("Error converting multiple quotes:", error);
+      console.error("Error converting multiple order forms:", error);
       toast({ title: "Bulk Conversion Error", description: "An unexpected error occurred during bulk conversion.", variant: "destructive" });
     } finally {
       setIsBulkConverting(false);
@@ -148,8 +147,7 @@ export default function QuotesPage() {
     }
   };
 
-
-  const getStatusVariant = (status: Quote['status']): "default" | "secondary" | "destructive" | "outline" => {
+  const getStatusVariant = (status: OrderForm['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case 'Accepted': return 'default'; 
       case 'Sent': return 'secondary';
@@ -161,17 +159,16 @@ export default function QuotesPage() {
   };
   const acceptedBadgeClass = "bg-primary text-primary-foreground hover:bg-primary/80";
 
-
   const columns: any[] = [ 
-    { accessorKey: 'quoteNumber', header: 'Number', cell: (row: Quote) => row.quoteNumber, size: 120 },
-    { accessorKey: 'customerName', header: 'Customer', cell: (row: Quote) => row.customerName || 'N/A', size: 200 },
-    { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: Quote) => format(new Date(row.issueDate), 'PP'), size: 120 },
-    { accessorKey: 'expiryDate', header: 'Expiry Date', cell: (row: Quote) => format(new Date(row.expiryDate), 'PP'), size: 120 },
-    { accessorKey: 'total', header: 'Total', cell: (row: Quote) => `${getCurrencySymbol(row.currencyCode)}${row.total.toFixed(2)}`, size: 100 },
+    { accessorKey: 'orderFormNumber', header: 'Number', cell: (row: OrderForm) => row.orderFormNumber, size: 120 },
+    { accessorKey: 'customerName', header: 'Customer', cell: (row: OrderForm) => row.customerName || 'N/A', size: 200 },
+    { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: OrderForm) => format(new Date(row.issueDate), 'PP'), size: 120 },
+    { accessorKey: 'validUntilDate', header: 'Valid Until', cell: (row: OrderForm) => format(new Date(row.validUntilDate), 'PP'), size: 120 }, // Renamed from expiryDate
+    { accessorKey: 'total', header: 'Total', cell: (row: OrderForm) => `${getCurrencySymbol(row.currencyCode)}${row.total.toFixed(2)}`, size: 100 },
     { 
       accessorKey: 'status', 
       header: 'Status', 
-      cell: (row: Quote) => (
+      cell: (row: OrderForm) => (
         <Badge variant={getStatusVariant(row.status)} className={row.status === 'Accepted' ? acceptedBadgeClass : ''}>
           {row.status}
         </Badge>
@@ -181,24 +178,24 @@ export default function QuotesPage() {
     {
       accessorKey: 'actions',
       header: 'Actions',
-      cell: (row: Quote) => (
+      cell: (row: OrderForm) => (
         <div className="flex space-x-1">
-          <QuotePreviewDialog 
-            quote={row} 
+          <OrderFormPreviewDialog // Renamed
+            orderForm={row} 
             trigger={
-              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Preview Quote">
+              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Preview Order Form">
                 <Eye className="h-4 w-4" />
               </Button>
             }
           />
-          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/quotes/${row.id}`); }} title="Edit Quote">
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/orderforms/${row.id}`); }} title="Edit Order Form">
             <Edit className="h-4 w-4" />
           </Button>
           <DeleteConfirmationDialog 
-            onConfirm={() => handleDeleteQuote(row.id)} 
-            itemName={`quote ${row.quoteNumber}`}
+            onConfirm={() => handleDeleteOrderForm(row.id)} 
+            itemName={`order form ${row.orderFormNumber}`}
             trigger={
-               <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Delete Quote">
+               <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Delete Order Form">
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             }
@@ -214,13 +211,13 @@ export default function QuotesPage() {
   if (loading) {
     return (
       <>
-        <AppHeader title="Quotes">
+        <AppHeader title="Order Forms"> {/* Renamed title */}
           <Skeleton className="h-10 w-36" />
         </AppHeader>
         <main className="flex-1 p-6 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>All Quotes</CardTitle>
+              <CardTitle>All Order Forms</CardTitle> {/* Renamed title */}
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -237,11 +234,11 @@ export default function QuotesPage() {
 
   return (
     <>
-      <AppHeader title="Quotes">
+      <AppHeader title="Order Forms"> {/* Renamed title */}
          {numSelected > 0 && (
           <>
             <Button onClick={handleBulkConvertToInvoices} disabled={isBulkConverting || isDownloading} variant="outline">
-                <FileSignature className="mr-2 h-4 w-4" />
+                <OrderFormIcon className="mr-2 h-4 w-4" /> {/* Changed Icon */}
                 {isBulkConverting ? `Converting ${numSelected}...` : `Convert ${numSelected} to Invoice(s)`}
             </Button>
             <DropdownMenu>
@@ -263,23 +260,23 @@ export default function QuotesPage() {
             </DropdownMenu>
           </>
         )}
-        <Link href="/quotes/new">
+        <Link href="/orderforms/new"> {/* Link to new order form */}
           <Button disabled={isBulkConverting || isDownloading}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Create Quote
+            <PlusCircle className="mr-2 h-4 w-4" /> Create Order Form {/* Button text changed */}
           </Button>
         </Link>
       </AppHeader>
       <main className="flex-1 p-4 md:p-6 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>All Quotes</CardTitle>
+            <CardTitle>All Order Forms</CardTitle> {/* Renamed title */}
           </CardHeader>
           <CardContent>
             <DataTable
               columns={columns}
-              data={quotes}
-              onRowClick={(row) => router.push(`/quotes/${row.id}`)}
-              noResultsMessage="No quotes found. Create your first quote!"
+              data={orderForms}
+              onRowClick={(row) => router.push(`/orderforms/${row.id}`)}
+              noResultsMessage="No order forms found. Create your first order form!"
               isSelectable={true}
               rowSelection={rowSelection}
               onRowSelectionChange={setRowSelection}
@@ -291,3 +288,4 @@ export default function QuotesPage() {
   );
 }
 
+    
