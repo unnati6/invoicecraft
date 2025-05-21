@@ -52,7 +52,7 @@ export function AppSidebar() {
   return (
     <Sidebar variant="sidebar" collapsible="icon">
       <SidebarHeader className="border-b">
-         <div className="flex h-14 items-center justify-center group-data-[collapsible=icon]:justify-center">
+         <div className="flex h-14 items-center justify-start group-data-[collapsible=icon]:justify-center">
             <div className="group-data-[collapsible=icon]:hidden">
                  <AppLogo />
             </div>
