@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils';
+import { getCurrencySymbol } from '@/lib/currency-utils';
 
 export default function QuotesPage() {
   const router = useRouter();
@@ -166,7 +167,7 @@ export default function QuotesPage() {
     { accessorKey: 'customerName', header: 'Customer', cell: (row: Quote) => row.customerName || 'N/A', size: 200 },
     { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: Quote) => format(new Date(row.issueDate), 'PP'), size: 120 },
     { accessorKey: 'expiryDate', header: 'Expiry Date', cell: (row: Quote) => format(new Date(row.expiryDate), 'PP'), size: 120 },
-    { accessorKey: 'total', header: 'Total', cell: (row: Quote) => `$${row.total.toFixed(2)}`, size: 100 },
+    { accessorKey: 'total', header: 'Total', cell: (row: Quote) => `${getCurrencySymbol(row.currencyCode)}${row.total.toFixed(2)}`, size: 100 },
     { 
       accessorKey: 'status', 
       header: 'Status', 

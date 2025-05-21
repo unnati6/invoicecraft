@@ -43,6 +43,7 @@ export interface Invoice {
   invoiceNumber: string;
   customerId: string; 
   customerName?: string; 
+  currencyCode?: string; // Added
   issueDate: Date;
   dueDate: Date;
   items: InvoiceItem[];
@@ -70,6 +71,7 @@ export interface Quote {
   quoteNumber: string;
   customerId: string;
   customerName?: string;
+  currencyCode?: string; // Added
   issueDate: Date;
   expiryDate: Date; 
   items: QuoteItem[];

@@ -25,6 +25,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils';
+import { getCurrencySymbol } from '@/lib/currency-utils';
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -132,7 +133,7 @@ export default function InvoicesPage() {
     { accessorKey: 'customerName', header: 'Customer', cell: (row: Invoice) => row.customerName || 'N/A', size: 200 },
     { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: Invoice) => format(new Date(row.issueDate), 'PP'), size: 120 },
     { accessorKey: 'dueDate', header: 'Due Date', cell: (row: Invoice) => format(new Date(row.dueDate), 'PP'), size: 120 },
-    { accessorKey: 'total', header: 'Total', cell: (row: Invoice) => `$${row.total.toFixed(2)}`, size: 100 },
+    { accessorKey: 'total', header: 'Total', cell: (row: Invoice) => `${getCurrencySymbol(row.currencyCode)}${row.total.toFixed(2)}`, size: 100 },
     { 
       accessorKey: 'status', 
       header: 'Status', 

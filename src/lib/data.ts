@@ -9,7 +9,7 @@ let mockCustomers: Customer[] = [
     name: 'Alice Wonderland', 
     email: 'alice@example.com', 
     phone: '123-456-7890', 
-    currency: 'INR', // Changed to INR for Alice
+    currency: 'INR',
     billingAddress: { street: '123 Rabbit Hole', city: 'Storyville', state: 'CA', zip: '90210', country: 'USA' }, 
     shippingAddress: { street: '123 Rabbit Hole', city: 'Storyville', state: 'CA', zip: '90210', country: 'USA' },
     createdAt: new Date() 
@@ -32,6 +32,7 @@ let mockInvoices: Invoice[] = [
     invoiceNumber: 'INV-001', 
     customerId: 'cust_1',
     customerName: 'Alice Wonderland',
+    currencyCode: 'INR',
     issueDate: new Date(2023, 10, 15), 
     dueDate: new Date(2023, 11, 15),
     items: [
@@ -54,6 +55,7 @@ let mockInvoices: Invoice[] = [
     invoiceNumber: 'INV-002', 
     customerId: 'cust_2',
     customerName: 'Bob The Builder',
+    currencyCode: 'GBP',
     issueDate: new Date(2023, 11, 1), 
     dueDate: new Date(2023, 12, 1),
     items: [
@@ -76,6 +78,7 @@ let mockQuotes: Quote[] = [
     quoteNumber: 'QUO-001',
     customerId: 'cust_1',
     customerName: 'Alice Wonderland',
+    currencyCode: 'INR',
     issueDate: new Date(2024, 0, 10),
     expiryDate: new Date(2024, 1, 9),
     items: [
@@ -194,24 +197,30 @@ function calculateTotalsAndCharges(
 
 // Invoice Functions
 export const getInvoices = async (): Promise<Invoice[]> => {
-  return [...mockInvoices].map(inv => ({
-    ...inv,
-    customerName: mockCustomers.find(c => c.id === inv.customerId)?.name || 'Unknown Customer'
-  }));
+  return [...mockInvoices].map(inv => {
+    const customer = mockCustomers.find(c => c.id === inv.customerId);
+    return {
+      ...inv,
+      customerName: customer?.name || 'Unknown Customer',
+      currencyCode: customer?.currency || 'USD'
+    };
+  });
 };
 
 export const getInvoiceById = async (id: string): Promise<Invoice | undefined> => {
   const invoice = mockInvoices.find(i => i.id === id);
   if (invoice) {
+    const customer = mockCustomers.find(c => c.id === invoice.customerId);
     return {
       ...invoice,
-      customerName: mockCustomers.find(c => c.id === invoice.customerId)?.name || 'Unknown Customer'
-    }
+      customerName: customer?.name || 'Unknown Customer',
+      currencyCode: customer?.currency || 'USD'
+    };
   }
   return undefined;
 };
 
-type CreateInvoiceInputData = Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges'> & 
+type CreateInvoiceInputData = Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'> & 
                              { items: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
 export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoice> => {
@@ -230,6 +239,7 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     ...data,
     id: generateId('inv'),
     customerName: customer?.name || 'Unknown Customer',
+    currencyCode: customer?.currency || 'USD',
     items: processedItems as InvoiceItem[],
     additionalCharges: processedAdditionalCharges,
     subtotal: mainItemsSubtotal,
@@ -242,7 +252,7 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
   return newInvoice;
 };
 
-type UpdateInvoiceInputData = Partial<Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges'>> & 
+type UpdateInvoiceInputData = Partial<Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'>> & 
                               { items?: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
 
@@ -251,12 +261,14 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
   if (index === -1) return null;
 
   let existingInvoice = mockInvoices[index];
-  
-  // Merge basic fields
   let updatedData = { ...existingInvoice, ...data };
 
-  // Determine which items, additional charges, and tax rate to use for recalculation
-  const itemsForCalc = data.items || existingInvoice.items.map(item => ({description: item.description, quantity: item.quantity, rate: item.rate })); // Use existing if not provided in update
+  const customerIdForLookup = data.customerId || existingInvoice.customerId;
+  const customer = mockCustomers.find(c => c.id === customerIdForLookup);
+  updatedData.customerName = customer?.name || 'Unknown Customer';
+  updatedData.currencyCode = customer?.currency || 'USD';
+  
+  const itemsForCalc = data.items || existingInvoice.items.map(item => ({description: item.description, quantity: item.quantity, rate: item.rate }));
   const additionalChargesForCalc = data.additionalCharges || existingInvoice.additionalCharges?.map(ac => ({ id: ac.id, description: ac.description, valueType: ac.valueType, value: ac.value })) || [];
   const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingInvoice.taxRate;
 
@@ -270,7 +282,7 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
 
   updatedData = {
       ...updatedData,
-      items: processedItems.map(item => ({...item, id: (data.items?.find(i => i.description === item.description)?.id || item.id || generateId('item'))  })) as InvoiceItem[], // try to preserve IDs if possible
+      items: processedItems.map(item => ({...item, id: (data.items?.find(i => i.description === item.description)?.id || item.id || generateId('item'))  })) as InvoiceItem[],
       additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description)?.id || ac.id || generateId('ac')) })),
       subtotal: mainItemsSubtotal,
       taxRate: taxRateForCalc,
@@ -278,15 +290,6 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
       total: grandTotal,
   };
   
-  if (data.customerId && data.customerId !== existingInvoice.customerId) {
-     const customer = mockCustomers.find(c => c.id === data.customerId);
-     updatedData.customerName = customer?.name || 'Unknown Customer';
-  } else if (!updatedData.customerName && updatedData.customerId) {
-    const customer = mockCustomers.find(c => c.id === updatedData.customerId);
-    updatedData.customerName = customer?.name || 'Unknown Customer';
-  }
-
-
   mockInvoices[index] = updatedData;
   return mockInvoices[index];
 };
@@ -312,24 +315,30 @@ export const getNextInvoiceNumber = async (): Promise<string> => {
 
 // Quote Functions
 export const getQuotes = async (): Promise<Quote[]> => {
-  return [...mockQuotes].map(quo => ({
-    ...quo,
-    customerName: mockCustomers.find(c => c.id === quo.customerId)?.name || 'Unknown Customer'
-  }));
+  return [...mockQuotes].map(quo => {
+    const customer = mockCustomers.find(c => c.id === quo.customerId);
+    return {
+      ...quo,
+      customerName: customer?.name || 'Unknown Customer',
+      currencyCode: customer?.currency || 'USD'
+    };
+  });
 };
 
 export const getQuoteById = async (id: string): Promise<Quote | undefined> => {
   const quote = mockQuotes.find(q => q.id === id);
   if (quote) {
+     const customer = mockCustomers.find(c => c.id === quote.customerId);
     return {
       ...quote,
-      customerName: mockCustomers.find(c => c.id === quote.customerId)?.name || 'Unknown Customer'
-    }
+      customerName: customer?.name || 'Unknown Customer',
+      currencyCode: customer?.currency || 'USD'
+    };
   }
   return undefined;
 };
 
-type CreateQuoteInputData = Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges'> & 
+type CreateQuoteInputData = Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'> & 
                            { items: Omit<QuoteItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
 export const createQuote = async (data: CreateQuoteInputData): Promise<Quote> => {
@@ -348,6 +357,7 @@ export const createQuote = async (data: CreateQuoteInputData): Promise<Quote> =>
     ...data,
     id: generateId('quo'),
     customerName: customer?.name || 'Unknown Customer',
+    currencyCode: customer?.currency || 'USD',
     items: processedItems.map(item => ({...item, id: generateId('q_item')})) as QuoteItem[],
     additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: generateId('q_ac')})),
     subtotal: mainItemsSubtotal,
@@ -360,7 +370,7 @@ export const createQuote = async (data: CreateQuoteInputData): Promise<Quote> =>
   return newQuote;
 };
 
-type UpdateQuoteInputData = Partial<Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges'>> & 
+type UpdateQuoteInputData = Partial<Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'>> & 
                             { items?: Omit<QuoteItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
 export const updateQuote = async (id: string, data: UpdateQuoteInputData): Promise<Quote | null> => {
@@ -369,6 +379,11 @@ export const updateQuote = async (id: string, data: UpdateQuoteInputData): Promi
 
   let existingQuote = mockQuotes[index];
   let updatedData = { ...existingQuote, ...data };
+
+  const customerIdForLookup = data.customerId || existingQuote.customerId;
+  const customer = mockCustomers.find(c => c.id === customerIdForLookup);
+  updatedData.customerName = customer?.name || 'Unknown Customer';
+  updatedData.currencyCode = customer?.currency || 'USD';
 
   const itemsForCalc = data.items || existingQuote.items.map(item => ({description: item.description, quantity: item.quantity, rate: item.rate }));
   const additionalChargesForCalc = data.additionalCharges || existingQuote.additionalCharges?.map(ac => ({ id: ac.id, description: ac.description, valueType: ac.valueType, value: ac.value })) || [];
@@ -392,14 +407,6 @@ export const updateQuote = async (id: string, data: UpdateQuoteInputData): Promi
       total: grandTotal,
   };
   
-  if (data.customerId && data.customerId !== existingQuote.customerId) {
-     const customer = mockCustomers.find(c => c.id === data.customerId);
-     updatedData.customerName = customer?.name || 'Unknown Customer';
-  } else if (!updatedData.customerName && updatedData.customerId) {
-    const customer = mockCustomers.find(c => c.id === updatedData.customerId);
-    updatedData.customerName = customer?.name || 'Unknown Customer';
-  }
-
   mockQuotes[index] = updatedData;
   return mockQuotes[index];
 };
