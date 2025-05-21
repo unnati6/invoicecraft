@@ -26,11 +26,10 @@ export default function SignUpPage() {
       <div className="w-full max-w-sm"> 
         <div className="mb-8 flex w-full justify-center"> 
           <Image 
-            src="https://placehold.co/200x50.png?text=YourLogo" 
-            alt="InvoiceCraft Logo" 
+            src="/revynox_logo_black.png" 
+            alt="Revynox Logo" 
             width={200} 
             height={50} 
-            data-ai-hint="logo company"
             className="dark:invert"
           />
         </div>
@@ -87,4 +86,3 @@ export default function SignUpPage() {
     </div>
   );
 }
-

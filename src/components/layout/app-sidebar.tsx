@@ -20,11 +20,10 @@ import { cn } from '@/lib/utils';
 const AppLogo = () => (
   <Link href="/invoices" className="flex items-center gap-2 px-2 py-1 text-lg font-semibold">
     <Image 
-      src="https://placehold.co/120x30.png?text=YourLogo" 
-      alt="InvoiceCraft Logo" 
+      src="/revynox_logo_black.png" 
+      alt="Revynox Logo" 
       width={120} 
       height={30} 
-      data-ai-hint="logo company" 
       className="dark:invert" 
     />
   </Link>
@@ -32,11 +31,10 @@ const AppLogo = () => (
 
 const AppIcon = () => (
    <Image 
-      src="https://placehold.co/32x32.png?text=L" 
-      alt="InvoiceCraft Icon" 
+      src="/revynox_logo_black.png" 
+      alt="Revynox Icon" 
       width={28} 
       height={28} 
-      data-ai-hint="logo icon"
       className="dark:invert"
     />
 );
@@ -108,4 +106,3 @@ export function AppSidebar() {
 }
 
 AppSidebar.displayName = "AppSidebar";
-
