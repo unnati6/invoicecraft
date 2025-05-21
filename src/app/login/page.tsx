@@ -22,7 +22,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-      <div className="mb-8">
+      <div className="mb-8 flex justify-center">
         <Image 
           src="https://placehold.co/200x50.png?text=YourLogo" 
           alt="InvoiceCraft Logo" 
