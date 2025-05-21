@@ -14,7 +14,7 @@ import {
   ListOrdered,
   Pilcrow,
   Type as FontIcon,
-  Tags, // Added Tags icon
+  Tags,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -107,8 +107,12 @@ const dataTags = [
   { label: 'Shipping: Country', value: '{{customerShippingAddress.country}}' },
   { label: 'Document Number', value: '{{documentNumber}}' },
   { label: 'Issue Date', value: '{{issueDate}}' },
-  { label: 'Due Date / Expiry Date', value: '{{dueDate}}' },
+  { label: 'Due Date / Valid Until / Expiry Date', value: '{{dueDate}}' }, // Combined for generic use
   { label: 'Total Amount', value: '{{totalAmount}}' },
+  { label: 'Payment Terms', value: '{{paymentTerms}}' },
+  { label: 'Commitment Period', value: '{{commitmentPeriod}}' },
+  { label: 'Service Start Date', value: '{{serviceStartDate}}' },
+  { label: 'Service End Date', value: '{{serviceEndDate}}' },
   { label: 'Signature Panel', value: '{{signaturePanel}}' },
 ];
 
@@ -182,7 +186,10 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
   const fontSizes = ["8pt", "10pt", "12pt", "14pt", "16pt", "18pt", "20pt", "22pt", "24pt"];
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-input p-2 bg-background rounded-t-md">
+    <div className={cn(
+      "flex flex-wrap items-center gap-1 border-b border-input p-2 bg-background rounded-t-md",
+      "sticky top-16 z-10" // Added sticky positioning
+    )}>
       {basicFormattingItems.map((item) => (
         <Button
           key={item.label}
@@ -287,7 +294,6 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
   });
 
   React.useEffect(() => {
-    // Ensure editor is not destroyed before accessing it
     if (editor && !editor.isDestroyed && value !== editor.getHTML()) {
       editor.commands.setContent(value, false);
     }
@@ -310,7 +316,6 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
 
 RichTextEditor.displayName = 'RichTextEditor';
 
-// Extend Tiptap Editor interface to include our custom commands
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     fontSizeMark: {
