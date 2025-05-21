@@ -12,6 +12,17 @@ import rehypeRaw from 'rehype-raw';
 const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
 const SIGNATURE_STORAGE_KEY = 'branding_company_signature_data_url';
 
+const COMPANY_INFO_KEYS = {
+  NAME: 'branding_company_name',
+  ADDRESS_STREET: 'branding_company_address_street',
+  ADDRESS_CITY: 'branding_company_address_city',
+  ADDRESS_STATE: 'branding_company_address_state',
+  ADDRESS_ZIP: 'branding_company_address_zip',
+  ADDRESS_COUNTRY: 'branding_company_address_country',
+  PHONE: 'branding_company_phone',
+  EMAIL: 'branding_company_email',
+};
+
 interface InvoicePreviewContentProps {
   document: Invoice;
   customer?: Customer;
@@ -48,7 +59,7 @@ function replacePlaceholders(
   };
 
   for (const placeholder in placeholders) {
-    const tag = placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); // Escape for regex
+    const tag = placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); 
     const value = placeholders[placeholder]();
     processedContent = processedContent.replace(new RegExp(tag, 'g'), value || '');
   }
@@ -95,17 +106,56 @@ function replacePlaceholders(
 export function InvoicePreviewContent({ document: invoice, customer }: InvoicePreviewContentProps) {
   const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
   const [companySignatureUrl, setCompanySignatureUrl] = _React.useState<string | null>(null);
+  const [yourCompany, setYourCompany] = _React.useState({
+    name: 'Your Awesome Company LLC',
+    addressLine1: '456 Innovation Drive',
+    addressLine2: 'Suite 100, Tech City, TX 75001',
+    email: 'billing@yourcompany.com',
+    phone: '(555) 123-4567'
+  });
+
 
    _React.useEffect(() => {
-    const storedLogo = typeof window !== 'undefined' ? localStorage.getItem(LOGO_STORAGE_KEY) : null;
-    if (storedLogo) {
-      setCompanyLogoUrl(storedLogo);
+    const isClient = typeof window !== 'undefined';
+    if (isClient) {
+      const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
+      if (storedLogo) {
+        setCompanyLogoUrl(storedLogo);
+      }
+      const storedSignature = localStorage.getItem(SIGNATURE_STORAGE_KEY);
+      if (storedSignature) {
+        setCompanySignatureUrl(storedSignature);
+      }
+
+      const name = localStorage.getItem(COMPANY_INFO_KEYS.NAME) || yourCompany.name;
+      const street = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_STREET) || '';
+      const city = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_CITY) || '';
+      const state = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_STATE) || '';
+      const zip = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_ZIP) || '';
+      const country = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_COUNTRY) || '';
+      const phone = localStorage.getItem(COMPANY_INFO_KEYS.PHONE) || yourCompany.phone;
+      const email = localStorage.getItem(COMPANY_INFO_KEYS.EMAIL) || yourCompany.email;
+
+      let addressLine1 = street;
+      let addressLine2 = `${city}${city && (state || zip || country) ? ', ' : ''}${state} ${zip}${zip && country ? ', ' : ''}${country}`.trim();
+      if (!addressLine1 && addressLine2) {
+        addressLine1 = addressLine2;
+        addressLine2 = '';
+      } else if (addressLine1 && !addressLine2 && (city || state || zip || country)) {
+         // if only street is present, but city/state/zip/country also, then combine them to line 2
+         // this might not be the most robust logic for all address formats
+      }
+
+
+      setYourCompany({
+        name,
+        addressLine1: addressLine1 || 'Your Address Line 1',
+        addressLine2: addressLine2.length > 0 ? addressLine2 : 'City, State, Zip, Country',
+        phone,
+        email,
+      });
     }
-    const storedSignature = typeof window !== 'undefined' ? localStorage.getItem(SIGNATURE_STORAGE_KEY) : null;
-    if (storedSignature) {
-      setCompanySignatureUrl(storedSignature);
-    }
-  }, []);
+  }, [yourCompany.name, yourCompany.phone, yourCompany.email]);
 
 
   const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
@@ -118,20 +168,8 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 
 
   const currencySymbol = getCurrencySymbol(customerToDisplay.currency);
-
-  const yourCompany = {
-    logoUrl: companyLogoUrl,
-    name: 'Your Awesome Company LLC',
-    addressLine1: '456 Innovation Drive',
-    addressLine2: 'Suite 100, Tech City, TX 75001',
-    email: 'billing@yourcompany.com',
-    phone: '(555) 123-4567'
-  };
-
   const partnerLogoUrl = 'https://placehold.co/150x50.png';
-
   const totalAdditionalChargesValue = invoice.additionalCharges?.reduce((sum, charge) => sum + charge.calculatedAmount, 0) || 0;
-
   const hasShippingAddress = customerToDisplay.shippingAddress &&
                              (customerToDisplay.shippingAddress.street ||
                               customerToDisplay.shippingAddress.city);
@@ -140,12 +178,11 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
-      {/* Header with Your Company Logo & Details */}
       <div className="flex justify-between items-start mb-10">
         <div className="w-1/2">
-          {yourCompany.logoUrl ? (
+          {companyLogoUrl ? (
             <Image
-              src={yourCompany.logoUrl}
+              src={companyLogoUrl}
               alt={`${yourCompany.name} Logo`}
               width={180}
               height={54}
@@ -169,7 +206,6 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         </div>
       </div>
 
-      {/* Bill To, Ship To and Dates */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
         <div className="md:col-span-1">
           <h3 className="font-semibold mb-1 text-muted-foreground">BILL TO:</h3>
@@ -206,7 +242,6 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         </div>
       </div>
 
-      {/* Items Table */}
       <div className="mb-4">
         <table className="w-full border-collapse">
           <thead className="bg-muted/50">
@@ -230,7 +265,6 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         </table>
       </div>
 
-      {/* Additional Charges Table */}
       {invoice.additionalCharges && invoice.additionalCharges.length > 0 && (
         <div className="mb-8">
           <table className="w-full border-collapse">
@@ -249,7 +283,6 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         </div>
       )}
 
-      {/* Partner Logo Section */}
       {partnerLogoUrl && (
         <div className="mb-8 mt-4 py-4 border-t border-b border-dashed">
             <div className="flex justify-start">
@@ -265,7 +298,6 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         </div>
       )}
 
-      {/* Totals */}
       <div className="flex justify-end mb-8">
         <div className="w-full max-w-xs space-y-2">
           <div className="flex justify-between">
@@ -289,7 +321,6 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         </div>
       </div>
 
-      {/* Terms and Conditions */}
       {processedTermsAndConditions && (
         <div className="mb-8 prose prose-sm max-w-none">
           <h3 className="font-semibold mb-2 text-muted-foreground">Terms & Conditions:</h3>
@@ -299,11 +330,10 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         </div>
       )}
 
-      {/* Signature Section */}
       <div className="mt-12 pt-8 border-t">
         <div className="grid grid-cols-2 gap-8">
             <div>
-                <p className="font-semibold mb-1">Authorized Signature (Your Company):</p>
+                <p className="font-semibold mb-1">Authorized Signature ({yourCompany.name}):</p>
                 {companySignatureUrl ? (
                   <div className="relative h-20 mb-2">
                     <Image
@@ -327,7 +357,6 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         </div>
       </div>
 
-      {/* Footer Note */}
       <div className="text-center text-sm text-muted-foreground mt-12">
         <p>Thank you for your business! Questions? Contact {yourCompany.email}</p>
       </div>
@@ -336,5 +365,3 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 }
 
 InvoicePreviewContent.displayName = "InvoicePreviewContent";
-
-    
