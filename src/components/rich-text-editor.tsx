@@ -109,7 +109,7 @@ const dataTags = [
   { label: 'Shipping: Country', value: '{{customerShippingAddress.country}}' },
   { label: 'Document Number', value: '{{documentNumber}}' },
   { label: 'Issue Date', value: '{{issueDate}}' },
-  { label: 'Due Date / Valid Until / Expiry Date', value: '{{dueDate}}' },
+  { label: 'Due Date / Valid Until / Expiry Date', value: '{{dueDate}}' }, // Using a generic name for due/expiry/valid until
   { label: 'Total Amount', value: '{{totalAmount}}' },
   { label: 'Payment Terms', value: '{{paymentTerms}}' },
   { label: 'Commitment Period', value: '{{commitmentPeriod}}' },
@@ -308,6 +308,12 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
       editor.commands.setContent(value, false);
     }
   }, [value, editor]);
+
+  React.useEffect(() => {
+    if(editor) {
+      editor.setEditable(!disabled);
+    }
+  }, [disabled, editor]);
 
   return (
     <div className="rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
