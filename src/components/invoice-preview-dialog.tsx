@@ -1,6 +1,7 @@
 
 'use client';
 
+import * as React from 'react';
 import type { ReactNode } from 'react';
 import {
   Dialog,
@@ -17,22 +18,52 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Invoice, Customer } from '@/types';
 import { Download, Printer, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { downloadInvoiceAsExcel } from '@/lib/actions';
-import { useState } from 'react';
+import { downloadInvoiceAsExcel, fetchCustomerById } from '@/lib/actions'; // Added fetchCustomerById
+import { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { InvoicePreviewContent } from './invoice-preview-content'; // Import the content component
+import { InvoicePreviewContent } from './invoice-preview-content';
 
 interface InvoicePreviewDialogProps {
   invoice: Invoice;
-  customer?: Customer; // Optional, if you fetch customer details separately
+  customer?: Customer; 
   trigger: ReactNode;
 }
 
-export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePreviewDialogProps) {
+export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initialCustomer, trigger }: InvoicePreviewDialogProps) {
   const { toast } = useToast();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
+  const [invoice, setInvoice] = useState<Invoice>(initialInvoice);
+  const [customer, setCustomer] = useState<Customer | undefined>(initialCustomer);
+  const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+
+  useEffect(() => {
+    setInvoice(initialInvoice);
+    setCustomer(initialCustomer);
+  }, [initialInvoice, initialCustomer]);
+
+  useEffect(() => {
+    const loadCustomerDetails = async () => {
+      if (invoice.customerId && !customer) {
+        setIsLoadingCustomer(true);
+        try {
+          const fetchedCustomer = await fetchCustomerById(invoice.customerId);
+          setCustomer(fetchedCustomer);
+        } catch (error) {
+          console.error("Failed to fetch customer for preview dialog:", error);
+          toast({ title: "Error", description: "Could not load customer details for preview.", variant: "destructive" });
+        } finally {
+          setIsLoadingCustomer(false);
+        }
+      }
+    };
+
+    if (invoice.customerId && !customer) {
+        loadCustomerDetails();
+    }
+  }, [invoice.customerId, customer, toast]);
+
 
   const handleDownload = async (type: 'pdf' | 'excel') => {
     const setLoading = type === 'pdf' ? setIsDownloadingPdf : setIsDownloadingExcel;
@@ -43,13 +74,12 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
     
     try {
       if (type === 'pdf') {
-        const input = document.getElementById('invoicePrintAreaDialog'); // Use a unique ID for the dialog's print area
+        const input = document.getElementById('invoicePrintAreaDialog'); 
         if (!input) {
           toast({ title: 'Error', description: 'Preview content not found for PDF generation.', variant: 'destructive' });
           setLoading(false);
           return;
         }
-        // Ensure content is fully rendered - a small delay can sometimes help with complex layouts or images
         await new Promise(resolve => setTimeout(resolve, 200));
 
         const canvas = await html2canvas(input, { scale: 2, useCORS: true, logging: false }); 
@@ -91,19 +121,6 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
     }
   };
   
-  // Prepare customer data for the InvoicePreviewContent component
-  const customerToDisplay = customer || { 
-    name: invoice.customerName || 'N/A', 
-    email: 'N/A', 
-    address: undefined 
-  };
-  if (customer) { // Ensure full customer details are used if provided
-    customerToDisplay.name = customer.name;
-    customerToDisplay.email = customer.email;
-    customerToDisplay.address = customer.address;
-  }
-
-
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -113,16 +130,21 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
           <DialogDescription>Review the invoice details below. PDF download will generate a PDF from this preview. Excel download provides a CSV file.</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] p-1 pr-6">
-          {/* Use the InvoicePreviewContent component here */}
-          <div id="invoicePrintAreaDialog"> {/* Unique ID for html2canvas targeting within dialog */}
-            <InvoicePreviewContent document={invoice} customer={customerToDisplay} />
-          </div>
+          {isLoadingCustomer ? (
+            <div className="flex justify-center items-center h-64">
+              <p>Loading customer details...</p>
+            </div>
+          ) : (
+            <div id="invoicePrintAreaDialog">
+              <InvoicePreviewContent document={invoice} customer={customer} />
+            </div>
+          )}
         </ScrollArea>
         <DialogFooter className="sm:justify-start gap-2 pt-4">
-          <Button onClick={() => handleDownload('pdf')} disabled={isDownloadingPdf}>
+          <Button onClick={() => handleDownload('pdf')} disabled={isDownloadingPdf || isLoadingCustomer}>
             <Download className="mr-2 h-4 w-4" /> {isDownloadingPdf ? 'Downloading...' : 'Download PDF'}
           </Button>
-          <Button onClick={() => handleDownload('excel')} variant="outline" disabled={isDownloadingExcel}>
+          <Button onClick={() => handleDownload('excel')} variant="outline" disabled={isDownloadingExcel || isLoadingCustomer}>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> {isDownloadingExcel ? 'Downloading...' : 'Download Excel'}
           </Button>
           <Button variant="outline" onClick={() => {
@@ -148,7 +170,9 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
                 printWindow?.document.close();
                 printWindow?.print();
              }
-          }}>
+          }}
+          disabled={isLoadingCustomer}
+          >
             <Printer className="mr-2 h-4 w-4" /> Print
           </Button>
           <DialogClose asChild>

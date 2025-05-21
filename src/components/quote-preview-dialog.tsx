@@ -1,6 +1,7 @@
 
 'use client';
 
+import * as React from 'react';
 import type { ReactNode } from 'react';
 import {
   Dialog,
@@ -17,11 +18,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Quote, Customer } from '@/types';
 import { Download, Printer, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { downloadQuoteAsExcel } from '@/lib/actions';
-import { useState } from 'react';
+import { downloadQuoteAsExcel, fetchCustomerById } from '@/lib/actions'; // Added fetchCustomerById
+import { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { QuotePreviewContent } from './quote-preview-content'; // Import the content component
+import { QuotePreviewContent } from './quote-preview-content';
 
 interface QuotePreviewDialogProps {
   quote: Quote;
@@ -29,10 +30,38 @@ interface QuotePreviewDialogProps {
   trigger: ReactNode;
 }
 
-export function QuotePreviewDialog({ quote, customer, trigger }: QuotePreviewDialogProps) {
+export function QuotePreviewDialog({ quote: initialQuote, customer: initialCustomer, trigger }: QuotePreviewDialogProps) {
   const { toast } = useToast();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
+  const [quote, setQuote] = useState<Quote>(initialQuote);
+  const [customer, setCustomer] = useState<Customer | undefined>(initialCustomer);
+  const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+
+  useEffect(() => {
+    setQuote(initialQuote);
+    setCustomer(initialCustomer);
+  }, [initialQuote, initialCustomer]);
+
+  useEffect(() => {
+    const loadCustomerDetails = async () => {
+      if (quote.customerId && !customer) {
+        setIsLoadingCustomer(true);
+        try {
+          const fetchedCustomer = await fetchCustomerById(quote.customerId);
+          setCustomer(fetchedCustomer);
+        } catch (error) {
+          console.error("Failed to fetch customer for preview dialog:", error);
+          toast({ title: "Error", description: "Could not load customer details for preview.", variant: "destructive" });
+        } finally {
+          setIsLoadingCustomer(false);
+        }
+      }
+    };
+    if (quote.customerId && !customer) {
+        loadCustomerDetails();
+    }
+  }, [quote.customerId, customer, toast]);
 
   const handleDownload = async (type: 'pdf' | 'excel') => {
     const setLoading = type === 'pdf' ? setIsDownloadingPdf : setIsDownloadingExcel;
@@ -43,13 +72,12 @@ export function QuotePreviewDialog({ quote, customer, trigger }: QuotePreviewDia
     
     try {
       if (type === 'pdf') {
-        const input = document.getElementById('quotePrintAreaDialog'); // Use a unique ID for the dialog's print area
+        const input = document.getElementById('quotePrintAreaDialog'); 
         if (!input) {
           toast({ title: 'Error', description: 'Preview content not found for PDF generation.', variant: 'destructive' });
           setLoading(false);
           return;
         }
-        // Ensure content is fully rendered
         await new Promise(resolve => setTimeout(resolve, 200));
 
         const canvas = await html2canvas(input, { scale: 2, useCORS: true, logging: false });
@@ -91,18 +119,6 @@ export function QuotePreviewDialog({ quote, customer, trigger }: QuotePreviewDia
     }
   };
   
-  // Prepare customer data for the QuotePreviewContent component
-  const customerToDisplay = customer || { 
-    name: quote.customerName || 'N/A', 
-    email: 'N/A', 
-    address: undefined 
-  };
-   if (customer) { // Ensure full customer details are used if provided
-    customerToDisplay.name = customer.name;
-    customerToDisplay.email = customer.email;
-    customerToDisplay.address = customer.address;
-  }
-
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -112,16 +128,21 @@ export function QuotePreviewDialog({ quote, customer, trigger }: QuotePreviewDia
           <DialogDescription>Review the quote details below. PDF download will generate a PDF from this preview. Excel download provides a CSV file.</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] p-1 pr-6">
-          {/* Use the QuotePreviewContent component here */}
-           <div id="quotePrintAreaDialog"> {/* Unique ID for html2canvas targeting within dialog */}
-            <QuotePreviewContent document={quote} customer={customerToDisplay} />
+           {isLoadingCustomer ? (
+            <div className="flex justify-center items-center h-64">
+              <p>Loading customer details...</p>
+            </div>
+           ) : (
+           <div id="quotePrintAreaDialog"> 
+            <QuotePreviewContent document={quote} customer={customer} />
           </div>
+          )}
         </ScrollArea>
         <DialogFooter className="sm:justify-start gap-2 pt-4">
-          <Button onClick={() => handleDownload('pdf')} disabled={isDownloadingPdf}>
+          <Button onClick={() => handleDownload('pdf')} disabled={isDownloadingPdf || isLoadingCustomer}>
             <Download className="mr-2 h-4 w-4" /> {isDownloadingPdf ? 'Downloading...' : 'Download PDF'}
           </Button>
-          <Button onClick={() => handleDownload('excel')} variant="outline" disabled={isDownloadingExcel}>
+          <Button onClick={() => handleDownload('excel')} variant="outline" disabled={isDownloadingExcel || isLoadingCustomer}>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> {isDownloadingExcel ? 'Downloading...' : 'Download Excel'}
           </Button>
           <Button variant="outline" onClick={() => {
@@ -147,7 +168,9 @@ export function QuotePreviewDialog({ quote, customer, trigger }: QuotePreviewDia
                 printWindow?.document.close();
                 printWindow?.print();
              }
-          }}>
+          }}
+          disabled={isLoadingCustomer}
+          >
             <Printer className="mr-2 h-4 w-4" /> Print
           </Button>
           <DialogClose asChild>

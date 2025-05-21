@@ -32,21 +32,22 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
   }, []);
 
 
-  const customerToDisplay = customer || {
+  const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
     name: invoice.customerName || 'N/A',
-    email: 'N/A',
+    email: 'N/A', // Placeholder, should be updated if customer object is present
     billingAddress: undefined,
     shippingAddress: undefined,
-    currency: 'USD'
+    currency: 'USD' // Default currency
   };
 
   if (customer) {
     customerToDisplay.name = customer.name;
     customerToDisplay.email = customer.email;
-    customerToDisplay.currency = customer.currency || 'USD';
+    customerToDisplay.currency = customer.currency || 'USD'; // Use customer's currency, fallback to USD
     customerToDisplay.billingAddress = customer.billingAddress;
     customerToDisplay.shippingAddress = customer.shippingAddress;
   }
+
 
   const currencySymbol = getCurrencySymbol(customerToDisplay.currency);
 
@@ -162,7 +163,7 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
       {/* Additional Charges Table */}
       {invoice.additionalCharges && invoice.additionalCharges.length > 0 && (
         <div className="mb-8">
-          <h3 className="font-semibold mb-2 text-muted-foreground text-sm">Additional Charges:</h3>
+          {/* Removed: <h3 className="font-semibold mb-2 text-muted-foreground text-sm">Additional Charges:</h3> */}
           <table className="w-full border-collapse">
             <tbody>
               {invoice.additionalCharges.map((charge) => (
@@ -182,8 +183,8 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
       {/* Partner Logo Section */}
       {partnerLogoUrl && (
         <div className="mb-8 mt-4 py-4 border-t border-b border-dashed">
-            <p className="text-xs text-muted-foreground mb-2 text-center">In partnership with:</p>
-            <div className="flex justify-center">
+            {/* Removed: <p className="text-xs text-muted-foreground mb-2 text-center">In partnership with:</p> */}
+            <div className="flex justify-start"> {/* Changed justify-center to justify-start */}
                 <Image
                     src={partnerLogoUrl}
                     alt="Partner Logo"
