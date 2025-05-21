@@ -12,10 +12,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription, // Added FormDescription
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription as CardDesc } from '@/components/ui/card'; // Aliased CardDescription to avoid conflict
 import { RichTextEditor } from '@/components/rich-text-editor';
 import { msaTemplateSchema, type MsaTemplateFormData } from '@/lib/schemas';
 import type { MsaTemplate } from '@/types';
@@ -43,9 +44,9 @@ export function MsaTemplateForm({ onSubmit, initialData, isSubmitting = false }:
         <Card>
           <CardHeader>
             <CardTitle>{initialData ? 'Edit MSA Template' : 'Create New MSA Template'}</CardTitle>
-            <CardDescription>
+            <CardDesc> {/* Used aliased CardDesc */}
               {initialData ? 'Modify the details of your Master Service Agreement template.' : 'Define a reusable Master Service Agreement template.'}
-            </CardDescription>
+            </CardDesc>
           </CardHeader>
           <CardContent className="space-y-6">
             <FormField
