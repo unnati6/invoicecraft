@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -9,13 +10,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Eye, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Eye, Trash2, ChevronDown } from 'lucide-react';
 import type { Invoice } from '@/types';
 import { getAllInvoices, removeInvoice } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -50,14 +57,13 @@ export default function InvoicesPage() {
 
   const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-      case 'Paid': return 'default'; // Default (primary) often green-ish in themes or use custom variant
+      case 'Paid': return 'default'; 
       case 'Sent': return 'secondary';
       case 'Overdue': return 'destructive';
       case 'Draft': return 'outline';
       default: return 'outline';
     }
   };
-  // Custom color for 'Paid' badge
   const paidBadgeClass = "bg-accent text-accent-foreground hover:bg-accent/80";
 
 
@@ -112,11 +118,7 @@ export default function InvoicesPage() {
     return (
       <>
         <AppHeader title="Invoices">
-          <Link href="/invoices/new">
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" /> Create Invoice
-            </Button>
-          </Link>
+          <Skeleton className="h-10 w-36" />
         </AppHeader>
         <main className="flex-1 p-6 space-y-6">
           <Card>
@@ -139,11 +141,21 @@ export default function InvoicesPage() {
   return (
     <>
       <AppHeader title="Invoices">
-        <Link href="/invoices/new">
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Create Invoice
-          </Button>
-        </Link>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" /> Create New <ChevronDown className="ml-2 h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => router.push('/invoices/new')}>
+              Create Invoice
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push('/quotes/new')}>
+              Create Quote
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </AppHeader>
       <main className="flex-1 p-4 md:p-6 space-y-6">
         <Card>
