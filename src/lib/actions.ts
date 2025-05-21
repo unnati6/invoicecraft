@@ -29,7 +29,6 @@ export async function saveCustomer(data: CustomerFormData, id?: string): Promise
     const newCustomer = await Data.createCustomer(data);
     if (newCustomer) {
       revalidatePath('/customers');
-      // No specific detail page for new customer to revalidate immediately, list is enough
     }
     return newCustomer;
   }
@@ -62,7 +61,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     items: data.items, 
   };
 
-  if (id) { // Updating existing invoice
+  if (id) { 
     const existingInvoice = await Data.getInvoiceById(id);
     if (!existingInvoice) return null;
 
@@ -73,16 +72,16 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
 
     const updated = await Data.updateInvoice(id, finalData);
     if (updated) {
-      revalidatePath('/invoices'); // List page
-      revalidatePath(`/invoices/${id}`); // Detail page
-      revalidatePath(`/invoices/${id}/terms`); // Terms page
+      revalidatePath('/invoices'); 
+      revalidatePath(`/invoices/${id}`); 
+      revalidatePath(`/invoices/${id}/terms`); 
     }
     return updated;
-  } else { // Creating new invoice
+  } else { 
     const newInvoice = await Data.createInvoice(invoiceDataCore);
     if (newInvoice) {
-      revalidatePath('/invoices'); // List page
-      revalidatePath(`/invoices/${newInvoice.id}`); // New detail page
+      revalidatePath('/invoices'); 
+      revalidatePath(`/invoices/${newInvoice.id}`); 
     }
     return newInvoice;
   }
@@ -132,7 +131,7 @@ export async function saveQuote(data: QuoteFormData, id?: string): Promise<Quote
     items: data.items,
   };
 
-  if (id) { // Updating existing quote
+  if (id) { 
     const existingQuote = await Data.getQuoteById(id);
     if (!existingQuote) return null;
 
@@ -143,16 +142,16 @@ export async function saveQuote(data: QuoteFormData, id?: string): Promise<Quote
 
     const updated = await Data.updateQuote(id, finalData);
     if (updated) {
-      revalidatePath('/quotes'); // List page
-      revalidatePath(`/quotes/${id}`); // Detail page
-      revalidatePath(`/quotes/${id}/terms`); // Terms page
+      revalidatePath('/quotes'); 
+      revalidatePath(`/quotes/${id}`); 
+      revalidatePath(`/quotes/${id}/terms`); 
     }
     return updated;
-  } else { // Creating new quote
+  } else { 
     const newQuote = await Data.createQuote(quoteDataCore);
     if(newQuote) {
-      revalidatePath('/quotes'); // List page
-      revalidatePath(`/quotes/${newQuote.id}`); // New detail page
+      revalidatePath('/quotes'); 
+      revalidatePath(`/quotes/${newQuote.id}`); 
     }
     return newQuote;
   }
@@ -194,7 +193,7 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice | 
     customerId: quote.customerId,
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
-    dueDate: addDays(new Date(), 30), // Default due date 30 days from now
+    dueDate: addDays(new Date(), 30), 
     items: quote.items.map(item => ({ 
       description: item.description,
       quantity: item.quantity,
@@ -208,11 +207,12 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice | 
   const newInvoice = await Data.createInvoice(newInvoiceData);
 
   if (newInvoice) {
-    revalidatePath('/invoices'); // Invoice list page
-    revalidatePath(`/quotes/${quoteId}`); // Original quote page
-    revalidatePath(`/invoices/${newInvoice.id}`); // New invoice detail page
-    // Optionally, update quote status to 'Accepted' or 'Converted'
-    // await Data.updateQuote(quoteId, { status: 'Accepted' }); 
+    // Update quote status to 'Accepted' (or 'Converted') after successful invoice creation
+    await Data.updateQuote(quoteId, { status: 'Accepted' });
+    revalidatePath('/invoices'); 
+    revalidatePath(`/invoices/${newInvoice.id}`); 
+    revalidatePath('/quotes');
+    revalidatePath(`/quotes/${quoteId}`); 
   } else {
     console.error('Failed to create invoice from quote:', quoteId);
   }
@@ -220,8 +220,29 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice | 
   return newInvoice;
 }
 
+export async function convertMultipleQuotesToInvoices(quoteIds: string[]): Promise<{ successCount: number; errorCount: number; newInvoiceIds: string[] }> {
+  let successCount = 0;
+  let errorCount = 0;
+  const newInvoiceIds: string[] = [];
 
-// Helper to escape CSV fields
+  for (const quoteId of quoteIds) {
+    const newInvoice = await convertQuoteToInvoice(quoteId);
+    if (newInvoice) {
+      successCount++;
+      newInvoiceIds.push(newInvoice.id);
+    } else {
+      errorCount++;
+    }
+  }
+  // Revalidate paths once after all conversions
+  if (successCount > 0) {
+    revalidatePath('/invoices');
+    revalidatePath('/quotes');
+  }
+  return { successCount, errorCount, newInvoiceIds };
+}
+
+
 const escapeCsvField = (field: string | number | undefined | null): string => {
   if (field === undefined || field === null) return '';
   const str = String(field);

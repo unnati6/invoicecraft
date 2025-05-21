@@ -1,29 +1,26 @@
 
-'use client'; // This utility will be used client-side
+'use client'; 
 
-import React from 'react'; // Import React
+import React from 'react'; 
 import ReactDOM from 'react-dom/client';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import type { Invoice, Quote, Customer } from '@/types';
 import { InvoicePreviewContent } from '@/components/invoice-preview-content';
 import { QuotePreviewContent } from '@/components/quote-preview-content';
-import { Toaster } from '@/components/ui/toaster'; // For toast notifications
-import { toast } from '@/hooks/use-toast'; // For toast notifications
+import { toast } from '@/hooks/use-toast'; 
 
-// Helper function to introduce a delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function downloadPdfForDocument(doc: Invoice | Quote, customer?: Customer): Promise<void> {
+  const hiddenContainerId = `pdf-render-area-temp-${doc.id}-${Math.random().toString(36).substring(2,7)}`;
   const hiddenContainer = document.createElement('div');
-  hiddenContainer.id = `pdf-render-area-temp-${doc.id}`; // Unique ID for the temporary div
+  hiddenContainer.id = hiddenContainerId;
   hiddenContainer.style.position = 'fixed';
   hiddenContainer.style.left = '-9999px';
   hiddenContainer.style.top = '-9999px';
-  hiddenContainer.style.width = '800px'; // A4-ish width, adjust as needed
-  hiddenContainer.style.background = 'white'; // Ensures html2canvas captures background
-  // Apply global CSS variables for theming, if necessary, by adding a class or inline styles
-  // For simplicity, we assume Tailwind classes in PreviewContent components handle styling.
+  hiddenContainer.style.width = '800px'; 
+  hiddenContainer.style.background = 'white'; 
   document.body.appendChild(hiddenContainer);
 
   const root = ReactDOM.createRoot(hiddenContainer);
@@ -31,54 +28,153 @@ export async function downloadPdfForDocument(doc: Invoice | Quote, customer?: Cu
   const PreviewComponent = isInvoice ? InvoicePreviewContent : QuotePreviewContent;
   const docNumber = isInvoice ? doc.invoiceNumber : doc.quoteNumber;
   const docType = isInvoice ? 'Invoice' : 'Quote';
-
-  // Wrap PreviewComponent with a basic Theme provider if your components rely on context for styling
-  // For now, we'll render directly. Ensure globals.css provides necessary base styles.
-  // Include Toaster here if PreviewComponent uses useToast, though it's better if it doesn't directly.
   
-  // Render the component into the hidden div
-  // Use a promise to wait for the render to complete (using a timeout as a proxy for next tick)
   await new Promise<void>((resolveRender) => {
     root.render(
       React.createElement(
-        React.StrictMode, // Using StrictMode for development checks
+        React.StrictMode, 
         null,
         React.createElement(PreviewComponent, { document: doc as any, customer: customer as any } as any)
       )
     );
-    // Wait for the next tick for the DOM to update properly before capturing
-    setTimeout(resolveRender, 100); // Small delay for rendering
+    setTimeout(resolveRender, 100); 
   });
 
   try {
     const canvas = await html2canvas(hiddenContainer, { 
-      scale: 2, // Improves quality
-      useCORS: true, // If you have external images
-      logging: false, // Reduce console noise
-      // Ensure styles are loaded. If you have complex CSS-in-JS or async styles, this might need more handling.
+      scale: 2, 
+      useCORS: true, 
+      logging: false, 
     });
     const imgData = canvas.toDataURL('image/png');
     
-    // Calculate PDF dimensions based on canvas content
     const pdfWidth = canvas.width;
     const pdfHeight = canvas.height;
 
     const pdf = new jsPDF({
       orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
-      unit: 'pt', // Using points to match canvas dimensions
+      unit: 'pt', 
       format: [pdfWidth, pdfHeight],
     });
 
     pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
     pdf.save(`${docType}_${docNumber}.pdf`);
-    toast({ title: 'Success', description: `${docType} ${docNumber} downloaded.` });
+    toast({ title: 'Success', description: `${docType} ${docNumber} PDF downloaded.` });
 
   } catch (error) {
     console.error(`Error generating PDF for ${docType} ${docNumber}:`, error);
     toast({ title: 'Error', description: `Failed to generate PDF for ${docType} ${docNumber}.`, variant: 'destructive' });
   } finally {
-    // Cleanup: Unmount the React component and remove the hidden div
     root.unmount();
-    document.body.removeChild(hiddenContainer);
+    if (document.getElementById(hiddenContainerId)) {
+        document.body.removeChild(document.getElementById(hiddenContainerId)!);
+    }
   }
 }
+
+
+export async function downloadMultipleDocumentsAsSinglePdf(
+  docs: (Invoice | Quote)[],
+  customers: (Customer | undefined)[], 
+  combinedFileName: string
+): Promise<void> {
+  if (docs.length === 0) {
+    toast({ title: "No documents", description: "No documents selected for combined PDF.", variant: "destructive" });
+    return;
+  }
+
+  const pdf = new jsPDF({
+    orientation: 'p', 
+    unit: 'pt',
+    format: 'a4' // Use a standard format for consistency
+  });
+  let isFirstPage = true;
+
+  const hiddenContainerId = `pdf-render-area-combined-temp-${Math.random().toString(36).substring(2,7)}`;
+  const hiddenContainer = document.createElement('div');
+  hiddenContainer.id = hiddenContainerId;
+  hiddenContainer.style.position = 'fixed';
+  hiddenContainer.style.left = '-9999px'; 
+  hiddenContainer.style.top = '-9999px';
+  hiddenContainer.style.width = '800px'; 
+  hiddenContainer.style.background = 'white';
+  document.body.appendChild(hiddenContainer);
+  
+  const root = ReactDOM.createRoot(hiddenContainer);
+
+  toast({ title: 'Processing...', description: `Generating combined PDF for ${docs.length} documents... This may take a moment.` });
+
+  try {
+    for (let i = 0; i < docs.length; i++) {
+      const doc = docs[i];
+      const customer = customers[i]; 
+      const isInvoice = 'invoiceNumber' in doc;
+      const PreviewComponent = isInvoice ? InvoicePreviewContent : QuotePreviewContent;
+      const docType = isInvoice ? 'Invoice' : 'Quote';
+      const docNumber = isInvoice ? (doc as Invoice).invoiceNumber : (doc as Quote).quoteNumber;
+
+
+      await new Promise<void>((resolveRender) => {
+        root.render(
+          React.createElement(
+            React.StrictMode,
+            null,
+            React.createElement(PreviewComponent, { document: doc as any, customer: customer as any } as any)
+          )
+        );
+        setTimeout(resolveRender, 150); 
+      });
+
+      const canvas = await html2canvas(hiddenContainer, { scale: 2, useCORS: true, logging: false });
+      const imgData = canvas.toDataURL('image/png');
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfPageWidth = pdf.internal.pageSize.getWidth();
+      const pdfPageHeight = pdf.internal.pageSize.getHeight();
+      
+      const margin = 40; // 20pt margin on each side/top/bottom
+      const availableWidth = pdfPageWidth - (2 * margin);
+      const availableHeight = pdfPageHeight - (2 * margin);
+
+      let newImgWidth = imgProps.width;
+      let newImgHeight = imgProps.height;
+      
+      // Scale to fit width
+      if (newImgWidth > availableWidth) {
+        newImgHeight = (newImgHeight * availableWidth) / newImgWidth;
+        newImgWidth = availableWidth;
+      }
+      // Scale to fit height (if still too tall)
+      if (newImgHeight > availableHeight) {
+        newImgWidth = (newImgWidth * availableHeight) / newImgHeight;
+        newImgHeight = availableHeight;
+      }
+      
+      if (!isFirstPage) {
+        pdf.addPage();
+      } else {
+        isFirstPage = false;
+      }
+
+      const xOffset = (pdfPageWidth - newImgWidth) / 2;
+      const yOffset = (pdfPageHeight - newImgHeight) / 2;
+
+      pdf.addImage(imgData, 'PNG', xOffset, yOffset, newImgWidth, newImgHeight);
+      toast({ title: 'Progress', description: `Added ${docType} ${docNumber} to PDF (${i + 1}/${docs.length}).` });
+       await delay(100); // Small delay to allow UI to update toast
+    }
+
+    pdf.save(combinedFileName);
+    toast({ title: 'Success!', description: `${combinedFileName} downloaded.` });
+
+  } catch (error) {
+    console.error(`Error generating combined PDF:`, error);
+    toast({ title: 'Error', description: `Failed to generate combined PDF. Please try downloading individually.`, variant: 'destructive' });
+  } finally {
+    root.unmount();
+    if (document.getElementById(hiddenContainerId)) {
+        document.body.removeChild(document.getElementById(hiddenContainerId)!);
+    }
+  }
+}
+

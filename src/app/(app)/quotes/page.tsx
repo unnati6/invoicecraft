@@ -10,14 +10,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Eye, Trash2, FileText as QuoteIcon, Download } from 'lucide-react'; // Added Download
+import { PlusCircle, Edit, Eye, Trash2, FileText as QuoteIcon, Download, ChevronDown, FileSignature } from 'lucide-react';
 import type { Quote, Customer } from '@/types';
-import { getAllQuotes, removeQuote, fetchCustomerById } from '@/lib/actions';
+import { getAllQuotes, removeQuote, fetchCustomerById, convertMultipleQuotesToInvoices } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { QuotePreviewDialog } from '@/components/quote-preview-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { downloadPdfForDocument } from '@/lib/pdf-utils'; // Added
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils';
 
 export default function QuotesPage() {
   const router = useRouter();
@@ -27,6 +33,7 @@ export default function QuotesPage() {
   const [loading, setLoading] = React.useState(true);
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isDownloading, setIsDownloading] = React.useState(false);
+  const [isBulkConverting, setIsBulkConverting] = React.useState(false);
 
   React.useEffect(() => {
     async function fetchData() {
@@ -58,37 +65,86 @@ export default function QuotesPage() {
     }
   };
   
-  const handleDownloadSelectedPdfs = async () => {
-    const selectedIds = Object.entries(rowSelection)
-      .filter(([_,isSelected]) => isSelected)
-      .map(([id]) => id);
+  const getSelectedQuotes = (): Quote[] => {
+    return Object.entries(rowSelection)
+      .filter(([_, isSelected]) => isSelected)
+      .map(([id]) => quotes.find(q => q.id === id))
+      .filter((q): q is Quote => !!q);
+  };
 
-    if (selectedIds.length === 0) {
+  const handleDownloadIndividualPdfs = async () => {
+    const selectedQuotes = getSelectedQuotes();
+    if (selectedQuotes.length === 0) {
       toast({ title: "No Selection", description: "Please select quotes to download.", variant: "destructive" });
       return;
     }
 
     setIsDownloading(true);
-    toast({ title: "Processing PDFs...", description: `Preparing ${selectedIds.length} quote(s) for download.` });
+    toast({ title: "Processing PDFs...", description: `Preparing ${selectedQuotes.length} quote(s) for download.` });
 
-    for (const id of selectedIds) {
-      const quote = quotes.find(q => q.id === id);
-      if (quote) {
-        try {
-          let customer: Customer | undefined = undefined;
-          if (quote.customerId) {
-             customer = await fetchCustomerById(quote.customerId);
-          }
-          await downloadPdfForDocument(quote, customer);
-           if (selectedIds.length > 1) await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (error) {
-          console.error("Error downloading PDF for quote:", quote.quoteNumber, error);
-          toast({ title: "Download Error", description: `Failed to download PDF for ${quote.quoteNumber}.`, variant: "destructive" });
+    for (const quote of selectedQuotes) {
+      try {
+        let customer: Customer | undefined = undefined;
+        if (quote.customerId) {
+           customer = await fetchCustomerById(quote.customerId);
         }
+        await downloadPdfForDocument(quote, customer);
+        if (selectedQuotes.length > 1) await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error("Error downloading PDF for quote:", quote.quoteNumber, error);
+        toast({ title: "Download Error", description: `Failed to download PDF for ${quote.quoteNumber}.`, variant: "destructive" });
       }
     }
     setIsDownloading(false);
     setRowSelection({}); 
+  };
+
+  const handleDownloadCombinedPdf = async () => {
+    const selectedQuotes = getSelectedQuotes();
+    if (selectedQuotes.length === 0) {
+      toast({ title: "No Selection", description: "Please select quotes for combined PDF.", variant: "destructive" });
+      return;
+    }
+    setIsDownloading(true);
+     const customers = await Promise.all(
+        selectedQuotes.map(q => q.customerId ? fetchCustomerById(q.customerId) : Promise.resolve(undefined))
+    );
+    await downloadMultipleDocumentsAsSinglePdf(selectedQuotes, customers, 'Combined_Quotes.pdf');
+    setIsDownloading(false);
+    setRowSelection({});
+  };
+
+  const handleBulkConvertToInvoices = async () => {
+    const selectedQuoteIds = Object.entries(rowSelection)
+      .filter(([_, isSelected]) => isSelected)
+      .map(([id]) => id);
+
+    if (selectedQuoteIds.length === 0) {
+      toast({ title: "No Selection", description: "Please select quotes to convert.", variant: "destructive" });
+      return;
+    }
+
+    setIsBulkConverting(true);
+    toast({ title: "Processing...", description: `Converting ${selectedQuoteIds.length} quote(s) to invoices.` });
+
+    try {
+      const result = await convertMultipleQuotesToInvoices(selectedQuoteIds);
+      if (result.successCount > 0) {
+        toast({ title: "Conversion Successful", description: `${result.successCount} quote(s) converted to invoices.` });
+      }
+      if (result.errorCount > 0) {
+        toast({ title: "Conversion Partially Failed", description: `${result.errorCount} quote(s) could not be converted.`, variant: "destructive" });
+      }
+      // Refresh current page (quotes) and potentially redirect or notify about new invoices
+      setQuotes(prev => prev.filter(q => !selectedQuoteIds.includes(q.id))); // Optimistic update or re-fetch
+      router.push('/invoices'); // Navigate to invoices page to see new invoices
+    } catch (error) {
+      console.error("Error converting multiple quotes:", error);
+      toast({ title: "Bulk Conversion Error", description: "An unexpected error occurred during bulk conversion.", variant: "destructive" });
+    } finally {
+      setIsBulkConverting(false);
+      setRowSelection({});
+    }
   };
 
 
@@ -105,7 +161,7 @@ export default function QuotesPage() {
   const acceptedBadgeClass = "bg-primary text-primary-foreground hover:bg-primary/80";
 
 
-  const columns: any[] = [ // Type any for simplicity with dynamic selection column
+  const columns: any[] = [ 
     { accessorKey: 'quoteNumber', header: 'Number', cell: (row: Quote) => row.quoteNumber, size: 120 },
     { accessorKey: 'customerName', header: 'Customer', cell: (row: Quote) => row.customerName || 'N/A', size: 200 },
     { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: Quote) => format(new Date(row.issueDate), 'PP'), size: 120 },
@@ -158,11 +214,7 @@ export default function QuotesPage() {
     return (
       <>
         <AppHeader title="Quotes">
-          <Link href="/quotes/new">
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" /> Create Quote
-            </Button>
-          </Link>
+          <Skeleton className="h-10 w-36" />
         </AppHeader>
         <main className="flex-1 p-6 space-y-6">
           <Card>
@@ -186,13 +238,32 @@ export default function QuotesPage() {
     <>
       <AppHeader title="Quotes">
          {numSelected > 0 && (
-          <Button onClick={handleDownloadSelectedPdfs} disabled={isDownloading} variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            {isDownloading ? `Downloading ${numSelected}...` : `Download ${numSelected} PDF(s)`}
-          </Button>
+          <>
+            <Button onClick={handleBulkConvertToInvoices} disabled={isBulkConverting || isDownloading} variant="outline">
+                <FileSignature className="mr-2 h-4 w-4" />
+                {isBulkConverting ? `Converting ${numSelected}...` : `Convert ${numSelected} to Invoice(s)`}
+            </Button>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={isDownloading || isBulkConverting}>
+                    <Download className="mr-2 h-4 w-4" />
+                    {isDownloading ? `Processing ${numSelected}...` : `Download ${numSelected} Selected`}
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={handleDownloadIndividualPdfs} disabled={isDownloading || isBulkConverting}>
+                    Download as Individual PDFs
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleDownloadCombinedPdf} disabled={isDownloading || isBulkConverting}>
+                    Download as Single PDF
+                </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+          </>
         )}
         <Link href="/quotes/new">
-          <Button>
+          <Button disabled={isBulkConverting || isDownloading}>
             <PlusCircle className="mr-2 h-4 w-4" /> Create Quote
           </Button>
         </Link>
@@ -218,3 +289,4 @@ export default function QuotesPage() {
     </>
   );
 }
+

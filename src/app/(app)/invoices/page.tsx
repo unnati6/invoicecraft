@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Eye, Trash2, ChevronDown, Download } from 'lucide-react'; // Added Download
+import { PlusCircle, Edit, Eye, Trash2, ChevronDown, Download } from 'lucide-react';
 import type { Invoice, Customer } from '@/types';
 import { getAllInvoices, removeInvoice, fetchCustomerById } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -22,8 +22,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { downloadPdfForDocument } from '@/lib/pdf-utils'; // Added
+import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils';
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -64,41 +65,53 @@ export default function InvoicesPage() {
     }
   };
 
-  const handleDownloadSelectedPdfs = async () => {
-    const selectedIds = Object.entries(rowSelection)
-      .filter(([_,isSelected]) => isSelected)
-      .map(([id]) => id);
+  const getSelectedInvoices = (): Invoice[] => {
+    return Object.entries(rowSelection)
+      .filter(([_, isSelected]) => isSelected)
+      .map(([id]) => invoices.find(inv => inv.id === id))
+      .filter((inv): inv is Invoice => !!inv);
+  };
 
-    if (selectedIds.length === 0) {
+  const handleDownloadIndividualPdfs = async () => {
+    const selectedInvoices = getSelectedInvoices();
+    if (selectedInvoices.length === 0) {
       toast({ title: "No Selection", description: "Please select invoices to download.", variant: "destructive" });
       return;
     }
 
     setIsDownloading(true);
-    toast({ title: "Processing PDFs...", description: `Preparing ${selectedIds.length} invoice(s) for download.` });
+    toast({ title: "Processing PDFs...", description: `Preparing ${selectedInvoices.length} invoice(s) for download.` });
 
-    for (const id of selectedIds) {
-      const invoice = invoices.find(inv => inv.id === id);
-      if (invoice) {
-        try {
-          let customer: Customer | undefined = undefined;
-          if (invoice.customerId) {
-            // Fetch full customer details if necessary, or use existing customerName
-            // For now, pdf-utils is designed to accept optional customer,
-            // and InvoicePreviewContent can work with invoice.customerName
-             customer = await fetchCustomerById(invoice.customerId);
-          }
-          await downloadPdfForDocument(invoice, customer);
-           // Optional: add a small delay if downloading many files quickly causes issues
-           if (selectedIds.length > 1) await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (error) {
-          console.error("Error downloading PDF for invoice:", invoice.invoiceNumber, error);
-          toast({ title: "Download Error", description: `Failed to download PDF for ${invoice.invoiceNumber}.`, variant: "destructive" });
+    for (const invoice of selectedInvoices) {
+      try {
+        let customer: Customer | undefined = undefined;
+        if (invoice.customerId) {
+           customer = await fetchCustomerById(invoice.customerId);
         }
+        await downloadPdfForDocument(invoice, customer);
+        if (selectedInvoices.length > 1) await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error("Error downloading PDF for invoice:", invoice.invoiceNumber, error);
+        toast({ title: "Download Error", description: `Failed to download PDF for ${invoice.invoiceNumber}.`, variant: "destructive" });
       }
     }
     setIsDownloading(false);
-    setRowSelection({}); // Clear selection after download
+    setRowSelection({});
+  };
+
+  const handleDownloadCombinedPdf = async () => {
+    const selectedInvoices = getSelectedInvoices();
+    if (selectedInvoices.length === 0) {
+      toast({ title: "No Selection", description: "Please select invoices for combined PDF.", variant: "destructive" });
+      return;
+    }
+    setIsDownloading(true);
+    const customers = await Promise.all(
+        selectedInvoices.map(inv => inv.customerId ? fetchCustomerById(inv.customerId) : Promise.resolve(undefined))
+    );
+    await downloadMultipleDocumentsAsSinglePdf(selectedInvoices, customers, 'Combined_Invoices.pdf');
+    setIsDownloading(false);
+    setRowSelection({});
   };
 
 
@@ -114,7 +127,7 @@ export default function InvoicesPage() {
   const paidBadgeClass = "bg-primary text-primary-foreground hover:bg-primary/80";
 
 
-  const columns: any[] = [ // Type any for simplicity with dynamic selection column
+  const columns: any[] = [
     { accessorKey: 'invoiceNumber', header: 'Number', cell: (row: Invoice) => row.invoiceNumber, size: 100 },
     { accessorKey: 'customerName', header: 'Customer', cell: (row: Invoice) => row.customerName || 'N/A', size: 200 },
     { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: Invoice) => format(new Date(row.issueDate), 'PP'), size: 120 },
@@ -191,10 +204,23 @@ export default function InvoicesPage() {
     <>
       <AppHeader title="Invoices">
         {numSelected > 0 && (
-          <Button onClick={handleDownloadSelectedPdfs} disabled={isDownloading} variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            {isDownloading ? `Downloading ${numSelected}...` : `Download ${numSelected} PDF(s)`}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={isDownloading}>
+                <Download className="mr-2 h-4 w-4" />
+                {isDownloading ? `Processing ${numSelected}...` : `Download ${numSelected} Selected`}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={handleDownloadIndividualPdfs} disabled={isDownloading}>
+                Download as Individual PDFs
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleDownloadCombinedPdf} disabled={isDownloading}>
+                Download as Single PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -233,3 +259,4 @@ export default function InvoicesPage() {
     </>
   );
 }
+
