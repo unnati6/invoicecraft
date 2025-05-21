@@ -15,13 +15,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Invoice, Customer } from '@/types';
-import { format } from 'date-fns';
 import { Download, Printer, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { downloadInvoiceAsExcel } from '@/lib/actions';
 import { useState } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { InvoicePreviewContent } from './invoice-preview-content'; // Import the content component
 
 interface InvoicePreviewDialogProps {
   invoice: Invoice;
@@ -43,22 +43,28 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
     
     try {
       if (type === 'pdf') {
-        const input = document.getElementById('invoicePrintArea');
+        const input = document.getElementById('invoicePrintAreaDialog'); // Use a unique ID for the dialog's print area
         if (!input) {
           toast({ title: 'Error', description: 'Preview content not found for PDF generation.', variant: 'destructive' });
           setLoading(false);
           return;
         }
-        const canvas = await html2canvas(input, { scale: 2 }); // Increase scale for better quality
+        // Ensure content is fully rendered - a small delay can sometimes help with complex layouts or images
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const canvas = await html2canvas(input, { scale: 2, useCORS: true, logging: false }); 
         const imgData = canvas.toDataURL('image/png');
         
+        const pdfWidth = canvas.width;
+        const pdfHeight = canvas.height;
+
         const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'pt', // points, matches html2canvas output
-          format: [canvas.width, canvas.height] // use canvas dimensions
+          orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+          unit: 'pt', 
+          format: [pdfWidth, pdfHeight],
         });
         
-        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(`${fileNameBase}.pdf`);
         toast({ title: 'Success!', description: `${fileNameBase}.pdf downloaded.` });
 
@@ -85,7 +91,17 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
     }
   };
   
-  const customerToDisplay = customer || { name: invoice.customerName, email: 'N/A', address: undefined };
+  // Prepare customer data for the InvoicePreviewContent component
+  const customerToDisplay = customer || { 
+    name: invoice.customerName || 'N/A', 
+    email: 'N/A', 
+    address: undefined 
+  };
+  if (customer) { // Ensure full customer details are used if provided
+    customerToDisplay.name = customer.name;
+    customerToDisplay.email = customer.email;
+    customerToDisplay.address = customer.address;
+  }
 
 
   return (
@@ -97,97 +113,9 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
           <DialogDescription>Review the invoice details below. PDF download will generate a PDF from this preview. Excel download provides a CSV file.</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] p-1 pr-6">
-          <div id="invoicePrintArea" className="p-6 bg-card rounded-lg shadow-sm border print-area">
-            {/* Header */}
-            <div className="flex justify-between items-start mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-primary">INVOICE</h1>
-                <p className="text-muted-foreground">Invoice #: {invoice.invoiceNumber}</p>
-              </div>
-              <div className="text-right">
-                {/* Your Company Details Here - Placeholder */}
-                <h2 className="text-xl font-semibold">InvoiceCraft Inc.</h2>
-                <p className="text-sm text-muted-foreground">123 App Street, Suite 4B</p>
-                <p className="text-sm text-muted-foreground">DevCity, ST 54321</p>
-                <p className="text-sm text-muted-foreground">contact@invoicecraft.com</p>
-              </div>
-            </div>
-
-            {/* Bill To and Dates */}
-            <div className="grid md:grid-cols-2 gap-8 mb-8">
-              <div>
-                <h3 className="font-semibold mb-1 text-muted-foreground">BILL TO:</h3>
-                <p className="font-medium">{customerToDisplay.name}</p>
-                {customerToDisplay.address && (
-                  <>
-                    <p className="text-sm">{customerToDisplay.address.street}</p>
-                    <p className="text-sm">{customerToDisplay.address.city}, {customerToDisplay.address.state} {customerToDisplay.address.zip}</p>
-                    <p className="text-sm">{customerToDisplay.address.country}</p>
-                  </>
-                )}
-                <p className="text-sm">{customerToDisplay.email}</p>
-              </div>
-              <div className="text-left md:text-right">
-                <p><span className="font-semibold text-muted-foreground">Issue Date:</span> {format(new Date(invoice.issueDate), 'PPP')}</p>
-                <p><span className="font-semibold text-muted-foreground">Due Date:</span> {format(new Date(invoice.dueDate), 'PPP')}</p>
-                <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.status === 'Paid' ? 'bg-green-100 text-green-700' : invoice.status === 'Overdue' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{invoice.status}</span></p>
-              </div>
-            </div>
-
-            {/* Items Table */}
-            <div className="mb-8">
-              <table className="w-full">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="p-2 text-left font-semibold">Description</th>
-                    <th className="p-2 text-right font-semibold">Quantity</th>
-                    <th className="p-2 text-right font-semibold">Rate</th>
-                    <th className="p-2 text-right font-semibold">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoice.items.map((item) => (
-                    <tr key={item.id} className="border-b">
-                      <td className="p-2">{item.description}</td>
-                      <td className="p-2 text-right">{item.quantity.toFixed(2)}</td>
-                      <td className="p-2 text-right">${item.rate.toFixed(2)}</td>
-                      <td className="p-2 text-right">${item.amount.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Totals */}
-            <div className="flex justify-end mb-8">
-              <div className="w-full max-w-xs space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal:</span>
-                  <span>${invoice.subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax ({invoice.taxRate}%):</span>
-                  <span>${invoice.taxAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between border-t pt-2">
-                  <span className="font-bold text-lg">Total:</span>
-                  <span className="font-bold text-lg">${invoice.total.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Terms and Conditions */}
-            {invoice.termsAndConditions && (
-              <div className="mb-8">
-                <h3 className="font-semibold mb-2 text-muted-foreground">Terms & Conditions:</h3>
-                <p className="text-sm whitespace-pre-wrap">{invoice.termsAndConditions}</p>
-              </div>
-            )}
-
-            {/* Footer Note */}
-            <div className="text-center text-sm text-muted-foreground mt-8">
-              <p>Thank you for your business!</p>
-            </div>
+          {/* Use the InvoicePreviewContent component here */}
+          <div id="invoicePrintAreaDialog"> {/* Unique ID for html2canvas targeting within dialog */}
+            <InvoicePreviewContent document={invoice} customer={customerToDisplay} />
           </div>
         </ScrollArea>
         <DialogFooter className="sm:justify-start gap-2 pt-4">
@@ -198,11 +126,10 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
             <FileSpreadsheet className="mr-2 h-4 w-4" /> {isDownloadingExcel ? 'Downloading...' : 'Download Excel'}
           </Button>
           <Button variant="outline" onClick={() => {
-             const printArea = document.getElementById('invoicePrintArea');
+             const printArea = document.getElementById('invoicePrintAreaDialog');
              if (printArea) {
                 const printWindow = window.open('', '_blank');
                 printWindow?.document.write('<html><head><title>Print Invoice</title>');
-                // You might want to link your global CSS here for better print fidelity
                 const styles = Array.from(document.styleSheets)
                     .map(styleSheet => {
                         try {
@@ -210,7 +137,6 @@ export function InvoicePreviewDialog({ invoice, customer, trigger }: InvoicePrev
                                 .map(rule => rule.cssText)
                                 .join('');
                         } catch (e) {
-                            // Catches CORS errors on external stylesheets
                             return '';
                         }
                     })
