@@ -14,7 +14,7 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { FileText, Users, Settings, LogOut, Quote as QuoteIconLucide } from 'lucide-react'; // Changed Quote to QuoteIconLucide to avoid conflict
+import { FileText, Users, Settings, LogOut, Quote as QuoteIconLucide } from 'lucide-react'; 
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
@@ -108,3 +108,4 @@ export function AppSidebar() {
 }
 
 AppSidebar.displayName = "AppSidebar";
+

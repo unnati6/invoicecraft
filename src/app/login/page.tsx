@@ -22,9 +22,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-background p-4"> {/* Added w-full here */}
-      <div className="w-full max-w-sm"> {/* This div is the content block that gets centered */}
-        <div className="mb-8 flex w-full justify-center"> {/* Logo container */}
+    <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex w-full justify-center">
           <Image 
             src="https://placehold.co/200x50.png?text=YourLogo" 
             alt="InvoiceCraft Logo" 
@@ -34,7 +34,7 @@ export default function LoginPage() {
             className="dark:invert"
           />
         </div>
-        <Card className="w-full shadow-xl"> {/* Card takes full width of its parent (max-w-sm) */}
+        <Card className="w-full shadow-xl">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl">Welcome Back!</CardTitle>
             <CardDescription>Enter your credentials to access your account</CardDescription>
@@ -78,3 +78,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
