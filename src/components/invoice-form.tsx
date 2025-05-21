@@ -14,19 +14,20 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { invoiceSchema, type InvoiceFormData, type AdditionalChargeFormData } from '@/lib/schemas';
-import type { Invoice, Customer, AdditionalChargeItem as StoredAdditionalChargeItem } from '@/types';
+import type { Invoice, Customer, TermsTemplate } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink } from 'lucide-react';
-import { getAllCustomers, fetchNextInvoiceNumber } from '@/lib/actions';
+import { getAllCustomers, fetchNextInvoiceNumber, getAllTermsTemplates } from '@/lib/actions';
 import Link from 'next/link';
 import { getCurrencySymbol } from '@/lib/currency-utils';
+import { RichTextEditor } from '@/components/rich-text-editor';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface InvoiceFormProps {
   onSubmit: (data: InvoiceFormData) => Promise<void>;
@@ -39,6 +40,8 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   const [isLoadingCustomers, setIsLoadingCustomers] = React.useState(true);
   const [isLoadingInvNumber, setIsLoadingInvNumber] = React.useState(!initialData);
   const [currentCurrencySymbol, setCurrentCurrencySymbol] = React.useState('$');
+  const [termsTemplates, setTermsTemplates] = React.useState<TermsTemplate[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = React.useState(true);
 
 
   const form = useForm<InvoiceFormData>({
@@ -60,6 +63,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
             valueType: ac.valueType,
             value: ac.value,
           })) || [],
+          termsAndConditions: initialData.termsAndConditions || '<p></p>',
         }
       : {
           invoiceNumber: '',
@@ -68,7 +72,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
           items: [{ description: '', quantity: 1, rate: 0 }],
           additionalCharges: [],
           taxRate: 0,
-          termsAndConditions: 'Payment due within 30 days.',
+          termsAndConditions: '<p></p>', // Default to empty paragraph for RichTextEditor
           status: 'Draft',
           customerId: '',
         },
@@ -85,18 +89,25 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   });
 
   React.useEffect(() => {
-    async function loadCustomers() {
+    async function loadInitialData() {
       setIsLoadingCustomers(true);
+      setIsLoadingTemplates(true);
       try {
-        const fetchedCustomers = await getAllCustomers();
+        const [fetchedCustomers, fetchedTemplates] = await Promise.all([
+          getAllCustomers(),
+          getAllTermsTemplates()
+        ]);
         setCustomers(fetchedCustomers);
+        setTermsTemplates(fetchedTemplates);
       } catch (error) {
-        console.error("Failed to fetch customers", error);
+        console.error("Failed to fetch initial data for form", error);
+        // Optionally set error state or show toast
       } finally {
         setIsLoadingCustomers(false);
+        setIsLoadingTemplates(false);
       }
     }
-    loadCustomers();
+    loadInitialData();
   }, []);
   
   React.useEffect(() => {
@@ -120,7 +131,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   const watchedCustomerId = form.watch('customerId');
 
   React.useEffect(() => {
-    let custCurrencyCode: string | undefined = 'USD'; // Default
+    let custCurrencyCode: string | undefined = 'USD'; 
   
     const determineCurrency = () => {
       const currentFormCustomerId = form.getValues('customerId');
@@ -139,9 +150,11 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
       setCurrentCurrencySymbol(getCurrencySymbol(custCurrencyCode));
     };
   
-    determineCurrency();
+    if (!isLoadingCustomers) { // Ensure customers are loaded before determining currency
+        determineCurrency();
+    }
   
-  }, [watchedCustomerId, customers, initialData?.customerId, form]);
+  }, [watchedCustomerId, customers, initialData?.customerId, form, isLoadingCustomers]);
 
 
   const watchedItems = form.watch('items');
@@ -177,6 +190,18 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
     return taxableAmount + taxAmount;
   }, [taxableAmount, taxAmount]);
 
+  const handleTemplateSelect = (templateId: string) => {
+    if (templateId === "none" || !templateId) {
+      form.setValue('termsAndConditions', '<p></p>', { shouldDirty: true, shouldValidate: true }); // Clear or set to default empty
+      return;
+    }
+    const selectedTemplate = termsTemplates.find(t => t.id === templateId);
+    if (selectedTemplate) {
+      form.setValue('termsAndConditions', selectedTemplate.content, { shouldDirty: true, shouldValidate: true });
+    }
+  };
+
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -199,9 +224,6 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                         <Select 
                             onValueChange={(value) => {
                                 field.onChange(value);
-                                // Trigger currency update
-                                const customer = customers.find(c => c.id === value);
-                                setCurrentCurrencySymbol(getCurrencySymbol(customer?.currency || 'USD'));
                             }}
                             defaultValue={field.value}
                             disabled={isLoadingCustomers}
@@ -509,50 +531,61 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
               </CardContent>
             </Card>
             
-            {initialData && (
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Terms & Conditions</CardTitle>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/invoices/${initialData.id}/terms`}>
-                      Edit Terms <ExternalLink className="ml-2 h-3 w-3"/>
-                    </Link>
-                  </Button>
+            <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                    <CardTitle>Terms & Conditions</CardTitle>
+                    {initialData && (
+                        <Button variant="outline" size="sm" asChild>
+                        <Link href={`/invoices/${initialData.id}/terms`}>
+                            Edit in Full Page <ExternalLink className="ml-2 h-3 w-3"/>
+                        </Link>
+                        </Button>
+                    )}
+                    </div>
                 </CardHeader>
-                <CardContent>
-                  {initialData.termsAndConditions ? (
-                     <Textarea
-                        readOnly
-                        value={initialData.termsAndConditions}
-                        className="min-h-[100px] bg-muted/30"
-                      />
-                  ): (
-                    <p className="text-sm text-muted-foreground">No terms and conditions set. <Link href={`/invoices/${initialData.id}/terms`} className="underline">Add them now</Link>.</p>
-                  )}
+                <CardContent className="space-y-4">
+                    {isLoadingTemplates ? (
+                        <Skeleton className="h-10 w-full" />
+                    ) : (
+                        <FormItem>
+                            <FormLabel>Apply Template</FormLabel>
+                            <Select onValueChange={handleTemplateSelect}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a T&C template (optional)" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                <SelectItem value="none">None (Custom)</SelectItem>
+                                {termsTemplates.map(template => (
+                                    <SelectItem key={template.id} value={template.id}>
+                                    {template.name}
+                                    </SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )}
+                    <FormField
+                        control={form.control}
+                        name="termsAndConditions"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel className="sr-only">Terms & Conditions Content</FormLabel>
+                            <FormControl>
+                                <RichTextEditor
+                                value={field.value || '<p></p>'}
+                                onChange={field.onChange}
+                                disabled={isSubmitting}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                 </CardContent>
-              </Card>
-            )}
-            {!initialData && (
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Terms & Conditions</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <FormField
-                            control={form.control}
-                            name="termsAndConditions"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormControl>
-                                        <Textarea placeholder="Enter terms and conditions..." {...field} className="min-h-[100px]" />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </CardContent>
-                 </Card>
-            )}
+            </Card>
           </div>
 
           {/* Summary Card (Right Sidebar) */}

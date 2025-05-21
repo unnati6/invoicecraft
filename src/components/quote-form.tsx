@@ -14,19 +14,20 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { quoteSchema, type QuoteFormData, type AdditionalChargeFormData } from '@/lib/schemas';
-import type { Quote, Customer, AdditionalChargeItem as StoredAdditionalChargeItem } from '@/types';
+import type { Quote, Customer, TermsTemplate } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink } from 'lucide-react';
-import { getAllCustomers, fetchNextQuoteNumber } from '@/lib/actions';
+import { getAllCustomers, fetchNextQuoteNumber, getAllTermsTemplates } from '@/lib/actions';
 import Link from 'next/link';
 import { getCurrencySymbol } from '@/lib/currency-utils';
+import { RichTextEditor } from '@/components/rich-text-editor';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface QuoteFormProps {
   onSubmit: (data: QuoteFormData) => Promise<void>;
@@ -39,6 +40,8 @@ export function QuoteForm({ onSubmit, initialData, isSubmitting = false }: Quote
   const [isLoadingCustomers, setIsLoadingCustomers] = React.useState(true);
   const [isLoadingQuoteNumber, setIsLoadingQuoteNumber] = React.useState(!initialData);
   const [currentCurrencySymbol, setCurrentCurrencySymbol] = React.useState('$');
+  const [termsTemplates, setTermsTemplates] = React.useState<TermsTemplate[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = React.useState(true);
 
 
   const form = useForm<QuoteFormData>({
@@ -60,6 +63,7 @@ export function QuoteForm({ onSubmit, initialData, isSubmitting = false }: Quote
             valueType: ac.valueType,
             value: ac.value,
           })) || [],
+          termsAndConditions: initialData.termsAndConditions || '<p></p>',
         }
       : {
           quoteNumber: '',
@@ -68,7 +72,7 @@ export function QuoteForm({ onSubmit, initialData, isSubmitting = false }: Quote
           items: [{ description: '', quantity: 1, rate: 0 }],
           additionalCharges: [],
           taxRate: 0,
-          termsAndConditions: 'This quote is valid for 30 days.',
+          termsAndConditions: '<p></p>', // Default to empty paragraph for RichTextEditor
           status: 'Draft',
           customerId: '',
         },
@@ -85,18 +89,24 @@ export function QuoteForm({ onSubmit, initialData, isSubmitting = false }: Quote
   });
 
   React.useEffect(() => {
-    async function loadCustomers() {
+    async function loadInitialData() {
       setIsLoadingCustomers(true);
+      setIsLoadingTemplates(true);
       try {
-        const fetchedCustomers = await getAllCustomers();
+        const [fetchedCustomers, fetchedTemplates] = await Promise.all([
+            getAllCustomers(),
+            getAllTermsTemplates()
+        ]);
         setCustomers(fetchedCustomers);
+        setTermsTemplates(fetchedTemplates);
       } catch (error) {
-        console.error("Failed to fetch customers", error);
+        console.error("Failed to fetch initial data for form", error);
       } finally {
         setIsLoadingCustomers(false);
+        setIsLoadingTemplates(false);
       }
     }
-    loadCustomers();
+    loadInitialData();
   }, []);
   
   React.useEffect(() => {
@@ -120,7 +130,7 @@ export function QuoteForm({ onSubmit, initialData, isSubmitting = false }: Quote
   const watchedCustomerId = form.watch('customerId');
 
   React.useEffect(() => {
-    let custCurrencyCode: string | undefined = 'USD'; // Default
+    let custCurrencyCode: string | undefined = 'USD'; 
   
     const determineCurrency = () => {
       const currentFormCustomerId = form.getValues('customerId');
@@ -139,9 +149,11 @@ export function QuoteForm({ onSubmit, initialData, isSubmitting = false }: Quote
       setCurrentCurrencySymbol(getCurrencySymbol(custCurrencyCode));
     };
   
-    determineCurrency();
+    if (!isLoadingCustomers) {
+        determineCurrency();
+    }
   
-  }, [watchedCustomerId, customers, initialData?.customerId, form]);
+  }, [watchedCustomerId, customers, initialData?.customerId, form, isLoadingCustomers]);
 
 
   const watchedItems = form.watch('items');
@@ -177,6 +189,16 @@ export function QuoteForm({ onSubmit, initialData, isSubmitting = false }: Quote
     return taxableAmount + taxAmount;
   }, [taxableAmount, taxAmount]);
 
+  const handleTemplateSelect = (templateId: string) => {
+    if (templateId === "none" || !templateId) {
+      form.setValue('termsAndConditions', '<p></p>', { shouldDirty: true, shouldValidate: true });
+      return;
+    }
+    const selectedTemplate = termsTemplates.find(t => t.id === templateId);
+    if (selectedTemplate) {
+      form.setValue('termsAndConditions', selectedTemplate.content, { shouldDirty: true, shouldValidate: true });
+    }
+  };
 
   return (
     <Form {...form}>
@@ -199,8 +221,6 @@ export function QuoteForm({ onSubmit, initialData, isSubmitting = false }: Quote
                         <Select 
                             onValueChange={(value) => {
                                 field.onChange(value);
-                                const customer = customers.find(c => c.id === value);
-                                setCurrentCurrencySymbol(getCurrencySymbol(customer?.currency || 'USD'));
                             }} 
                             defaultValue={field.value}
                             disabled={isLoadingCustomers}
@@ -507,50 +527,61 @@ export function QuoteForm({ onSubmit, initialData, isSubmitting = false }: Quote
               </CardContent>
             </Card>
             
-            {initialData && (
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Terms & Conditions</CardTitle>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/quotes/${initialData.id}/terms`}>
-                      Edit Terms <ExternalLink className="ml-2 h-3 w-3"/>
-                    </Link>
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {initialData.termsAndConditions ? (
-                     <Textarea
-                        readOnly
-                        value={initialData.termsAndConditions}
-                        className="min-h-[100px] bg-muted/30"
-                      />
-                  ): (
-                    <p className="text-sm text-muted-foreground">No terms and conditions set. <Link href={`/quotes/${initialData.id}/terms`} className="underline">Add them now</Link>.</p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-            {!initialData && (
-                 <Card>
-                    <CardHeader>
+            <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
                         <CardTitle>Terms & Conditions</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <FormField
-                            control={form.control}
-                            name="termsAndConditions"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormControl>
-                                        <Textarea placeholder="Enter terms and conditions..." {...field} className="min-h-[100px]" />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </CardContent>
-                 </Card>
-            )}
+                        {initialData && (
+                            <Button variant="outline" size="sm" asChild>
+                            <Link href={`/quotes/${initialData.id}/terms`}>
+                                Edit in Full Page <ExternalLink className="ml-2 h-3 w-3"/>
+                            </Link>
+                            </Button>
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {isLoadingTemplates ? (
+                         <Skeleton className="h-10 w-full" />
+                    ) : (
+                        <FormItem>
+                            <FormLabel>Apply Template</FormLabel>
+                            <Select onValueChange={handleTemplateSelect}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a T&C template (optional)" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                <SelectItem value="none">None (Custom)</SelectItem>
+                                {termsTemplates.map(template => (
+                                    <SelectItem key={template.id} value={template.id}>
+                                    {template.name}
+                                    </SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )}
+                    <FormField
+                        control={form.control}
+                        name="termsAndConditions"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel className="sr-only">Terms & Conditions Content</FormLabel>
+                            <FormControl>
+                                <RichTextEditor
+                                value={field.value || '<p></p>'}
+                                onChange={field.onChange}
+                                disabled={isSubmitting}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </CardContent>
+            </Card>
           </div>
 
           <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-20 self-start">
