@@ -13,19 +13,38 @@ import {
   List,
   ListOrdered,
   Pilcrow,
-  Baseline, // Import the Baseline icon
+  Type as FontIcon, // Using Type icon for font size dropdown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-// Custom Mark for 8pt font size
-const EightPtStyle = Mark.create({
-  name: 'eightPtStyle',
+// Custom Mark for Font Size
+const FontSizeMark = Mark.create({
+  name: 'fontSizeMark',
 
   addOptions() {
     return {
-      HTMLAttributes: {
-        style: 'font-size: 8pt;',
+      HTMLAttributes: {},
+    };
+  },
+
+  addAttributes() {
+    return {
+      fontSize: {
+        default: null,
+        parseHTML: (element) => element.style.fontSize,
+        renderHTML: (attributes) => {
+          if (!attributes.fontSize) {
+            return {};
+          }
+          return { style: `font-size: ${attributes.fontSize}` };
+        },
       },
     };
   },
@@ -33,29 +52,38 @@ const EightPtStyle = Mark.create({
   parseHTML() {
     return [
       {
-        tag: 'span',
-        getAttrs: (node) => {
-          if (typeof node === 'string') return false;
-          const hasEightPtStyle = node.style.fontSize === '8pt';
-          return hasEightPtStyle ? {} : false;
+        style: 'font-size',
+        getAttrs: (value) => {
+          if (typeof value === 'string') {
+            // Ensure it's a valid font size value like '10pt', '12px' etc.
+            if (/^\d+(pt|px|em|rem|%)$/.test(value)) {
+              return { fontSize: value };
+            }
+          }
+          return false;
         },
       },
     ];
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['span', { ...HTMLAttributes, style: 'font-size: 8pt;' }, 0];
+    return ['span', HTMLAttributes, 0];
   },
 
   addCommands() {
     return {
-      toggleEightPtStyle: () => ({ commands }) => {
-        return commands.toggleMark(this.name);
+      setFontSize: (fontSize: string) => ({ commands }) => {
+        if (!fontSize) {
+          return commands.resetAttributes(this.name, 'fontSize');
+        }
+        return commands.setMark(this.name, { fontSize });
+      },
+      unsetFontSize: () => ({ commands }) => {
+        return commands.resetAttributes(this.name, 'fontSize');
       },
     };
   },
 });
-
 
 interface RichTextEditorProps {
   value: string;
@@ -68,7 +96,7 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
     return null;
   }
 
-  const menuItems = [
+  const basicFormattingItems = [
     {
       action: () => editor.chain().focus().toggleBold().run(),
       icon: Bold,
@@ -83,7 +111,10 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
       label: 'Italic',
       disabled: disabled || !editor.can().chain().focus().toggleItalic().run(),
     },
-    {
+  ];
+
+  const blockFormattingItems = [
+     {
       action: () => editor.chain().focus().setParagraph().run(),
       icon: Pilcrow,
       isActive: editor.isActive('paragraph'),
@@ -125,18 +156,56 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
       label: 'Ordered List',
       disabled: disabled || !editor.can().chain().focus().toggleOrderedList().run(),
     },
-    { // Added 8pt Font Button
-      action: () => editor.chain().focus().toggleEightPtStyle().run(),
-      icon: Baseline,
-      isActive: editor.isActive('eightPtStyle'),
-      label: '8pt Font',
-      disabled: disabled || !editor.can().chain().focus().toggleEightPtStyle().run(),
-    },
   ];
+
+  const fontSizes = ["8pt", "10pt", "12pt", "14pt", "16pt", "18pt", "20pt", "22pt", "24pt"];
 
   return (
     <div className="flex flex-wrap items-center gap-1 border-b border-input p-2 bg-background rounded-t-md">
-      {menuItems.map((item) => (
+      {basicFormattingItems.map((item) => (
+        <Button
+          key={item.label}
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={item.action}
+          className={cn('h-8 w-8', { 'bg-accent text-accent-foreground': item.isActive })}
+          aria-label={item.label}
+          title={item.label}
+          disabled={item.disabled}
+        >
+          <item.icon className="h-4 w-4" />
+        </Button>
+      ))}
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="h-8 w-8" title="Font Size" disabled={disabled}>
+            <FontIcon className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem
+            onSelect={() => editor.chain().focus().unsetFontSize().run()}
+            className={cn({ 'bg-accent text-accent-foreground': !fontSizes.some(size => editor.isActive('fontSizeMark', { fontSize: size })) })}
+            disabled={disabled || !editor.can().chain().focus().unsetFontSize().run()}
+          >
+            Default
+          </DropdownMenuItem>
+          {fontSizes.map((size) => (
+            <DropdownMenuItem
+              key={size}
+              onSelect={() => editor.chain().focus().setFontSize(size).run()}
+              className={cn({ 'bg-accent text-accent-foreground': editor.isActive('fontSizeMark', { fontSize: size }) })}
+              disabled={disabled || !editor.can().chain().focus().setFontSize(size).run()}
+            >
+              {size.replace('pt', ' pt')}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      
+      {blockFormattingItems.map((item) => (
         <Button
           key={item.label}
           type="button"
@@ -163,7 +232,7 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
           levels: [1, 2, 3],
         },
       }),
-      EightPtStyle, // Added custom mark
+      FontSizeMark,
     ],
     content: value,
     editable: !disabled,
@@ -177,13 +246,11 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
     },
   });
 
-  // Update editor content if 'value' prop changes externally
   React.useEffect(() => {
     if (editor && !editor.isDestroyed && value !== editor.getHTML()) {
-      editor.commands.setContent(value, false); // false to not emit update
+      editor.commands.setContent(value, false);
     }
   }, [value, editor]);
-
 
   return (
     <div className="rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
@@ -201,3 +268,13 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
 }
 
 RichTextEditor.displayName = 'RichTextEditor';
+
+// Extend Tiptap Editor interface to include our custom commands
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    fontSizeMark: {
+      setFontSize: (fontSize: string) => ReturnType;
+      unsetFontSize: () => ReturnType;
+    };
+  }
+}
