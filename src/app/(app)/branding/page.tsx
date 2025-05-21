@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { UploadCloud, Save, Trash2, Edit3, Image as ImageIcon, Building, Phone, Mail, MapPin } from 'lucide-react';
+import { UploadCloud, Save, Trash2, Edit3, Image as ImageIcon, Building } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SignaturePad } from '@/components/signature-pad';
 
@@ -59,26 +59,34 @@ export default function BrandingPage() {
     email: '',
   });
   const [initialCompanyInfoLoaded, setInitialCompanyInfoLoaded] = React.useState(false);
+  const [hasStoredCompanyInfo, setHasStoredCompanyInfo] = React.useState(false);
+  const [initialLogoFromStorage, setInitialLogoFromStorage] = React.useState<string | null>(null);
+  const [initialSignatureFromStorage, setInitialSignatureFromStorage] = React.useState<string | null>(null);
 
 
   React.useEffect(() => {
     const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
     if (storedLogo) {
       setLogoPreview(storedLogo);
+      setInitialLogoFromStorage(storedLogo);
     }
     const storedSignature = localStorage.getItem(SIGNATURE_STORAGE_KEY);
     if (storedSignature) {
       setSignaturePreview(storedSignature);
+      setInitialSignatureFromStorage(storedSignature);
     }
 
     const loadedCompanyInfo: Partial<CompanyInfoState> = {};
+    let anyCompanyInfoFound = false;
     Object.entries(COMPANY_INFO_KEYS).forEach(([key, storageKey]) => {
       const item = localStorage.getItem(storageKey);
       if (item) {
         (loadedCompanyInfo as any)[key.toLowerCase().replace(/_([a-z])/g, g => g[1].toUpperCase())] = item;
+        anyCompanyInfoFound = true;
       }
     });
     setCompanyInfo(prev => ({...prev, ...loadedCompanyInfo}));
+    setHasStoredCompanyInfo(anyCompanyInfoFound);
     setInitialCompanyInfoLoaded(true);
   }, []);
 
@@ -94,6 +102,8 @@ export default function BrandingPage() {
             localStorage.setItem(storageKey, value);
         }
     });
+    const anyInfoStillStored = Object.values(COMPANY_INFO_KEYS).some(key => !!localStorage.getItem(key));
+    setHasStoredCompanyInfo(anyInfoStillStored);
     toast({ title: 'Success', description: 'Company information saved.' });
   };
 
@@ -103,6 +113,7 @@ export default function BrandingPage() {
         name: '', addressStreet: '', addressCity: '', addressState: '',
         addressZip: '', addressCountry: '', phone: '', email: '',
     });
+    setHasStoredCompanyInfo(false);
     toast({ title: 'Success', description: 'Company information removed.' });
   };
 
@@ -135,8 +146,7 @@ export default function BrandingPage() {
       reader.readAsDataURL(file);
     } else {
       setSelectedLogoFile(null);
-      const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
-      setLogoPreview(storedLogo);
+      setLogoPreview(initialLogoFromStorage);
     }
   };
   
@@ -161,8 +171,7 @@ export default function BrandingPage() {
     } else {
       setSelectedSignatureFile(null);
       if (!drawnSignatureDataUrl) { 
-        const storedSignature = localStorage.getItem(SIGNATURE_STORAGE_KEY);
-        setSignaturePreview(storedSignature);
+        setSignaturePreview(initialSignatureFromStorage);
       }
     }
   };
@@ -176,25 +185,27 @@ export default function BrandingPage() {
 
   const handleSaveAsset = (type: 'logo' | 'signature') => {
     if (type === 'logo') {
-      if (logoPreview && selectedLogoFile) {
+      if (logoPreview && (selectedLogoFile || logoPreview !== initialLogoFromStorage)) {
         localStorage.setItem(LOGO_STORAGE_KEY, logoPreview);
+        setInitialLogoFromStorage(logoPreview);
         toast({ title: 'Success', description: 'Logo saved successfully.' });
         setSelectedLogoFile(null);
-      } else if (!selectedLogoFile && logoPreview) {
-        toast({ title: 'No changes', description: 'No new logo selected to save.' });
       } else if (!logoPreview) {
          toast({ title: 'No logo', description: 'Please select a logo to save.', variant: 'destructive'});
+      } else {
+         toast({ title: 'No changes', description: 'No new logo selected to save.' });
       }
     } else { 
-      if (signaturePreview && (selectedSignatureFile || drawnSignatureDataUrl)) {
+      if (signaturePreview && (selectedSignatureFile || drawnSignatureDataUrl || signaturePreview !== initialSignatureFromStorage)) {
         localStorage.setItem(SIGNATURE_STORAGE_KEY, signaturePreview);
+        setInitialSignatureFromStorage(signaturePreview);
         toast({ title: 'Success', description: 'Signature saved successfully.' });
         setSelectedSignatureFile(null);
         setDrawnSignatureDataUrl(null); 
-      } else if (!selectedSignatureFile && !drawnSignatureDataUrl && signaturePreview) {
-        toast({ title: 'No changes', description: 'No new signature selected or drawn to save.' });
       } else if (!signaturePreview) {
          toast({ title: 'No signature', description: 'Please select, upload or draw a signature to save.', variant: 'destructive'});
+      } else {
+         toast({ title: 'No changes', description: 'No new signature selected or drawn to save.' });
       }
     }
   };
@@ -203,6 +214,7 @@ export default function BrandingPage() {
     if (type === 'logo') {
       localStorage.removeItem(LOGO_STORAGE_KEY);
       setLogoPreview(null);
+      setInitialLogoFromStorage(null);
       setSelectedLogoFile(null);
       const fileInput = document.getElementById('logo-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
@@ -210,6 +222,7 @@ export default function BrandingPage() {
     } else { 
       localStorage.removeItem(SIGNATURE_STORAGE_KEY);
       setSignaturePreview(null);
+      setInitialSignatureFromStorage(null);
       setSelectedSignatureFile(null);
       setDrawnSignatureDataUrl(null);
       const fileInput = document.getElementById('signature-upload') as HTMLInputElement;
@@ -218,22 +231,49 @@ export default function BrandingPage() {
     }
   };
   
-  const isSignatureSaveDisabled = () => {
+  const isLogoSaveButtonDisabled = React.useMemo(() => {
+    if (!initialCompanyInfoLoaded) return true;
+    if (selectedLogoFile) return false; // If a new file is selected, enable save
+    if (!logoPreview) return true; // If no preview (nothing selected/stored), disable save
+    return logoPreview === initialLogoFromStorage; // Disable if preview is same as stored and no new file
+  }, [selectedLogoFile, logoPreview, initialLogoFromStorage, initialCompanyInfoLoaded]);
+
+  const isSignatureSaveButtonDisabled = React.useMemo(() => {
+    if (!initialCompanyInfoLoaded) return true;
+
     if (activeSignatureTab === 'upload') {
-      return !selectedSignatureFile && !!localStorage.getItem(SIGNATURE_STORAGE_KEY) && signaturePreview === localStorage.getItem(SIGNATURE_STORAGE_KEY);
+      if (selectedSignatureFile) return false; // New file selected for upload
+      if (!signaturePreview) return true; // No signature to save
+      return signaturePreview === initialSignatureFromStorage; // No changes from stored
     }
     if (activeSignatureTab === 'draw') {
-      return !drawnSignatureDataUrl && !!localStorage.getItem(SIGNATURE_STORAGE_KEY) && signaturePreview === localStorage.getItem(SIGNATURE_STORAGE_KEY);
+      if (drawnSignatureDataUrl && drawnSignatureDataUrl !== signaturePreview) {
+        // This means a new drawing is confirmed but not yet reflected in signaturePreview used for comparison
+        // This case should be handled by ensuring signaturePreview is updated when drawnSignatureDataUrl is set
+        // Let's simplify: if drawnSignatureDataUrl is set, it implies a change or new signature
+        return !drawnSignatureDataUrl && signaturePreview === initialSignatureFromStorage;
+      }
+      if(drawnSignatureDataUrl && signaturePreview === drawnSignatureDataUrl) return false; // Drawn and ready to be saved
+      if (!signaturePreview && !drawnSignatureDataUrl) return true; // Nothing to save
+      return !drawnSignatureDataUrl && signaturePreview === initialSignatureFromStorage; // No new drawing & preview matches stored
     }
     return true;
-  };
+  }, [
+    activeSignatureTab, 
+    selectedSignatureFile, 
+    drawnSignatureDataUrl, 
+    signaturePreview, 
+    initialSignatureFromStorage,
+    initialCompanyInfoLoaded
+  ]);
+
 
   const companyInfoChanged = React.useCallback(() => {
     if (!initialCompanyInfoLoaded) return false;
     let changed = false;
     Object.entries(COMPANY_INFO_KEYS).forEach(([key, storageKey]) => {
         const currentVal = companyInfo[key.toLowerCase().replace(/_([a-z])/g, g => g[1].toUpperCase()) as keyof CompanyInfoState];
-        const storedVal = localStorage.getItem(storageKey);
+        const storedVal = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null; // Safe access
         if (currentVal !== (storedVal || '')) {
             changed = true;
         }
@@ -293,10 +333,10 @@ export default function BrandingPage() {
                 </div>
             </CardContent>
             <CardFooter className="justify-end gap-2">
-                <Button type="button" variant="destructive" onClick={handleRemoveCompanyInfo} disabled={!Object.values(COMPANY_INFO_KEYS).some(key => !!localStorage.getItem(key))}>
+                <Button type="button" variant="destructive" onClick={handleRemoveCompanyInfo} disabled={!initialCompanyInfoLoaded || !hasStoredCompanyInfo}>
                     <Trash2 className="mr-2 h-4 w-4" /> Remove Info
                 </Button>
-                <Button type="button" onClick={handleSaveCompanyInfo} disabled={!companyInfoChanged()}>
+                <Button type="button" onClick={handleSaveCompanyInfo} disabled={!initialCompanyInfoLoaded || !companyInfoChanged()}>
                 <Save className="mr-2 h-4 w-4" /> Save Company Info
                 </Button>
             </CardFooter>
@@ -345,12 +385,12 @@ export default function BrandingPage() {
             )}
           </CardContent>
           <CardFooter className="justify-end gap-2">
-            {logoPreview && localStorage.getItem(LOGO_STORAGE_KEY) && (
-                 <Button type="button" variant="destructive" onClick={() => handleRemoveAsset('logo')} disabled={!localStorage.getItem(LOGO_STORAGE_KEY)}>
+            {initialLogoFromStorage && (
+                 <Button type="button" variant="destructive" onClick={() => handleRemoveAsset('logo')} disabled={!initialCompanyInfoLoaded || !initialLogoFromStorage}>
                     <Trash2 className="mr-2 h-4 w-4" /> Remove Logo
                  </Button>
             )}
-            <Button type="button" onClick={() => handleSaveAsset('logo')} disabled={!selectedLogoFile && !!localStorage.getItem(LOGO_STORAGE_KEY) && logoPreview === localStorage.getItem(LOGO_STORAGE_KEY)}>
+            <Button type="button" onClick={() => handleSaveAsset('logo')} disabled={isLogoSaveButtonDisabled}>
               <Save className="mr-2 h-4 w-4" /> Save Logo
             </Button>
           </CardFooter>
@@ -408,12 +448,12 @@ export default function BrandingPage() {
             )}
           </CardContent>
           <CardFooter className="justify-end gap-2">
-             {signaturePreview && localStorage.getItem(SIGNATURE_STORAGE_KEY) && (
-                 <Button type="button" variant="destructive" onClick={() => handleRemoveAsset('signature')} disabled={!localStorage.getItem(SIGNATURE_STORAGE_KEY)}>
+             {initialSignatureFromStorage && (
+                 <Button type="button" variant="destructive" onClick={() => handleRemoveAsset('signature')} disabled={!initialCompanyInfoLoaded || !initialSignatureFromStorage}>
                     <Trash2 className="mr-2 h-4 w-4" /> Remove Signature
                  </Button>
             )}
-            <Button type="button" onClick={() => handleSaveAsset('signature')} disabled={isSignatureSaveDisabled()}>
+            <Button type="button" onClick={() => handleSaveAsset('signature')} disabled={isSignatureSaveButtonDisabled}>
               <Save className="mr-2 h-4 w-4" /> Save Signature
             </Button>
           </CardFooter>
