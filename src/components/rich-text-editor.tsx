@@ -13,7 +13,8 @@ import {
   List,
   ListOrdered,
   Pilcrow,
-  Type as FontIcon, // Using Type icon for font size dropdown
+  Type as FontIcon,
+  Tags, // Added Tags icon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -55,7 +56,6 @@ const FontSizeMark = Mark.create({
         style: 'font-size',
         getAttrs: (value) => {
           if (typeof value === 'string') {
-            // Ensure it's a valid font size value like '10pt', '12px' etc.
             if (/^\d+(pt|px|em|rem|%)$/.test(value)) {
               return { fontSize: value };
             }
@@ -90,6 +90,27 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   disabled?: boolean;
 }
+
+const dataTags = [
+  { label: 'Customer Name', value: '{{customerName}}' },
+  { label: 'Customer Email', value: '{{customerEmail}}' },
+  { label: 'Customer Phone', value: '{{customerPhone}}' },
+  { label: 'Billing: Street', value: '{{customerBillingAddress.street}}' },
+  { label: 'Billing: City', value: '{{customerBillingAddress.city}}' },
+  { label: 'Billing: State', value: '{{customerBillingAddress.state}}' },
+  { label: 'Billing: Zip', value: '{{customerBillingAddress.zip}}' },
+  { label: 'Billing: Country', value: '{{customerBillingAddress.country}}' },
+  { label: 'Shipping: Street', value: '{{customerShippingAddress.street}}' },
+  { label: 'Shipping: City', value: '{{customerShippingAddress.city}}' },
+  { label: 'Shipping: State', value: '{{customerShippingAddress.state}}' },
+  { label: 'Shipping: Zip', value: '{{customerShippingAddress.zip}}' },
+  { label: 'Shipping: Country', value: '{{customerShippingAddress.country}}' },
+  { label: 'Document Number', value: '{{documentNumber}}' },
+  { label: 'Issue Date', value: '{{issueDate}}' },
+  { label: 'Due Date / Expiry Date', value: '{{dueDate}}' },
+  { label: 'Total Amount', value: '{{totalAmount}}' },
+  { label: 'Signature Panel', value: '{{signaturePanel}}' },
+];
 
 const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ editor, disabled }) => {
   if (!editor) {
@@ -220,6 +241,25 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
           <item.icon className="h-4 w-4" />
         </Button>
       ))}
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="h-8 w-8" title="Insert Data Tag" disabled={disabled}>
+            <Tags className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+          {dataTags.map((tag) => (
+            <DropdownMenuItem
+              key={tag.value}
+              onSelect={() => editor.chain().focus().insertContent(tag.value).run()}
+              disabled={disabled || !editor.can().chain().focus().insertContent(tag.value).run()}
+            >
+              {tag.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 };
@@ -247,6 +287,7 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
   });
 
   React.useEffect(() => {
+    // Ensure editor is not destroyed before accessing it
     if (editor && !editor.isDestroyed && value !== editor.getHTML()) {
       editor.commands.setContent(value, false);
     }
@@ -278,3 +319,4 @@ declare module '@tiptap/core' {
     };
   }
 }
+
