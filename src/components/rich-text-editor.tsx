@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import { useEditor, EditorContent, type Editor, Mark } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import {
   Bold,
@@ -13,9 +13,49 @@ import {
   List,
   ListOrdered,
   Pilcrow,
+  Baseline, // Import the Baseline icon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+// Custom Mark for 8pt font size
+const EightPtStyle = Mark.create({
+  name: 'eightPtStyle',
+
+  addOptions() {
+    return {
+      HTMLAttributes: {
+        style: 'font-size: 8pt;',
+      },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'span',
+        getAttrs: (node) => {
+          if (typeof node === 'string') return false;
+          const hasEightPtStyle = node.style.fontSize === '8pt';
+          return hasEightPtStyle ? {} : false;
+        },
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['span', { ...HTMLAttributes, style: 'font-size: 8pt;' }, 0];
+  },
+
+  addCommands() {
+    return {
+      toggleEightPtStyle: () => ({ commands }) => {
+        return commands.toggleMark(this.name);
+      },
+    };
+  },
+});
+
 
 interface RichTextEditorProps {
   value: string;
@@ -85,6 +125,13 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
       label: 'Ordered List',
       disabled: disabled || !editor.can().chain().focus().toggleOrderedList().run(),
     },
+    { // Added 8pt Font Button
+      action: () => editor.chain().focus().toggleEightPtStyle().run(),
+      icon: Baseline,
+      isActive: editor.isActive('eightPtStyle'),
+      label: '8pt Font',
+      disabled: disabled || !editor.can().chain().focus().toggleEightPtStyle().run(),
+    },
   ];
 
   return (
@@ -116,11 +163,17 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
           levels: [1, 2, 3],
         },
       }),
+      EightPtStyle, // Added custom mark
     ],
     content: value,
     editable: !disabled,
     onUpdate: ({ editor: currentEditor }) => {
       onChange(currentEditor.getHTML());
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none focus:outline-none',
+      },
     },
   });
 
@@ -138,7 +191,7 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
       <EditorContent
         editor={editor}
         className={cn(
-          "min-h-[200px] w-full rounded-b-md bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground prose prose-sm max-w-none",
+          "min-h-[200px] w-full rounded-b-md bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground",
           "focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
            disabled ? "bg-muted/50" : ""
         )}
