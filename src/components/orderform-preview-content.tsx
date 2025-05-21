@@ -54,7 +54,7 @@ function replacePlaceholders(
     '{{customerShippingAddress.country}}': () => customer?.shippingAddress?.country,
     '{{documentNumber}}': () => doc.orderFormNumber,
     '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
-    '{{validUntilDate}}': () => format(new Date(doc.validUntilDate), 'PPP'), // Changed from dueDate
+    '{{validUntilDate}}': () => format(new Date(doc.validUntilDate), 'PPP'), 
     '{{totalAmount}}': () => `${currencySymbol}${doc.total.toFixed(2)}`,
     '{{paymentTerms}}': () => doc.paymentTerms,
     '{{commitmentPeriod}}': () => doc.commitmentPeriod,
@@ -169,10 +169,18 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
                              (customerToDisplay.shippingAddress.street ||
                               customerToDisplay.shippingAddress.city);
   
+  const processedMsaContent = replacePlaceholders(orderForm.msaContent, orderForm, customer);
   const processedTermsAndConditions = replacePlaceholders(orderForm.termsAndConditions, orderForm, customer);
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
+      {processedMsaContent && (
+        <div className="mb-8 prose prose-sm max-w-none">
+          <ReactMarkdown rehypePlugins={[rehypeRaw]}>{processedMsaContent}</ReactMarkdown>
+          <hr className="my-6 border-border" />
+        </div>
+      )}
+
       <div className="flex justify-between items-start mb-10">
         <div className="w-1/2">
           {companyLogoUrl ? (

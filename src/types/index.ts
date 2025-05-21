@@ -52,6 +52,7 @@ export interface Invoice {
   taxRate: number; 
   taxAmount: number; 
   total: number; 
+  msaContent?: string;
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
   paymentTerms?: string;
@@ -83,6 +84,7 @@ export interface OrderForm {
   taxRate: number;
   taxAmount: number; 
   total: number; 
+  msaContent?: string;
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   paymentTerms?: string;
@@ -93,6 +95,13 @@ export interface OrderForm {
 }
 
 export interface TermsTemplate {
+  id: string;
+  name: string;
+  content: string; // HTML content from RichTextEditor
+  createdAt: Date;
+}
+
+export interface MsaTemplate {
   id: string;
   name: string;
   content: string; // HTML content from RichTextEditor

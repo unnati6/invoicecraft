@@ -1,6 +1,6 @@
 
-import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate } from '@/types';
-import type { AdditionalChargeFormData, TermsTemplateFormData } from './schemas'; 
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate, MsaTemplate } from '@/types';
+import type { AdditionalChargeFormData, TermsTemplateFormData, MsaTemplateFormData } from './schemas'; 
 import { addDays } from 'date-fns';
 
 let mockCustomers: Customer[] = [
@@ -49,6 +49,7 @@ let mockInvoices: Invoice[] = [
     taxRate: 10,
     taxAmount: 135, 
     total: 1485, 
+    msaContent: "<p>This is a sample MSA for INV-001.</p>",
     termsAndConditions: 'Payment due within 30 days. Late fees apply.',
     status: 'Sent',
     createdAt: new Date(2023, 10, 15)
@@ -99,6 +100,7 @@ let mockOrderForms: OrderForm[] = [
     taxRate: 10,
     taxAmount: 315, 
     total: 3465, 
+    msaContent: "<p>This is the MSA content for Order Form OF-001. It outlines general service terms.</p>",
     termsAndConditions: 'This order form is valid for 30 days. Prices subject to change thereafter.',
     status: 'Sent',
     createdAt: new Date(2024, 0, 10),
@@ -119,6 +121,22 @@ let mockTermsTemplates: TermsTemplate[] = [
     createdAt: new Date(),
   }
 ];
+
+let mockMsaTemplates: MsaTemplate[] = [
+  {
+    id: 'msa_tpl_1',
+    name: 'General Services MSA',
+    content: '<h1>Master Service Agreement</h1><p>This Master Service Agreement (MSA) is entered into by and between Your Awesome Company LLC and {{customerName}} ("Client").</p><h2>1. Services</h2><p>Company agrees to provide services as described in applicable Order Forms.</p>',
+    createdAt: new Date(),
+  },
+  {
+    id: 'msa_tpl_2',
+    name: 'Consulting MSA',
+    content: '<h1>Consulting Master Service Agreement</h1><p>This agreement governs all consulting services provided by Your Awesome Company LLC to {{customerName}}.</p><h2>Scope of Work</h2><p>Specific services and deliverables will be detailed in separate Statements of Work (SOWs) or Order Forms, which will reference this MSA.</p>',
+    createdAt: new Date(),
+  }
+];
+
 
 const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
@@ -265,6 +283,7 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     taxRate: taxRate,
     taxAmount: taxAmount,
     total: grandTotal,
+    msaContent: data.msaContent,
     paymentTerms: data.paymentTerms,
     commitmentPeriod: data.commitmentPeriod,
     serviceStartDate: data.serviceStartDate,
@@ -310,6 +329,7 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
       taxRate: taxRateForCalc,
       taxAmount: taxAmount,
       total: grandTotal,
+      msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
       paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingInvoice.paymentTerms,
       commitmentPeriod: data.commitmentPeriod !== undefined ? data.commitmentPeriod : existingInvoice.commitmentPeriod,
       serviceStartDate: data.serviceStartDate !== undefined ? data.serviceStartDate : existingInvoice.serviceStartDate,
@@ -398,6 +418,7 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
     taxRate: taxRate,
     taxAmount: taxAmount,
     total: grandTotal,
+    msaContent: data.msaContent,
     paymentTerms: data.paymentTerms,
     commitmentPeriod: data.commitmentPeriod,
     serviceStartDate: data.serviceStartDate,
@@ -443,6 +464,7 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
       taxRate: taxRateForCalc,
       taxAmount: taxAmount,
       total: grandTotal,
+      msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
       paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingOrderForm.paymentTerms,
       commitmentPeriod: data.commitmentPeriod !== undefined ? data.commitmentPeriod : existingOrderForm.commitmentPeriod,
       serviceStartDate: data.serviceStartDate !== undefined ? data.serviceStartDate : existingOrderForm.serviceStartDate,
@@ -515,4 +537,41 @@ export const deleteTermsTemplate = async (id: string): Promise<boolean> => {
   const initialLength = mockTermsTemplates.length;
   mockTermsTemplates = mockTermsTemplates.filter(t => t.id !== id);
   return mockTermsTemplates.length < initialLength;
+};
+
+// MSA Template Functions
+export const getMsaTemplates = async (): Promise<MsaTemplate[]> => {
+  return [...mockMsaTemplates];
+};
+
+export const getMsaTemplateById = async (id: string): Promise<MsaTemplate | undefined> => {
+  return mockMsaTemplates.find(t => t.id === id);
+};
+
+export const createMsaTemplate = async (data: MsaTemplateFormData): Promise<MsaTemplate> => {
+  const newTemplate: MsaTemplate = {
+    id: generateId('msa_tpl'),
+    name: data.name,
+    content: data.content || '<p></p>',
+    createdAt: new Date(),
+  };
+  mockMsaTemplates.push(newTemplate);
+  return newTemplate;
+};
+
+export const updateMsaTemplate = async (id: string, data: Partial<MsaTemplateFormData>): Promise<MsaTemplate | null> => {
+  const index = mockMsaTemplates.findIndex(t => t.id === id);
+  if (index === -1) return null;
+  mockMsaTemplates[index] = {
+    ...mockMsaTemplates[index],
+    ...data,
+    content: data.content !== undefined ? (data.content || '<p></p>') : mockMsaTemplates[index].content,
+  };
+  return mockMsaTemplates[index];
+};
+
+export const deleteMsaTemplate = async (id: string): Promise<boolean> => {
+  const initialLength = mockMsaTemplates.length;
+  mockMsaTemplates = mockMsaTemplates.filter(t => t.id !== id);
+  return mockMsaTemplates.length < initialLength;
 };

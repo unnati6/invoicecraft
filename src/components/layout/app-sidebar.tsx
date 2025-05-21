@@ -12,8 +12,10 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList } from 'lucide-react'; 
+import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList, FileCheck2 } from 'lucide-react'; 
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
@@ -47,12 +49,23 @@ export function AppSidebar() {
     { href: '/invoices', label: 'Invoices', icon: FileText },
     { href: '/orderforms', label: 'Order Forms', icon: OrderFormIcon },
     { href: '/customers', label: 'Customers', icon: Users },
-    { href: '/templates/terms', label: 'Templates', icon: ClipboardList },
+  ];
+
+  const templateMenuItems = [
+    { href: '/templates/terms', label: 'T&C Templates', icon: ClipboardList },
+    { href: '/templates/msa', label: 'MSA Templates', icon: FileCheck2 },
   ];
 
   const settingsMenuItems = [
      { href: '/branding', label: 'Branding', icon: ImageIconLucide },
   ];
+
+  const isActive = (href: string) => {
+    if (href === '/dashboard' || href === '/templates/terms' || href === '/templates/msa') {
+        return pathname === href || pathname.startsWith(href + '/');
+    }
+    return pathname.startsWith(href);
+  };
 
   return (
     <Sidebar variant="sidebar" collapsible="icon">
@@ -72,11 +85,11 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' || item.href === '/templates/terms' ? pathname === item.href || pathname.startsWith(item.href + '/') : true)}
+                isActive={isActive(item.href)}
                 tooltip={item.label}
                 className={cn(
                   "justify-start",
-                  {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': pathname.startsWith(item.href) && (item.href === '/dashboard' || item.href === '/templates/terms' ? pathname === item.href || pathname.startsWith(item.href + '/') : true) }
+                  {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': isActive(item.href) }
                 )}
               >
                 <Link href={item.href}>
@@ -87,6 +100,33 @@ export function AppSidebar() {
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
+        <SidebarGroup>
+            <SidebarGroupLabel className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+                <span className="group-data-[collapsible=icon]:hidden">Templates</span>
+                <ClipboardList className="hidden group-data-[collapsible=icon]:block h-5 w-5"/>
+            </SidebarGroupLabel>
+            <SidebarMenu>
+                {templateMenuItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                        asChild
+                        isActive={isActive(item.href)}
+                        tooltip={item.label}
+                        className={cn(
+                        "justify-start",
+                        {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': isActive(item.href) }
+                        )}
+                    >
+                        <Link href={item.href}>
+                        <item.icon className="h-5 w-5" />
+                        <span>{item.label}</span>
+                        </Link>
+                    </SidebarMenuButton>
+                    </SidebarMenuItem>
+                ))}
+            </SidebarMenu>
+        </SidebarGroup>
+
       </SidebarContent>
       <SidebarFooter className="border-t p-2">
         <SidebarMenu>
@@ -94,11 +134,11 @@ export function AppSidebar() {
              <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith(item.href)}
+                isActive={isActive(item.href)}
                 tooltip={item.label}
                 className={cn(
                   "justify-start",
-                  {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': pathname.startsWith(item.href)}
+                  {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': isActive(item.href)}
                 )}
               >
                 <Link href={item.href}>

@@ -19,11 +19,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { invoiceSchema, type InvoiceFormData, type AdditionalChargeFormData } from '@/lib/schemas';
-import type { Invoice, Customer, TermsTemplate } from '@/types';
+import type { Invoice, Customer, TermsTemplate, MsaTemplate } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink } from 'lucide-react';
-import { getAllCustomers, fetchNextInvoiceNumber, getAllTermsTemplates, saveInvoiceTerms } from '@/lib/actions';
+import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink, FileCheck2 } from 'lucide-react';
+import { getAllCustomers, fetchNextInvoiceNumber, getAllTermsTemplates, saveInvoiceTerms, getAllMsaTemplates } from '@/lib/actions';
 import Link from 'next/link';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 import { RichTextEditor } from '@/components/rich-text-editor';
@@ -70,6 +70,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   const [isLoadingInvNumber, setIsLoadingInvNumber] = React.useState(!initialData);
   const [currentCurrencySymbol, setCurrentCurrencySymbol] = React.useState('$');
   const [termsTemplates, setTermsTemplates] = React.useState<TermsTemplate[]>([]);
+  const [msaTemplates, setMsaTemplates] = React.useState<MsaTemplate[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = React.useState(true);
   const { toast } = useToast();
   const [isAutoSavingTerms, setIsAutoSavingTerms] = React.useState(false);
@@ -93,6 +94,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
             valueType: ac.valueType,
             value: ac.value,
           })) || [],
+          msaContent: initialData.msaContent || '',
           termsAndConditions: initialData.termsAndConditions || '<p></p>',
           paymentTerms: initialData.paymentTerms || "Net 30 Days",
           commitmentPeriod: initialData.commitmentPeriod || "N/A",
@@ -106,6 +108,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
           items: [{ description: '', quantity: 1, rate: 0 }],
           additionalCharges: [],
           taxRate: 0,
+          msaContent: '',
           termsAndConditions: '<p></p>', 
           status: 'Draft',
           customerId: '',
@@ -131,28 +134,30 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
       setIsLoadingCustomers(true);
       setIsLoadingTemplates(true);
       try {
-        const [fetchedCustomers, fetchedTemplates] = await Promise.all([
+        const [fetchedCustomers, fetchedTermsTemplates, fetchedMsaTemplates] = await Promise.all([
           getAllCustomers(),
-          getAllTermsTemplates()
+          getAllTermsTemplates(),
+          getAllMsaTemplates()
         ]);
         setCustomers(fetchedCustomers);
-        setTermsTemplates(fetchedTemplates);
+        setTermsTemplates(fetchedTermsTemplates);
+        setMsaTemplates(fetchedMsaTemplates);
       } catch (error) {
         console.error("Failed to fetch initial data for form", error);
+        toast({ title: "Error", description: "Failed to load supporting data.", variant: "destructive" });
       } finally {
         setIsLoadingCustomers(false);
         setIsLoadingTemplates(false);
       }
     }
     loadInitialData();
-  }, []);
+  }, [toast]);
   
   React.useEffect(() => {
     async function loadNextInvoiceNumber() {
       if (!initialData) { 
         setIsLoadingInvNumber(true);
         try {
-          // TODO: Get prefix from localStorage if available or settings
           const nextInvNum = await fetchNextInvoiceNumber();
           form.setValue('invoiceNumber', nextInvNum);
         } catch (error) {
@@ -205,13 +210,22 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   const taxAmount = React.useMemo(() => taxableAmount * ((Number(watchedTaxRate) || 0) / 100), [taxableAmount, watchedTaxRate]);
   const total = React.useMemo(() => taxableAmount + taxAmount, [taxableAmount, taxAmount]);
 
-  const handleTemplateSelect = (templateId: string) => {
+  const handleTermsTemplateSelect = (templateId: string) => {
     if (templateId === "none" || !templateId) {
       form.setValue('termsAndConditions', '<p></p>', { shouldDirty: true, shouldValidate: true }); 
       return;
     }
     const selectedTemplate = termsTemplates.find(t => t.id === templateId);
     if (selectedTemplate) form.setValue('termsAndConditions', selectedTemplate.content, { shouldDirty: true, shouldValidate: true });
+  };
+
+  const handleMsaTemplateSelect = (templateId: string) => {
+    if (templateId === "none" || !templateId) {
+      form.setValue('msaContent', '', { shouldDirty: true });
+      return;
+    }
+    const selectedTemplate = msaTemplates.find(t => t.id === templateId);
+    if (selectedTemplate) form.setValue('msaContent', selectedTemplate.content, { shouldDirty: true });
   };
 
   const debouncedSaveTerms = React.useCallback(
@@ -531,6 +545,39 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                 </Button>
               </CardContent>
             </Card>
+
+             <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <CardTitle className="flex items-center"><FileCheck2 className="mr-2 h-5 w-5" /> Master Service Agreement (MSA)</CardTitle>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {isLoadingTemplates ? (<Skeleton className="h-10 w-full" />) : (
+                        <FormItem>
+                            <FormLabel>Apply MSA Template</FormLabel>
+                            <Select onValueChange={handleMsaTemplateSelect} defaultValue={initialData?.msaContent ? msaTemplates.find(t => t.content === initialData.msaContent)?.id || "none" : "none"}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select an MSA template (optional)" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                <SelectItem value="none">None (No MSA)</SelectItem>
+                                {msaTemplates.map(template => (<SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                    <FormField
+                        control={form.control}
+                        name="msaContent"
+                        render={({ field }) => (
+                            <FormItem className="hidden"> {/* This field is populated by template selection, not directly edited here */}
+                            <FormControl><Input {...field} /></FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </CardContent>
+            </Card>
             
             <Card>
                 <CardHeader>
@@ -546,7 +593,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                     {isLoadingTemplates ? (<Skeleton className="h-10 w-full" />) : (
                         <FormItem>
                             <FormLabel>Apply Template</FormLabel>
-                            <Select onValueChange={handleTemplateSelect}>
+                            <Select onValueChange={handleTermsTemplateSelect}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Select a T&C template (optional)" /></SelectTrigger></FormControl>
                                 <SelectContent>
                                 <SelectItem value="none">None (Custom)</SelectItem>

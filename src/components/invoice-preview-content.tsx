@@ -171,10 +171,17 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
                              (customerToDisplay.shippingAddress.street ||
                               customerToDisplay.shippingAddress.city);
   
+  const processedMsaContent = replacePlaceholders(invoice.msaContent, invoice, customer);
   const processedTermsAndConditions = replacePlaceholders(invoice.termsAndConditions, invoice, customer);
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
+      {processedMsaContent && (
+        <div className="mb-8 prose prose-sm max-w-none">
+          <ReactMarkdown rehypePlugins={[rehypeRaw]}>{processedMsaContent}</ReactMarkdown>
+          <hr className="my-6 border-border" />
+        </div>
+      )}
       <div className="flex justify-between items-start mb-10">
         <div className="w-1/2">
           {companyLogoUrl ? (

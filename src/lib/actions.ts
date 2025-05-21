@@ -3,8 +3,8 @@
 
 import { revalidatePath } from 'next/cache';
 import * as Data from './data';
-import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate } from '@/types';
-import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData } from './schemas';
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate } from '@/types';
+import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData } from './schemas';
 import { format, addDays } from 'date-fns';
 import { Buffer } from 'buffer'; 
 
@@ -61,6 +61,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     issueDate: data.issueDate,
     dueDate: data.dueDate,
     taxRate: data.taxRate || 0,
+    msaContent: data.msaContent,
     termsAndConditions: data.termsAndConditions,
     status: data.status,
     items: data.items,
@@ -78,6 +79,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     const finalData = {
       ...invoiceDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
+      msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
     };
 
     const updated = await Data.updateInvoice(id, finalData);
@@ -141,6 +143,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     issueDate: data.issueDate,
     validUntilDate: data.validUntilDate,
     taxRate: data.taxRate || 0,
+    msaContent: data.msaContent,
     termsAndConditions: data.termsAndConditions,
     status: data.status,
     items: data.items,
@@ -158,6 +161,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     const finalData = {
       ...orderFormDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
+      msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
     };
 
     const updated = await Data.updateOrderForm(id, finalData);
@@ -225,6 +229,7 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
       value: ac.value,
     })) : [],
     taxRate: orderForm.taxRate,
+    msaContent: orderForm.msaContent,
     termsAndConditions: orderForm.termsAndConditions,
     status: 'Draft' as Invoice['status'],
     paymentTerms: orderForm.paymentTerms,
@@ -406,6 +411,40 @@ export async function removeTermsTemplate(id: string): Promise<boolean> {
   const success = await Data.deleteTermsTemplate(id);
   if (success) {
     revalidatePath('/templates/terms');
+  }
+  return success;
+}
+
+// MSA Template Actions
+export async function getAllMsaTemplates(): Promise<MsaTemplate[]> {
+  return Data.getMsaTemplates();
+}
+
+export async function fetchMsaTemplateById(id: string): Promise<MsaTemplate | undefined> {
+  return Data.getMsaTemplateById(id);
+}
+
+export async function saveMsaTemplate(data: MsaTemplateFormData, id?: string): Promise<MsaTemplate | null> {
+  if (id) {
+    const updated = await Data.updateMsaTemplate(id, data);
+    if (updated) {
+      revalidatePath('/templates/msa');
+      revalidatePath(`/templates/msa/${id}/edit`);
+    }
+    return updated;
+  } else {
+    const newTemplate = await Data.createMsaTemplate(data);
+    if (newTemplate) {
+      revalidatePath('/templates/msa');
+    }
+    return newTemplate;
+  }
+}
+
+export async function removeMsaTemplate(id: string): Promise<boolean> {
+  const success = await Data.deleteMsaTemplate(id);
+  if (success) {
+    revalidatePath('/templates/msa');
   }
   return success;
 }
