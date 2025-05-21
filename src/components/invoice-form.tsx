@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -18,8 +19,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { invoiceSchema, type InvoiceFormData, type InvoiceItemFormData } from '@/lib/schemas';
-import type { Invoice, Customer } from '@/types';
+import { invoiceSchema, type InvoiceFormData, type AdditionalChargeFormData } from '@/lib/schemas';
+import type { Invoice, Customer, AdditionalChargeItem as StoredAdditionalChargeItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink } from 'lucide-react';
@@ -37,7 +38,6 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   const [isLoadingCustomers, setIsLoadingCustomers] = React.useState(true);
   const [isLoadingInvNumber, setIsLoadingInvNumber] = React.useState(!initialData);
 
-
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: initialData
@@ -45,18 +45,25 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
           ...initialData,
           issueDate: new Date(initialData.issueDate),
           dueDate: new Date(initialData.dueDate),
-          items: initialData.items.map(item => ({ // Ensure items match InvoiceItemFormData
+          items: initialData.items.map(item => ({ 
             id: item.id,
             description: item.description,
             quantity: item.quantity,
             rate: item.rate,
           })),
+          additionalCharges: initialData.additionalCharges?.map(ac => ({
+            id: ac.id,
+            description: ac.description,
+            valueType: ac.valueType,
+            value: ac.value,
+          })) || [],
         }
       : {
           invoiceNumber: '',
           issueDate: new Date(),
-          dueDate: new Date(new Date().setDate(new Date().getDate() + 30)), // Default due date 30 days from now
+          dueDate: new Date(new Date().setDate(new Date().getDate() + 30)), 
           items: [{ description: '', quantity: 1, rate: 0 }],
+          additionalCharges: [],
           taxRate: 0,
           termsAndConditions: 'Payment due within 30 days.',
           status: 'Draft',
@@ -64,9 +71,14 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
         },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields: itemFields, append: appendItem, remove: removeItem } = useFieldArray({
     control: form.control,
     name: 'items',
+  });
+
+  const { fields: chargeFields, append: appendCharge, remove: removeCharge } = useFieldArray({
+    control: form.control,
+    name: 'additionalCharges',
   });
 
   React.useEffect(() => {
@@ -77,7 +89,6 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
         setCustomers(fetchedCustomers);
       } catch (error) {
         console.error("Failed to fetch customers", error);
-        // Handle error (e.g., show toast)
       } finally {
         setIsLoadingCustomers(false);
       }
@@ -87,7 +98,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   
   React.useEffect(() => {
     async function loadNextInvoiceNumber() {
-      if (!initialData) { // Only for new invoices
+      if (!initialData) { 
         setIsLoadingInvNumber(true);
         try {
           const nextInvNum = await fetchNextInvoiceNumber();
@@ -104,21 +115,38 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   }, [initialData, form]);
 
 
-  // Calculate totals reactively
   const watchedItems = form.watch('items');
+  const watchedAdditionalCharges = form.watch('additionalCharges');
   const watchedTaxRate = form.watch('taxRate');
 
-  const subtotal = React.useMemo(() => {
+  const mainItemsSubtotal = React.useMemo(() => {
     return watchedItems.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.rate) || 0), 0);
   }, [watchedItems]);
 
+  const totalCalculatedAdditionalCharges = React.useMemo(() => {
+    return watchedAdditionalCharges?.reduce((sum, charge) => {
+      const value = Number(charge.value) || 0;
+      if (charge.valueType === 'fixed') {
+        return sum + value;
+      }
+      if (charge.valueType === 'percentage') {
+        return sum + (mainItemsSubtotal * (value / 100));
+      }
+      return sum;
+    }, 0) || 0;
+  }, [watchedAdditionalCharges, mainItemsSubtotal]);
+
+  const taxableAmount = React.useMemo(() => {
+    return mainItemsSubtotal + totalCalculatedAdditionalCharges;
+  }, [mainItemsSubtotal, totalCalculatedAdditionalCharges]);
+
   const taxAmount = React.useMemo(() => {
-    return subtotal * ((Number(watchedTaxRate) || 0) / 100);
-  }, [subtotal, watchedTaxRate]);
+    return taxableAmount * ((Number(watchedTaxRate) || 0) / 100);
+  }, [taxableAmount, watchedTaxRate]);
 
   const total = React.useMemo(() => {
-    return subtotal + taxAmount;
-  }, [subtotal, taxAmount]);
+    return taxableAmount + taxAmount;
+  }, [taxableAmount, taxAmount]);
 
   return (
     <Form {...form}>
@@ -289,7 +317,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                 <CardTitle>Invoice Items</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {fields.map((field, index) => (
+                {itemFields.map((field, index) => (
                   <div key={field.id} className="grid grid-cols-12 gap-x-4 gap-y-2 items-start p-3 border rounded-md relative">
                     <FormField
                       control={form.control}
@@ -331,18 +359,18 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                       )}
                     />
                      <div className="col-span-4 md:col-span-2 flex items-end h-full">
-                        {index === 0 && <FormLabel className="text-xs md:invisible">Amount</FormLabel>}
+                        {index === 0 && <FormLabel className="text-xs md:invisible md:block">Amount</FormLabel>}
                          <p className="py-2 text-sm font-medium min-w-[60px] text-right">
                            ${((Number(watchedItems[index]?.quantity) || 0) * (Number(watchedItems[index]?.rate) || 0)).toFixed(2)}
                          </p>
                      </div>
                     <div className="col-span-12 md:col-span-1 flex items-end justify-end h-full pt-2 md:pt-0">
-                      {fields.length > 1 && (
+                      {itemFields.length > 1 && (
                          <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => remove(index)}
+                          onClick={() => removeItem(index)}
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -357,15 +385,92 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                 {Array.isArray(form.formState.errors.items) && form.formState.errors.items.length === 0 && form.formState.errors.items.message && (
                      <p className="text-sm font-medium text-destructive">{form.formState.errors.items.message}</p>
                 )}
-
-
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => append({ description: '', quantity: 1, rate: 0 })}
+                  onClick={() => appendItem({ description: '', quantity: 1, rate: 0 })}
                   className="mt-2"
                 >
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Item
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Additional Charges Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Additional Charges</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {chargeFields.map((field, index) => (
+                  <div key={field.id} className="grid grid-cols-12 gap-x-4 gap-y-2 items-start p-3 border rounded-md relative">
+                    <FormField
+                      control={form.control}
+                      name={`additionalCharges.${index}.description`}
+                      render={({ field: descField }) => (
+                        <FormItem className="col-span-12 md:col-span-5">
+                          {index === 0 && <FormLabel className="text-xs">Description *</FormLabel>}
+                          <FormControl>
+                            <Input placeholder="e.g. Shipping, Handling Fee" {...descField} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`additionalCharges.${index}.valueType`}
+                      render={({ field: typeField }) => (
+                        <FormItem className="col-span-6 md:col-span-3">
+                           {index === 0 && <FormLabel className="text-xs">Type *</FormLabel>}
+                           <Select onValueChange={typeField.onChange} defaultValue={typeField.value}>
+                            <FormControl>
+                                <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                <SelectItem value="fixed">Fixed ($)</SelectItem>
+                                <SelectItem value="percentage">Percentage (%)</SelectItem>
+                            </SelectContent>
+                           </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`additionalCharges.${index}.value`}
+                      render={({ field: valField }) => (
+                        <FormItem className="col-span-6 md:col-span-3">
+                          {index === 0 && <FormLabel className="text-xs">Value *</FormLabel>}
+                          <FormControl>
+                            <Input type="number" placeholder="0.00" {...valField} onChange={e => valField.onChange(parseFloat(e.target.value) || 0)} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="col-span-12 md:col-span-1 flex items-end justify-end h-full pt-2 md:pt-0">
+                         <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeCharge(index)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => appendCharge({ description: '', valueType: 'fixed', value: 0 })}
+                  className="mt-2"
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Charge
                 </Button>
               </CardContent>
             </Card>
@@ -414,17 +519,29 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                     </CardContent>
                  </Card>
             )}
-
-
           </div>
 
           {/* Summary Card (Right Sidebar) */}
-          <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-20 self-start"> {/* Added sticky positioning */}
+          <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-20 self-start">
             <Card>
               <CardHeader>
                 <CardTitle>Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                 <div className="space-y-2 pt-2">
+                  <div className="flex justify-between">
+                    <span>Subtotal (Items):</span>
+                    <span>${mainItemsSubtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Additional Charges:</span>
+                    <span>${totalCalculatedAdditionalCharges.toFixed(2)}</span>
+                  </div>
+                   <div className="flex justify-between font-medium border-t pt-1 mt-1">
+                    <span>Taxable Amount:</span>
+                    <span>${taxableAmount.toFixed(2)}</span>
+                  </div>
+                </div>
                 <FormField
                   control={form.control}
                   name="taxRate"
@@ -440,11 +557,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                 />
                 <div className="space-y-2 pt-2 border-t">
                   <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>${subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tax ({form.getValues('taxRate') || 0}%):</span>
+                    <span>Tax Amount:</span>
                     <span>${taxAmount.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-lg font-semibold border-t pt-2 mt-2">

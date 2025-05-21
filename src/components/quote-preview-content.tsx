@@ -1,8 +1,8 @@
 
 'use client';
 
-import * as _React from 'react'; // Corrected import
-import type { Quote, Customer } from '@/types';
+import * as _React from 'react';
+import type { Quote, Customer, AdditionalChargeItem } from '@/types';
 import { format } from 'date-fns';
 import Image from 'next/image';
 
@@ -50,6 +50,7 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
   };
   
   const partnerLogoUrl = 'https://placehold.co/150x50.png'; 
+  const totalAdditionalChargesValue = quote.additionalCharges?.reduce((sum, charge) => sum + charge.calculatedAmount, 0) || 0;
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
@@ -104,7 +105,7 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
       </div>
 
       {/* Items Table */}
-      <div className="mb-8">
+      <div className="mb-4">
         <table className="w-full border-collapse">
           <thead className="bg-muted/50">
             <tr>
@@ -127,6 +128,26 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
         </table>
       </div>
 
+      {/* Additional Charges Table */}
+      {quote.additionalCharges && quote.additionalCharges.length > 0 && (
+        <div className="mb-8">
+          <h3 className="font-semibold mb-2 text-muted-foreground text-sm">Additional Charges:</h3>
+          <table className="w-full border-collapse">
+            <tbody>
+              {quote.additionalCharges.map((charge) => (
+                <tr key={charge.id} className="border-b border-border">
+                  <td className="p-2 border border-border">
+                    {charge.description}
+                    {charge.valueType === 'percentage' && ` (${charge.value}%)`}
+                  </td>
+                  <td className="p-2 text-right border border-border">${charge.calculatedAmount.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* Partner Logo Section */}
       {partnerLogoUrl && (
         <div className="mb-8 mt-4 py-4 border-t border-b border-dashed">
@@ -148,10 +169,15 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
       <div className="flex justify-end mb-8">
         <div className="w-full max-w-xs space-y-2">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Subtotal:</span>
+            <span className="text-muted-foreground">Subtotal (Items):</span>
             <span>${quote.subtotal.toFixed(2)}</span>
           </div>
-           {/* TODO: Add display for additionalCharges here */}
+          {totalAdditionalChargesValue > 0 && (
+             <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Additional Charges:</span>
+                <span>${totalAdditionalChargesValue.toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-muted-foreground">Tax ({quote.taxRate}%):</span>
             <span>${quote.taxAmount.toFixed(2)}</span>
@@ -181,8 +207,8 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
                     <Image
                       src={companySignatureUrl}
                       alt="Company Signature"
-                      layout="fill"
-                      objectFit="contain"
+                      fill={true}
+                      style={{ objectFit: 'contain' }}
                       className="border-b border-gray-400"
                     />
                   </div>

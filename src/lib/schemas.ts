@@ -26,12 +26,14 @@ const baseItemSchema = z.object({
 export const invoiceItemSchema = baseItemSchema;
 export type InvoiceItemFormData = z.infer<typeof invoiceItemSchema>;
 
-export const additionalChargeSchema = z.object({
+// Schema for the form input for additional charges
+export const additionalChargeFormSchema = z.object({
   id: z.string().optional(),
   description: z.string().min(1, { message: "Description cannot be empty." }),
-  amount: z.number().min(0.01, { message: "Amount must be positive." }),
+  valueType: z.enum(['fixed', 'percentage'], { required_error: "Type is required."}).default('fixed'),
+  value: z.number().min(0.01, { message: "Value must be positive." }),
 });
-export type AdditionalChargeFormData = z.infer<typeof additionalChargeSchema>;
+export type AdditionalChargeFormData = z.infer<typeof additionalChargeFormSchema>;
 
 export const invoiceSchema = z.object({
   customerId: z.string().min(1, { message: "Customer is required." }),
@@ -39,7 +41,7 @@ export const invoiceSchema = z.object({
   issueDate: z.date({ required_error: "Issue date is required." }),
   dueDate: z.date({ required_error: "Due date is required." }),
   items: z.array(invoiceItemSchema).min(1, { message: "At least one item is required." }),
-  additionalCharges: z.array(additionalChargeSchema).optional(),
+  additionalCharges: z.array(additionalChargeFormSchema).optional(), // Use the form schema here
   taxRate: z.number().min(0).max(100).optional().default(0),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Paid', 'Overdue']).default('Draft'),
@@ -61,9 +63,10 @@ export const quoteSchema = z.object({
   issueDate: z.date({ required_error: "Issue date is required." }),
   expiryDate: z.date({ required_error: "Expiry date is required." }),
   items: z.array(quoteItemSchema).min(1, { message: "At least one item is required." }),
-  additionalCharges: z.array(additionalChargeSchema).optional(),
+  additionalCharges: z.array(additionalChargeFormSchema).optional(), // Use the form schema here
   taxRate: z.number().min(0).max(100).optional().default(0),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Accepted', 'Declined', 'Expired']).default('Draft'),
 });
 export type QuoteFormData = z.infer<typeof quoteSchema>;
+

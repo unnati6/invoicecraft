@@ -26,7 +26,9 @@ export interface InvoiceItem {
 export interface AdditionalChargeItem {
   id: string;
   description: string;
-  amount: number;
+  valueType: 'fixed' | 'percentage';
+  value: number; // The raw fixed value or percentage rate
+  calculatedAmount: number; // The actual monetary value of this charge
 }
 
 export interface Invoice {
@@ -39,8 +41,9 @@ export interface Invoice {
   items: InvoiceItem[];
   additionalCharges?: AdditionalChargeItem[];
   subtotal: number; // Subtotal of main items ONLY
+  // No need for totalAdditionalChargesAmount on the main object if derived or part of summary
   taxRate: number; 
-  taxAmount: number; // Tax calculated on (subtotal + sum of additional charges)
+  taxAmount: number; // Tax calculated on (subtotal of main items + sum of calculated additional charges)
   total: number; // Grand total
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
@@ -66,9 +69,10 @@ export interface Quote {
   additionalCharges?: AdditionalChargeItem[];
   subtotal: number; // Subtotal of main items ONLY
   taxRate: number;
-  taxAmount: number; // Tax calculated on (subtotal + sum of additional charges)
+  taxAmount: number; // Tax calculated on (subtotal of main items + sum of calculated additional charges)
   total: number; // Grand total
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   createdAt: Date;
 }
+

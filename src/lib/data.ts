@@ -1,5 +1,6 @@
 
-import type { Customer, Invoice, InvoiceItem, Quote, QuoteItem } from '@/types';
+import type { Customer, Invoice, InvoiceItem, Quote, QuoteItem, AdditionalChargeItem } from '@/types';
+import type { AdditionalChargeFormData } from './schemas'; // For form data type
 
 // In-memory store for mock data
 let mockCustomers: Customer[] = [
@@ -19,10 +20,13 @@ let mockInvoices: Invoice[] = [
       { id: 'item_1', description: 'Web Design Service', quantity: 1, rate: 1200, amount: 1200 },
       { id: 'item_2', description: 'Hosting (1 year)', quantity: 1, rate: 100, amount: 100 },
     ],
-    subtotal: 1300,
+    additionalCharges: [
+        { id: 'ac_1', description: 'Service Fee', valueType: 'fixed', value: 50, calculatedAmount: 50 }
+    ],
+    subtotal: 1300, // 1200 + 100
     taxRate: 10,
-    taxAmount: 130,
-    total: 1430,
+    taxAmount: 135, // 10% of (1300 + 50)
+    total: 1485, // 1300 + 50 + 135
     termsAndConditions: 'Payment due within 30 days. Late fees apply.',
     status: 'Sent',
     createdAt: new Date(2023, 10, 15)
@@ -37,6 +41,7 @@ let mockInvoices: Invoice[] = [
     items: [
       { id: 'item_3', description: 'Consultation', quantity: 5, rate: 80, amount: 400 },
     ],
+    // No additional charges for this one
     subtotal: 400,
     taxRate: 0,
     taxAmount: 0,
@@ -59,10 +64,13 @@ let mockQuotes: Quote[] = [
       { id: 'q_item_1', description: 'Initial Project Scoping', quantity: 1, rate: 500, amount: 500 },
       { id: 'q_item_2', description: 'Phase 1 Development Estimate', quantity: 1, rate: 2500, amount: 2500 },
     ],
-    subtotal: 3000,
+    additionalCharges: [
+      { id: 'q_ac_1', description: 'Rush Fee', valueType: 'percentage', value: 5, calculatedAmount: 150 } // 5% of 3000
+    ],
+    subtotal: 3000, // 500 + 2500
     taxRate: 10,
-    taxAmount: 300,
-    total: 3300,
+    taxAmount: 315, // 10% of (3000 + 150)
+    total: 3465, // 3000 + 150 + 315
     termsAndConditions: 'This quote is valid for 30 days. Prices subject to change thereafter.',
     status: 'Sent',
     createdAt: new Date(2024, 0, 10),
@@ -70,30 +78,24 @@ let mockQuotes: Quote[] = [
 ];
 
 
-// Helper to generate unique IDs
 const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
 // Customer Functions
 export const getCustomers = async (): Promise<Customer[]> => {
-  // Simulate API delay for list fetching if desired, but not for core data ops
-  // await new Promise(resolve => setTimeout(resolve, 500)); 
   return [...mockCustomers];
 };
 
 export const getCustomerById = async (id: string): Promise<Customer | undefined> => {
-  // No delay for direct fetch by ID
   return mockCustomers.find(c => c.id === id);
 };
 
 export const createCustomer = async (data: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer> => {
-  // No delay for create
   const newCustomer: Customer = { ...data, id: generateId('cust'), createdAt: new Date() };
   mockCustomers.push(newCustomer);
   return newCustomer;
 };
 
 export const updateCustomer = async (id: string, data: Partial<Omit<Customer, 'id' | 'createdAt'>>): Promise<Customer | null> => {
-  // No delay for update
   const index = mockCustomers.findIndex(c => c.id === id);
   if (index === -1) return null;
   mockCustomers[index] = { ...mockCustomers[index], ...data };
@@ -101,16 +103,66 @@ export const updateCustomer = async (id: string, data: Partial<Omit<Customer, 'i
 };
 
 export const deleteCustomer = async (id: string): Promise<boolean> => {
-  // No delay for delete
   const initialLength = mockCustomers.length;
   mockCustomers = mockCustomers.filter(c => c.id !== id);
   return mockCustomers.length < initialLength;
 };
 
+// --- Helper for calculations ---
+function calculateTotalsAndCharges(
+    itemsData: Omit<InvoiceItem, 'id' | 'amount'>[] | Omit<QuoteItem, 'id' | 'amount'>[],
+    additionalChargesData: AdditionalChargeFormData[] | undefined,
+    taxRateInput: number
+): {
+    processedItems: (InvoiceItem[] | QuoteItem[]);
+    processedAdditionalCharges: AdditionalChargeItem[];
+    mainItemsSubtotal: number;
+    totalAdditionalChargesValue: number;
+    taxAmount: number;
+    grandTotal: number;
+} {
+    const processedItems = itemsData.map(item => ({
+        ...item,
+        id: generateId('item'), // Or q_item
+        amount: item.quantity * item.rate,
+    }));
+
+    const mainItemsSubtotal = processedItems.reduce((sum, item) => sum + item.amount, 0);
+
+    const processedAdditionalCharges: AdditionalChargeItem[] = (additionalChargesData || []).map(charge => {
+        let calculatedAmount = 0;
+        if (charge.valueType === 'fixed') {
+            calculatedAmount = charge.value;
+        } else if (charge.valueType === 'percentage') {
+            calculatedAmount = mainItemsSubtotal * (charge.value / 100);
+        }
+        return {
+            id: charge.id || generateId('ac'),
+            description: charge.description,
+            valueType: charge.valueType,
+            value: charge.value,
+            calculatedAmount: calculatedAmount,
+        };
+    });
+
+    const totalAdditionalChargesValue = processedAdditionalCharges.reduce((sum, charge) => sum + charge.calculatedAmount, 0);
+    const taxableBase = mainItemsSubtotal + totalAdditionalChargesValue;
+    const taxAmount = taxableBase * (taxRateInput / 100);
+    const grandTotal = taxableBase + taxAmount;
+
+    return {
+        processedItems: processedItems as (InvoiceItem[] | QuoteItem[]),
+        processedAdditionalCharges,
+        mainItemsSubtotal,
+        totalAdditionalChargesValue,
+        taxAmount,
+        grandTotal,
+    };
+}
+
 
 // Invoice Functions
 export const getInvoices = async (): Promise<Invoice[]> => {
-  // await new Promise(resolve => setTimeout(resolve, 500));
   return [...mockInvoices].map(inv => ({
     ...inv,
     customerName: mockCustomers.find(c => c.id === inv.customerId)?.name || 'Unknown Customer'
@@ -118,7 +170,6 @@ export const getInvoices = async (): Promise<Invoice[]> => {
 };
 
 export const getInvoiceById = async (id: string): Promise<Invoice | undefined> => {
-  // No delay for direct fetch by ID
   const invoice = mockInvoices.find(i => i.id === id);
   if (invoice) {
     return {
@@ -129,84 +180,93 @@ export const getInvoiceById = async (id: string): Promise<Invoice | undefined> =
   return undefined;
 };
 
-export const createInvoice = async (data: Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'> & { items: Omit<InvoiceItem, 'id' | 'amount'>[] } ): Promise<Invoice> => {
-  // No delay for create
-  const itemsWithAmounts: InvoiceItem[] = data.items.map(item => ({
-    ...item,
-    id: generateId('item'),
-    amount: item.quantity * item.rate,
-  }));
-  
-  const subtotal = itemsWithAmounts.reduce((sum, item) => sum + item.amount, 0);
-  const taxAmount = subtotal * (data.taxRate / 100);
-  const total = subtotal + taxAmount;
+type CreateInvoiceInputData = Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges'> & 
+                             { items: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
-  // Fetch customer name synchronously if possible, or handle potential undefined if getCustomerById remains async without delay
+export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoice> => {
   const customer = mockCustomers.find(c => c.id === data.customerId);
+  const taxRate = data.taxRate || 0;
+
+  const { 
+    processedItems, 
+    processedAdditionalCharges, 
+    mainItemsSubtotal, 
+    taxAmount, 
+    grandTotal 
+  } = calculateTotalsAndCharges(data.items, data.additionalCharges, taxRate);
 
   const newInvoice: Invoice = {
     ...data,
     id: generateId('inv'),
     customerName: customer?.name || 'Unknown Customer',
-    items: itemsWithAmounts,
-    subtotal,
-    taxAmount,
-    total,
+    items: processedItems as InvoiceItem[],
+    additionalCharges: processedAdditionalCharges,
+    subtotal: mainItemsSubtotal,
+    taxRate: taxRate,
+    taxAmount: taxAmount,
+    total: grandTotal,
     createdAt: new Date(),
   };
   mockInvoices.push(newInvoice);
   return newInvoice;
 };
 
-export const updateInvoice = async (id: string, data: Partial<Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'>> & { items?: Omit<InvoiceItem, 'id' | 'amount'>[] }): Promise<Invoice | null> => {
-  // No delay for update
+type UpdateInvoiceInputData = Partial<Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges'>> & 
+                              { items?: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
+
+
+export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): Promise<Invoice | null> => {
   const index = mockInvoices.findIndex(i => i.id === id);
   if (index === -1) return null;
 
-  let updatedInvoice = { ...mockInvoices[index], ...data };
-
-  if (data.items || data.taxRate !== undefined) {
-    const itemsWithAmounts: InvoiceItem[] = (data.items || updatedInvoice.items).map((item: any) => ({ 
-      id: item.id || generateId('item'),
-      description: item.description,
-      quantity: item.quantity,
-      rate: item.rate,
-      amount: item.quantity * item.rate,
-    }));
-    
-    const subtotal = itemsWithAmounts.reduce((sum, item) => sum + item.amount, 0);
-    const taxRate = data.taxRate !== undefined ? data.taxRate : updatedInvoice.taxRate;
-    const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount;
-
-    updatedInvoice = {
-      ...updatedInvoice,
-      items: itemsWithAmounts,
-      subtotal,
-      taxRate,
-      taxAmount,
-      total,
-    };
-  }
+  let existingInvoice = mockInvoices[index];
   
-  if (data.customerId) {
+  // Merge basic fields
+  let updatedData = { ...existingInvoice, ...data };
+
+  // Determine which items, additional charges, and tax rate to use for recalculation
+  const itemsForCalc = data.items || existingInvoice.items.map(item => ({description: item.description, quantity: item.quantity, rate: item.rate })); // Use existing if not provided in update
+  const additionalChargesForCalc = data.additionalCharges || existingInvoice.additionalCharges?.map(ac => ({ id: ac.id, description: ac.description, valueType: ac.valueType, value: ac.value })) || [];
+  const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingInvoice.taxRate;
+
+  const {
+    processedItems,
+    processedAdditionalCharges,
+    mainItemsSubtotal,
+    taxAmount,
+    grandTotal
+  } = calculateTotalsAndCharges(itemsForCalc, additionalChargesForCalc, taxRateForCalc);
+
+  updatedData = {
+      ...updatedData,
+      items: processedItems.map(item => ({...item, id: (data.items?.find(i => i.description === item.description)?.id || item.id || generateId('item'))  })) as InvoiceItem[], // try to preserve IDs if possible
+      additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description)?.id || ac.id || generateId('ac')) })),
+      subtotal: mainItemsSubtotal,
+      taxRate: taxRateForCalc,
+      taxAmount: taxAmount,
+      total: grandTotal,
+  };
+  
+  if (data.customerId && data.customerId !== existingInvoice.customerId) {
      const customer = mockCustomers.find(c => c.id === data.customerId);
-     updatedInvoice.customerName = customer?.name || 'Unknown Customer';
+     updatedData.customerName = customer?.name || 'Unknown Customer';
+  } else if (!updatedData.customerName && updatedData.customerId) {
+    const customer = mockCustomers.find(c => c.id === updatedData.customerId);
+    updatedData.customerName = customer?.name || 'Unknown Customer';
   }
 
-  mockInvoices[index] = updatedInvoice;
+
+  mockInvoices[index] = updatedData;
   return mockInvoices[index];
 };
 
 export const deleteInvoice = async (id: string): Promise<boolean> => {
-  // No delay for delete
   const initialLength = mockInvoices.length;
   mockInvoices = mockInvoices.filter(i => i.id !== id);
   return mockInvoices.length < initialLength;
 };
 
 export const getNextInvoiceNumber = async (): Promise<string> => {
-    // No delay
     const lastInvoice = mockInvoices.length > 0 ? mockInvoices.sort((a,b) => a.invoiceNumber.localeCompare(b.invoiceNumber))[mockInvoices.length-1] : null;
     if (!lastInvoice || !lastInvoice.invoiceNumber.startsWith("INV-")) {
         return "INV-001";
@@ -215,13 +275,12 @@ export const getNextInvoiceNumber = async (): Promise<string> => {
         const num = parseInt(lastInvoice.invoiceNumber.split("-")[1]);
         return `INV-${(num + 1).toString().padStart(3, '0')}`;
     } catch (e) {
-        return `INV-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`; // fallback
+        return `INV-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
     }
 };
 
 // Quote Functions
 export const getQuotes = async (): Promise<Quote[]> => {
-  // await new Promise(resolve => setTimeout(resolve, 500));
   return [...mockQuotes].map(quo => ({
     ...quo,
     customerName: mockCustomers.find(c => c.id === quo.customerId)?.name || 'Unknown Customer'
@@ -229,7 +288,6 @@ export const getQuotes = async (): Promise<Quote[]> => {
 };
 
 export const getQuoteById = async (id: string): Promise<Quote | undefined> => {
-  // No delay for direct fetch by ID
   const quote = mockQuotes.find(q => q.id === id);
   if (quote) {
     return {
@@ -240,83 +298,88 @@ export const getQuoteById = async (id: string): Promise<Quote | undefined> => {
   return undefined;
 };
 
-export const createQuote = async (data: Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'> & { items: Omit<QuoteItem, 'id' | 'amount'>[] }): Promise<Quote> => {
-  // No delay for create
-  const itemsWithAmounts: QuoteItem[] = data.items.map(item => ({
-    ...item,
-    id: generateId('q_item'),
-    amount: item.quantity * item.rate,
-  }));
-  
-  const subtotal = itemsWithAmounts.reduce((sum, item) => sum + item.amount, 0);
-  const taxAmount = subtotal * (data.taxRate / 100);
-  const total = subtotal + taxAmount;
+type CreateQuoteInputData = Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges'> & 
+                           { items: Omit<QuoteItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
+export const createQuote = async (data: CreateQuoteInputData): Promise<Quote> => {
   const customer = mockCustomers.find(c => c.id === data.customerId);
+  const taxRate = data.taxRate || 0;
+
+  const { 
+    processedItems, 
+    processedAdditionalCharges, 
+    mainItemsSubtotal, 
+    taxAmount, 
+    grandTotal 
+  } = calculateTotalsAndCharges(data.items, data.additionalCharges, taxRate);
 
   const newQuote: Quote = {
     ...data,
     id: generateId('quo'),
     customerName: customer?.name || 'Unknown Customer',
-    items: itemsWithAmounts,
-    subtotal,
-    taxAmount,
-    total,
+    items: processedItems.map(item => ({...item, id: generateId('q_item')})) as QuoteItem[],
+    additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: generateId('q_ac')})),
+    subtotal: mainItemsSubtotal,
+    taxRate: taxRate,
+    taxAmount: taxAmount,
+    total: grandTotal,
     createdAt: new Date(),
   };
   mockQuotes.push(newQuote);
   return newQuote;
 };
 
-export const updateQuote = async (id: string, data: Partial<Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'>> & { items?: Omit<QuoteItem, 'id' | 'amount'>[] }): Promise<Quote | null> => {
-  // No delay for update
+type UpdateQuoteInputData = Partial<Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges'>> & 
+                            { items?: Omit<QuoteItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
+
+export const updateQuote = async (id: string, data: UpdateQuoteInputData): Promise<Quote | null> => {
   const index = mockQuotes.findIndex(q => q.id === id);
   if (index === -1) return null;
 
-  let updatedQuote = { ...mockQuotes[index], ...data };
+  let existingQuote = mockQuotes[index];
+  let updatedData = { ...existingQuote, ...data };
 
-  if (data.items || data.taxRate !== undefined) {
-    const itemsWithAmounts: QuoteItem[] = (data.items || updatedQuote.items).map((item: any) => ({
-      id: item.id || generateId('q_item'),
-      description: item.description,
-      quantity: item.quantity,
-      rate: item.rate,
-      amount: item.quantity * item.rate,
-    }));
-    
-    const subtotal = itemsWithAmounts.reduce((sum, item) => sum + item.amount, 0);
-    const taxRate = data.taxRate !== undefined ? data.taxRate : updatedQuote.taxRate;
-    const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount;
+  const itemsForCalc = data.items || existingQuote.items.map(item => ({description: item.description, quantity: item.quantity, rate: item.rate }));
+  const additionalChargesForCalc = data.additionalCharges || existingQuote.additionalCharges?.map(ac => ({ id: ac.id, description: ac.description, valueType: ac.valueType, value: ac.value })) || [];
+  const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingQuote.taxRate;
 
-    updatedQuote = {
-      ...updatedQuote,
-      items: itemsWithAmounts,
-      subtotal,
-      taxRate,
-      taxAmount,
-      total,
-    };
-  }
+  const {
+    processedItems,
+    processedAdditionalCharges,
+    mainItemsSubtotal,
+    taxAmount,
+    grandTotal
+  } = calculateTotalsAndCharges(itemsForCalc, additionalChargesForCalc, taxRateForCalc);
+
+  updatedData = {
+      ...updatedData,
+      items: processedItems.map(item => ({...item, id: (data.items?.find(i => i.description === item.description)?.id || item.id || generateId('q_item'))  })) as QuoteItem[],
+      additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description)?.id || ac.id || generateId('q_ac')) })),
+      subtotal: mainItemsSubtotal,
+      taxRate: taxRateForCalc,
+      taxAmount: taxAmount,
+      total: grandTotal,
+  };
   
-  if (data.customerId) {
+  if (data.customerId && data.customerId !== existingQuote.customerId) {
      const customer = mockCustomers.find(c => c.id === data.customerId);
-     updatedQuote.customerName = customer?.name || 'Unknown Customer';
+     updatedData.customerName = customer?.name || 'Unknown Customer';
+  } else if (!updatedData.customerName && updatedData.customerId) {
+    const customer = mockCustomers.find(c => c.id === updatedData.customerId);
+    updatedData.customerName = customer?.name || 'Unknown Customer';
   }
 
-  mockQuotes[index] = updatedQuote;
+  mockQuotes[index] = updatedData;
   return mockQuotes[index];
 };
 
 export const deleteQuote = async (id: string): Promise<boolean> => {
-  // No delay for delete
   const initialLength = mockQuotes.length;
   mockQuotes = mockQuotes.filter(q => q.id !== id);
   return mockQuotes.length < initialLength;
 };
 
 export const getNextQuoteNumber = async (): Promise<string> => {
-    // No delay
     const lastQuote = mockQuotes.length > 0 ? mockQuotes.sort((a,b) => a.quoteNumber.localeCompare(b.quoteNumber))[mockQuotes.length-1] : null;
     if (!lastQuote || !lastQuote.quoteNumber.startsWith("QUO-")) {
         return "QUO-001";
@@ -325,6 +388,6 @@ export const getNextQuoteNumber = async (): Promise<string> => {
         const num = parseInt(lastQuote.quoteNumber.split("-")[1]);
         return `QUO-${(num + 1).toString().padStart(3, '0')}`;
     } catch (e) {
-        return `QUO-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`; // fallback
+        return `QUO-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
     }
 };
