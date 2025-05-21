@@ -3,10 +3,10 @@
 
 import { revalidatePath } from 'next/cache';
 import * as Data from './data';
-import type { Customer, Invoice, InvoiceItem, Quote, QuoteItem } from '@/types';
-import type { CustomerFormData, InvoiceFormData, TermsFormData, QuoteFormData } from './schemas';
+import type { Customer, Invoice, InvoiceItem, Quote, QuoteItem, TermsTemplate } from '@/types';
+import type { CustomerFormData, InvoiceFormData, TermsFormData, QuoteFormData, TermsTemplateFormData } from './schemas';
 import { format, addDays } from 'date-fns';
-import { Buffer } from 'buffer'; // Needed for Base64 encoding
+import { Buffer } from 'buffer'; 
 
 // Customer Actions
 export async function getAllCustomers(): Promise<Customer[]> {
@@ -23,12 +23,14 @@ export async function saveCustomer(data: CustomerFormData, id?: string): Promise
     if (updated) {
       revalidatePath('/customers');
       revalidatePath(`/customers/${id}/edit`);
+      revalidatePath('/(app)/dashboard', 'page'); // Revalidate dashboard for customer name changes
     }
     return updated;
   } else {
     const newCustomer = await Data.createCustomer(data);
     if (newCustomer) {
       revalidatePath('/customers');
+      revalidatePath('/(app)/dashboard', 'page'); // Revalidate dashboard for new customers
     }
     return newCustomer;
   }
@@ -36,7 +38,10 @@ export async function saveCustomer(data: CustomerFormData, id?: string): Promise
 
 export async function removeCustomer(id: string): Promise<boolean> {
   const success = await Data.deleteCustomer(id);
-  if (success) revalidatePath('/customers');
+  if (success) {
+    revalidatePath('/customers');
+    revalidatePath('/(app)/dashboard', 'page'); // Revalidate dashboard
+  }
   return success;
 }
 
@@ -58,7 +63,8 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     taxRate: data.taxRate || 0,
     termsAndConditions: data.termsAndConditions,
     status: data.status,
-    items: data.items, 
+    items: data.items,
+    additionalCharges: data.additionalCharges,
   };
 
   if (id) { 
@@ -74,7 +80,8 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     if (updated) {
       revalidatePath('/invoices'); 
       revalidatePath(`/invoices/${id}`); 
-      revalidatePath(`/invoices/${id}/terms`); 
+      revalidatePath(`/invoices/${id}/terms`);
+      revalidatePath('/(app)/dashboard', 'page'); 
     }
     return updated;
   } else { 
@@ -82,6 +89,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     if (newInvoice) {
       revalidatePath('/invoices'); 
       revalidatePath(`/invoices/${newInvoice.id}`); 
+      revalidatePath('/(app)/dashboard', 'page');
     }
     return newInvoice;
   }
@@ -89,7 +97,10 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
 
 export async function removeInvoice(id: string): Promise<boolean> {
   const success = await Data.deleteInvoice(id);
-  if (success) revalidatePath('/invoices');
+  if (success) {
+    revalidatePath('/invoices');
+    revalidatePath('/(app)/dashboard', 'page');
+  }
   return success;
 }
 
@@ -129,6 +140,7 @@ export async function saveQuote(data: QuoteFormData, id?: string): Promise<Quote
     termsAndConditions: data.termsAndConditions,
     status: data.status,
     items: data.items,
+    additionalCharges: data.additionalCharges,
   };
 
   if (id) { 
@@ -189,7 +201,7 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice | 
 
   const nextInvoiceNumber = await Data.getNextInvoiceNumber();
   
-  const newInvoiceData = {
+  const newInvoiceData: Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'> & { items: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: any[] } = {
     customerId: quote.customerId,
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
@@ -199,6 +211,11 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice | 
       quantity: item.quantity,
       rate: item.rate,
     })),
+    additionalCharges: quote.additionalCharges ? quote.additionalCharges.map(ac => ({
+      description: ac.description,
+      valueType: ac.valueType,
+      value: ac.value,
+    })) : [],
     taxRate: quote.taxRate,
     termsAndConditions: quote.termsAndConditions,
     status: 'Draft' as Invoice['status'],
@@ -207,12 +224,12 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice | 
   const newInvoice = await Data.createInvoice(newInvoiceData);
 
   if (newInvoice) {
-    // Update quote status to 'Accepted' (or 'Converted') after successful invoice creation
     await Data.updateQuote(quoteId, { status: 'Accepted' });
     revalidatePath('/invoices'); 
     revalidatePath(`/invoices/${newInvoice.id}`); 
     revalidatePath('/quotes');
     revalidatePath(`/quotes/${quoteId}`); 
+    revalidatePath('/(app)/dashboard', 'page');
   } else {
     console.error('Failed to create invoice from quote:', quoteId);
   }
@@ -234,14 +251,13 @@ export async function convertMultipleQuotesToInvoices(quoteIds: string[]): Promi
       errorCount++;
     }
   }
-  // Revalidate paths once after all conversions
   if (successCount > 0) {
     revalidatePath('/invoices');
     revalidatePath('/quotes');
+    revalidatePath('/(app)/dashboard', 'page');
   }
   return { successCount, errorCount, newInvoiceIds };
 }
-
 
 const escapeCsvField = (field: string | number | undefined | null): string => {
   if (field === undefined || field === null) return '';
@@ -261,6 +277,7 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
   const headers = [
     'Invoice Number', 'Customer Name', 'Issue Date', 'Due Date', 'Status',
     'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
+    // TODO: Add additional charges here if needed
     'Invoice Subtotal', 'Invoice Tax Rate (%)', 'Invoice Tax Amount', 'Invoice Total'
   ];
   
@@ -304,6 +321,7 @@ export async function downloadQuoteAsExcel(quoteId: string): Promise<{ success: 
   const headers = [
     'Quote Number', 'Customer Name', 'Issue Date', 'Expiry Date', 'Status',
     'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
+    // TODO: Add additional charges here if needed
     'Quote Subtotal', 'Quote Tax Rate (%)', 'Quote Tax Amount', 'Quote Total'
   ];
   
@@ -338,3 +356,36 @@ export async function downloadQuoteAsExcel(quoteId: string): Promise<{ success: 
   };
 }
 
+// TermsTemplate Actions
+export async function getAllTermsTemplates(): Promise<TermsTemplate[]> {
+  return Data.getTermsTemplates();
+}
+
+export async function fetchTermsTemplateById(id: string): Promise<TermsTemplate | undefined> {
+  return Data.getTermsTemplateById(id);
+}
+
+export async function saveTermsTemplate(data: TermsTemplateFormData, id?: string): Promise<TermsTemplate | null> {
+  if (id) {
+    const updated = await Data.updateTermsTemplate(id, data);
+    if (updated) {
+      revalidatePath('/templates/terms');
+      revalidatePath(`/templates/terms/${id}/edit`);
+    }
+    return updated;
+  } else {
+    const newTemplate = await Data.createTermsTemplate(data);
+    if (newTemplate) {
+      revalidatePath('/templates/terms');
+    }
+    return newTemplate;
+  }
+}
+
+export async function removeTermsTemplate(id: string): Promise<boolean> {
+  const success = await Data.deleteTermsTemplate(id);
+  if (success) {
+    revalidatePath('/templates/terms');
+  }
+  return success;
+}

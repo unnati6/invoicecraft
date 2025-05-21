@@ -1,8 +1,7 @@
 
-import type { Customer, Invoice, InvoiceItem, Quote, QuoteItem, AdditionalChargeItem } from '@/types';
-import type { AdditionalChargeFormData } from './schemas'; // For form data type
+import type { Customer, Invoice, InvoiceItem, Quote, QuoteItem, AdditionalChargeItem, TermsTemplate } from '@/types';
+import type { AdditionalChargeFormData, TermsTemplateFormData } from './schemas'; 
 
-// In-memory store for mock data
 let mockCustomers: Customer[] = [
   { 
     id: 'cust_1', 
@@ -21,7 +20,6 @@ let mockCustomers: Customer[] = [
     phone: '987-654-3210', 
     currency: 'GBP',
     billingAddress: { street: '456 Construction Way', city: 'BuildCity', state: 'NY', zip: '10001', country: 'USA' },
-    // No shipping address for Bob, or it's different
     createdAt: new Date() 
   },
 ];
@@ -42,10 +40,10 @@ let mockInvoices: Invoice[] = [
     additionalCharges: [
         { id: 'ac_1', description: 'Service Fee', valueType: 'fixed', value: 50, calculatedAmount: 50 }
     ],
-    subtotal: 1300, // 1200 + 100
+    subtotal: 1300, 
     taxRate: 10,
-    taxAmount: 135, // 10% of (1300 + 50)
-    total: 1485, // 1300 + 50 + 135
+    taxAmount: 135, 
+    total: 1485, 
     termsAndConditions: 'Payment due within 30 days. Late fees apply.',
     status: 'Sent',
     createdAt: new Date(2023, 10, 15)
@@ -61,7 +59,6 @@ let mockInvoices: Invoice[] = [
     items: [
       { id: 'item_3', description: 'Consultation', quantity: 5, rate: 80, amount: 400 },
     ],
-    // No additional charges for this one
     subtotal: 400,
     taxRate: 0,
     taxAmount: 0,
@@ -86,18 +83,32 @@ let mockQuotes: Quote[] = [
       { id: 'q_item_2', description: 'Phase 1 Development Estimate', quantity: 1, rate: 2500, amount: 2500 },
     ],
     additionalCharges: [
-      { id: 'q_ac_1', description: 'Rush Fee', valueType: 'percentage', value: 5, calculatedAmount: 150 } // 5% of 3000
+      { id: 'q_ac_1', description: 'Rush Fee', valueType: 'percentage', value: 5, calculatedAmount: 150 } 
     ],
-    subtotal: 3000, // 500 + 2500
+    subtotal: 3000, 
     taxRate: 10,
-    taxAmount: 315, // 10% of (3000 + 150)
-    total: 3465, // 3000 + 150 + 315
+    taxAmount: 315, 
+    total: 3465, 
     termsAndConditions: 'This quote is valid for 30 days. Prices subject to change thereafter.',
     status: 'Sent',
     createdAt: new Date(2024, 0, 10),
   },
 ];
 
+let mockTermsTemplates: TermsTemplate[] = [
+  {
+    id: 'terms_tpl_1',
+    name: 'Standard 30-Day Net',
+    content: '<p>Payment is due within <strong>30 days</strong> from the invoice date. A late fee of 1.5% per month may be applied to all overdue balances.</p><p>Thank you for your business!</p>',
+    createdAt: new Date(),
+  },
+  {
+    id: 'terms_tpl_2',
+    name: 'Software Development Contract Terms',
+    content: '<h2>Project Scope</h2><p>The scope of work is defined in Appendix A.</p><h2>Payment Schedule</h2><ul><li>50% upfront</li><li>25% upon milestone 1 completion</li><li>25% upon final delivery</li></ul>',
+    createdAt: new Date(),
+  }
+];
 
 const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
@@ -114,7 +125,7 @@ export const createCustomer = async (data: Omit<Customer, 'id' | 'createdAt'>): 
   const newCustomer: Customer = { 
     ...data, 
     id: generateId('cust'), 
-    currency: data.currency || 'USD', // Default currency
+    currency: data.currency || 'USD', 
     billingAddress: data.billingAddress || undefined,
     shippingAddress: data.shippingAddress || undefined,
     createdAt: new Date() 
@@ -142,7 +153,6 @@ export const deleteCustomer = async (id: string): Promise<boolean> => {
   return mockCustomers.length < initialLength;
 };
 
-// --- Helper for calculations ---
 function calculateTotalsAndCharges(
     itemsData: Omit<InvoiceItem, 'id' | 'amount'>[] | Omit<QuoteItem, 'id' | 'amount'>[],
     additionalChargesData: AdditionalChargeFormData[] | undefined,
@@ -157,7 +167,7 @@ function calculateTotalsAndCharges(
 } {
     const processedItems = itemsData.map(item => ({
         ...item,
-        id: generateId('item'), // Or q_item
+        id: generateId('item'), 
         amount: item.quantity * item.rate,
     }));
 
@@ -430,3 +440,39 @@ export const getNextQuoteNumber = async (): Promise<string> => {
     }
 };
 
+// TermsTemplate Functions
+export const getTermsTemplates = async (): Promise<TermsTemplate[]> => {
+  return [...mockTermsTemplates];
+};
+
+export const getTermsTemplateById = async (id: string): Promise<TermsTemplate | undefined> => {
+  return mockTermsTemplates.find(t => t.id === id);
+};
+
+export const createTermsTemplate = async (data: TermsTemplateFormData): Promise<TermsTemplate> => {
+  const newTemplate: TermsTemplate = {
+    id: generateId('terms_tpl'),
+    name: data.name,
+    content: data.content || '<p></p>',
+    createdAt: new Date(),
+  };
+  mockTermsTemplates.push(newTemplate);
+  return newTemplate;
+};
+
+export const updateTermsTemplate = async (id: string, data: Partial<TermsTemplateFormData>): Promise<TermsTemplate | null> => {
+  const index = mockTermsTemplates.findIndex(t => t.id === id);
+  if (index === -1) return null;
+  mockTermsTemplates[index] = {
+    ...mockTermsTemplates[index],
+    ...data,
+    content: data.content !== undefined ? (data.content || '<p></p>') : mockTermsTemplates[index].content,
+  };
+  return mockTermsTemplates[index];
+};
+
+export const deleteTermsTemplate = async (id: string): Promise<boolean> => {
+  const initialLength = mockTermsTemplates.length;
+  mockTermsTemplates = mockTermsTemplates.filter(t => t.id !== id);
+  return mockTermsTemplates.length < initialLength;
+};

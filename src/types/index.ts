@@ -4,15 +4,15 @@ export interface Customer {
   name: string;
   email: string;
   phone?: string;
-  currency?: string; // Added
-  billingAddress?: { // Renamed from address
+  currency?: string; 
+  billingAddress?: { 
     street: string;
     city: string;
     state: string;
     zip: string;
     country: string;
   };
-  shippingAddress?: { // Added
+  shippingAddress?: { 
     street: string;
     city: string;
     state: string;
@@ -34,8 +34,8 @@ export interface AdditionalChargeItem {
   id: string;
   description: string;
   valueType: 'fixed' | 'percentage';
-  value: number; // The raw fixed value or percentage rate
-  calculatedAmount: number; // The actual monetary value of this charge
+  value: number; 
+  calculatedAmount: number; 
 }
 
 export interface Invoice {
@@ -43,16 +43,15 @@ export interface Invoice {
   invoiceNumber: string;
   customerId: string; 
   customerName?: string; 
-  currencyCode?: string; // Added
+  currencyCode?: string; 
   issueDate: Date;
   dueDate: Date;
   items: InvoiceItem[];
   additionalCharges?: AdditionalChargeItem[];
-  subtotal: number; // Subtotal of main items ONLY
-  // No need for totalAdditionalChargesAmount on the main object if derived or part of summary
+  subtotal: number; 
   taxRate: number; 
-  taxAmount: number; // Tax calculated on (subtotal of main items + sum of calculated additional charges)
-  total: number; // Grand total
+  taxAmount: number; 
+  total: number; 
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
   createdAt: Date;
@@ -71,17 +70,23 @@ export interface Quote {
   quoteNumber: string;
   customerId: string;
   customerName?: string;
-  currencyCode?: string; // Added
+  currencyCode?: string; 
   issueDate: Date;
   expiryDate: Date; 
   items: QuoteItem[];
   additionalCharges?: AdditionalChargeItem[];
-  subtotal: number; // Subtotal of main items ONLY
+  subtotal: number; 
   taxRate: number;
-  taxAmount: number; // Tax calculated on (subtotal of main items + sum of calculated additional charges)
-  total: number; // Grand total
+  taxAmount: number; 
+  total: number; 
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   createdAt: Date;
 }
 
+export interface TermsTemplate {
+  id: string;
+  name: string;
+  content: string; // HTML content from RichTextEditor
+  createdAt: Date;
+}

@@ -14,7 +14,7 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { FileText, Users, Settings, LogOut, Quote as QuoteIconLucide, Image as ImageIcon, LayoutDashboard } from 'lucide-react'; 
+import { FileText, Users, Settings, LogOut, Quote as QuoteIconLucide, Image as ImageIcon, LayoutDashboard, ClipboardList } from 'lucide-react'; 
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
@@ -48,6 +48,7 @@ export function AppSidebar() {
     { href: '/invoices', label: 'Invoices', icon: FileText },
     { href: '/quotes', label: 'Quotes', icon: QuoteIconLucide },
     { href: '/customers', label: 'Customers', icon: Users },
+    { href: '/templates/terms', label: 'Templates', icon: ClipboardList },
   ];
 
   const settingsMenuItems = [
@@ -72,11 +73,11 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true)} // Exact match for dashboard
+                isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' || item.href === '/templates/terms' ? pathname === item.href || pathname.startsWith(item.href + '/') : true)}
                 tooltip={item.label}
                 className={cn(
                   "justify-start",
-                  {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true) }
+                  {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': pathname.startsWith(item.href) && (item.href === '/dashboard' || item.href === '/templates/terms' ? pathname === item.href || pathname.startsWith(item.href + '/') : true) }
                 )}
               >
                 <Link href={item.href}>

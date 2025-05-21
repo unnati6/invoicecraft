@@ -13,9 +13,9 @@ export const customerSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   phone: z.string().optional(),
-  currency: z.string().optional(), // Added currency
-  billingAddress: addressSchema, // Renamed from address
-  shippingAddress: addressSchema, // Added shipping address
+  currency: z.string().optional(), 
+  billingAddress: addressSchema, 
+  shippingAddress: addressSchema, 
 });
 
 export type CustomerFormData = z.infer<typeof customerSchema>;
@@ -30,7 +30,6 @@ const baseItemSchema = z.object({
 export const invoiceItemSchema = baseItemSchema;
 export type InvoiceItemFormData = z.infer<typeof invoiceItemSchema>;
 
-// Schema for the form input for additional charges
 export const additionalChargeFormSchema = z.object({
   id: z.string().optional(),
   description: z.string().min(1, { message: "Description cannot be empty." }),
@@ -45,7 +44,7 @@ export const invoiceSchema = z.object({
   issueDate: z.date({ required_error: "Issue date is required." }),
   dueDate: z.date({ required_error: "Due date is required." }),
   items: z.array(invoiceItemSchema).min(1, { message: "At least one item is required." }),
-  additionalCharges: z.array(additionalChargeFormSchema).optional(), // Use the form schema here
+  additionalCharges: z.array(additionalChargeFormSchema).optional(), 
   taxRate: z.number().min(0).max(100).optional().default(0),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Paid', 'Overdue']).default('Draft'),
@@ -67,9 +66,15 @@ export const quoteSchema = z.object({
   issueDate: z.date({ required_error: "Issue date is required." }),
   expiryDate: z.date({ required_error: "Expiry date is required." }),
   items: z.array(quoteItemSchema).min(1, { message: "At least one item is required." }),
-  additionalCharges: z.array(additionalChargeFormSchema).optional(), // Use the form schema here
+  additionalCharges: z.array(additionalChargeFormSchema).optional(), 
   taxRate: z.number().min(0).max(100).optional().default(0),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Accepted', 'Declined', 'Expired']).default('Draft'),
 });
 export type QuoteFormData = z.infer<typeof quoteSchema>;
+
+export const termsTemplateSchema = z.object({
+  name: z.string().min(2, { message: "Template name must be at least 2 characters." }),
+  content: z.string().optional().default('<p></p>'), // Default to empty paragraph for Tiptap
+});
+export type TermsTemplateFormData = z.infer<typeof termsTemplateSchema>;
