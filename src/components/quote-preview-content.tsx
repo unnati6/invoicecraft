@@ -6,6 +6,8 @@ import type { Quote, Customer, AdditionalChargeItem } from '@/types';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { getCurrencySymbol } from '@/lib/currency-utils';
+import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 
 const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
 const SIGNATURE_STORAGE_KEY = 'branding_company_signature_data_url';
@@ -159,7 +161,6 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
       {/* Additional Charges Table */}
       {quote.additionalCharges && quote.additionalCharges.length > 0 && (
         <div className="mb-8">
-          {/* Removed: <h3 className="font-semibold mb-2 text-muted-foreground text-sm">Additional Charges:</h3> */}
           <table className="w-full border-collapse">
             <tbody>
               {quote.additionalCharges.map((charge) => (
@@ -179,8 +180,7 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
       {/* Partner Logo Section */}
       {partnerLogoUrl && (
         <div className="mb-8 mt-4 py-4 border-t border-b border-dashed">
-             {/* Removed: <p className="text-xs text-muted-foreground mb-2 text-center">In partnership with:</p> */}
-            <div className="flex justify-start"> {/* Changed justify-center to justify-start */}
+            <div className="flex justify-start">
                 <Image
                     src={partnerLogoUrl}
                     alt="Partner Logo"
@@ -219,9 +219,11 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
 
       {/* Terms and Conditions */}
       {quote.termsAndConditions && (
-        <div className="mb-8">
+        <div className="mb-8 prose prose-sm max-w-none">
           <h3 className="font-semibold mb-2 text-muted-foreground">Terms & Conditions:</h3>
-          <p className="text-sm whitespace-pre-wrap">{quote.termsAndConditions}</p>
+          <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+            {quote.termsAndConditions}
+          </ReactMarkdown>
         </div>
       )}
 
