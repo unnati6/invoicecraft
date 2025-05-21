@@ -14,11 +14,11 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { FileText, Users, Settings, LogOut, Quote as QuoteIconLucide, Image as ImageIcon } from 'lucide-react'; 
+import { FileText, Users, Settings, LogOut, Quote as QuoteIconLucide, Image as ImageIcon, LayoutDashboard } from 'lucide-react'; 
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
-  <Link href="/invoices" className="flex items-center gap-2 px-2 py-1 text-lg font-semibold">
+  <Link href="/dashboard" className="flex items-center gap-2 px-2 py-1 text-lg font-semibold">
     <Image 
       src="/images/revynox_logo_black.png" 
       alt="Revynox Logo" 
@@ -44,6 +44,7 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   const menuItems = [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/invoices', label: 'Invoices', icon: FileText },
     { href: '/quotes', label: 'Quotes', icon: QuoteIconLucide },
     { href: '/customers', label: 'Customers', icon: Users },
@@ -71,11 +72,11 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith(item.href)}
+                isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true)} // Exact match for dashboard
                 tooltip={item.label}
                 className={cn(
                   "justify-start",
-                  {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': pathname.startsWith(item.href)}
+                  {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true) }
                 )}
               >
                 <Link href={item.href}>
