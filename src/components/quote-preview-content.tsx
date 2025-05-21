@@ -1,7 +1,7 @@
 
 'use client';
 
-import _React from 'react'; // Use _React to avoid confusion
+import * as _React from 'react'; // Corrected import
 import type { Quote, Customer } from '@/types';
 import { format } from 'date-fns';
 import Image from 'next/image';
@@ -21,7 +21,8 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
     if (storedLogo) {
       setCompanyLogoUrl(storedLogo);
     } else {
-      setCompanyLogoUrl('https://placehold.co/200x60.png'); // Default placeholder
+      // Keep this consistent or remove if branding page sets a default
+      // setCompanyLogoUrl('https://placehold.co/200x60.png'); 
     }
   }, []);
 
@@ -47,17 +48,12 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
   
   const partnerLogoUrl = 'https://placehold.co/150x50.png'; 
 
-  if (!yourCompany.logoUrl) {
-    // Still loading from localStorage or no logo set, render a minimal version or placeholder
-    return <div className="p-6 text-center">Loading preview or no logo set...</div>;
-  }
-
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
       {/* Header with Your Company Logo & Details */}
       <div className="flex justify-between items-start mb-10">
         <div className="w-1/2">
-          {yourCompany.logoUrl && (
+          {yourCompany.logoUrl ? (
             <Image 
               src={yourCompany.logoUrl} 
               alt={`${yourCompany.name} Logo`}
@@ -67,6 +63,10 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
               style={{ objectFit: 'contain', maxHeight: '54px' }}
               data-ai-hint="company logo"
             />
+          ) : (
+             <div className="mb-3 w-[180px] h-[54px] bg-muted rounded flex items-center justify-center text-muted-foreground text-xs">
+                Your Logo
+             </div>
           )}
           <h2 className="text-xl font-semibold text-primary">{yourCompany.name}</h2>
           <p className="text-xs text-muted-foreground">{yourCompany.addressLine1}</p>

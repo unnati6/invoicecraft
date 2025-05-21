@@ -1,7 +1,7 @@
 
 'use client';
 
-import *_React from 'react'; // Use _React to avoid confusion if React is used elsewhere
+import * as _React from 'react'; // Corrected import
 import type { Invoice, Customer } from '@/types';
 import { format } from 'date-fns';
 import Image from 'next/image';
@@ -22,7 +22,8 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
     if (storedLogo) {
       setCompanyLogoUrl(storedLogo);
     } else {
-      setCompanyLogoUrl('https://placehold.co/200x60.png'); // Default placeholder
+      // Keep this consistent or remove if branding page sets a default
+      // setCompanyLogoUrl('https://placehold.co/200x60.png'); 
     }
   }, []);
 
@@ -49,17 +50,15 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
   
   const partnerLogoUrl = 'https://placehold.co/150x50.png'; 
 
-  if (!yourCompany.logoUrl) {
-    // Still loading from localStorage or no logo set, render a minimal version or placeholder
-    return <div className="p-6 text-center">Loading preview or no logo set...</div>;
-  }
+  // No longer showing a loading state here, will rely on useEffect to update the logo
+  // The branding page should ideally handle the initial placeholder if nothing is in localStorage
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
       {/* Header with Your Company Logo & Details */}
       <div className="flex justify-between items-start mb-10">
         <div className="w-1/2">
-          {yourCompany.logoUrl && (
+          {yourCompany.logoUrl ? (
             <Image 
               src={yourCompany.logoUrl} 
               alt={`${yourCompany.name} Logo`}
@@ -69,6 +68,10 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
               style={{ objectFit: 'contain', maxHeight: '54px' }}
               data-ai-hint="company logo"
             />
+          ) : (
+             <div className="mb-3 w-[180px] h-[54px] bg-muted rounded flex items-center justify-center text-muted-foreground text-xs">
+                Your Logo
+             </div>
           )}
           <h2 className="text-xl font-semibold text-primary">{yourCompany.name}</h2>
           <p className="text-xs text-muted-foreground">{yourCompany.addressLine1}</p>
