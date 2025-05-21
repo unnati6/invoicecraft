@@ -6,12 +6,12 @@ import { useRouter, useParams } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { QuoteForm } from '@/components/quote-form';
 import type { QuoteFormData } from '@/lib/schemas';
-import { fetchQuoteById, saveQuote, fetchCustomerById } from '@/lib/actions';
+import { fetchQuoteById, saveQuote, fetchCustomerById, convertQuoteToInvoice } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import type { Quote, Customer } from '@/types';
 import { Button } from '@/components/ui/button';
 import { QuotePreviewDialog } from '@/components/quote-preview-dialog';
-import { Eye, FileEdit } from 'lucide-react';
+import { Eye, FileEdit, FileSignature } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 
@@ -25,6 +25,7 @@ export default function EditQuotePage() {
   const [customer, setCustomer] = React.useState<Customer | undefined>(undefined);
   const [loading, setLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isConverting, setIsConverting] = React.useState(false);
 
   React.useEffect(() => {
     if (quoteId) {
@@ -74,11 +75,31 @@ export default function EditQuotePage() {
     }
   };
 
+  const handleConvertToInvoice = async () => {
+    if (!quote) return;
+    setIsConverting(true);
+    try {
+      const newInvoice = await convertQuoteToInvoice(quote.id);
+      if (newInvoice) {
+        toast({ title: "Success", description: `Invoice ${newInvoice.invoiceNumber} created from quote.` });
+        router.push(`/invoices/${newInvoice.id}`);
+      } else {
+        toast({ title: "Error", description: "Failed to convert quote to invoice.", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Failed to convert quote:", error);
+      toast({ title: "Error", description: "An unexpected error occurred during conversion.", variant: "destructive" });
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
   if (loading) {
     return (
       <>
         <AppHeader title="Loading Quote..." showBackButton>
           <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-36" />
           <Skeleton className="h-9 w-24" />
         </AppHeader>
         <main className="flex-1 p-4 md:p-6">
@@ -104,19 +125,27 @@ export default function EditQuotePage() {
             quote={quote} 
             customer={customer}
             trigger={
-                <Button variant="outline">
+                <Button variant="outline" disabled={isConverting || isSubmitting}>
                     <Eye className="mr-2 h-4 w-4" /> Preview
                 </Button>
             }
         />
-        <Button variant="outline" asChild>
+        <Button 
+            variant="outline" 
+            onClick={handleConvertToInvoice} 
+            disabled={isConverting || isSubmitting || quote.status === 'Accepted'} // Example: Disable if already accepted/converted
+        >
+            <FileSignature className="mr-2 h-4 w-4" /> 
+            {isConverting ? 'Converting...' : 'Convert to Invoice'}
+        </Button>
+        <Button variant="outline" asChild disabled={isConverting || isSubmitting}>
             <Link href={`/quotes/${quote.id}/terms`}>
                  <FileEdit className="mr-2 h-4 w-4" /> T&C
             </Link>
         </Button>
       </AppHeader>
       <main className="flex-1 p-4 md:p-6">
-        <QuoteForm onSubmit={handleSubmit} initialData={quote} isSubmitting={isSubmitting} />
+        <QuoteForm onSubmit={handleSubmit} initialData={quote} isSubmitting={isSubmitting || isConverting} />
       </main>
     </>
   );
@@ -167,3 +196,4 @@ function FormSkeleton() {
     </div>
   );
 }
+

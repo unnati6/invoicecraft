@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import * as Data from './data';
 import type { Customer, Invoice, InvoiceItem, Quote, QuoteItem } from '@/types';
 import type { CustomerFormData, InvoiceFormData, TermsFormData, QuoteFormData } from './schemas';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { Buffer } from 'buffer'; // Needed for Base64 encoding
 
 // Customer Actions
@@ -168,6 +168,44 @@ export async function saveQuoteTerms(id: string, data: TermsFormData): Promise<Q
 
 export async function fetchNextQuoteNumber(): Promise<string> {
     return Data.getNextQuoteNumber();
+}
+
+export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice | null> {
+  const quote = await Data.getQuoteById(quoteId);
+  if (!quote) {
+    console.error('Quote not found for conversion:', quoteId);
+    return null;
+  }
+
+  const nextInvoiceNumber = await Data.getNextInvoiceNumber();
+  
+  const newInvoiceData = {
+    customerId: quote.customerId,
+    invoiceNumber: nextInvoiceNumber,
+    issueDate: new Date(),
+    dueDate: addDays(new Date(), 30), // Default due date 30 days from now
+    items: quote.items.map(item => ({ // Ensure items match InvoiceItemFormData (omit id, amount is calculated)
+      description: item.description,
+      quantity: item.quantity,
+      rate: item.rate,
+    })),
+    taxRate: quote.taxRate,
+    termsAndConditions: quote.termsAndConditions,
+    status: 'Draft' as Invoice['status'],
+  };
+
+  const newInvoice = await Data.createInvoice(newInvoiceData);
+
+  if (newInvoice) {
+    revalidatePath('/invoices');
+    revalidatePath(`/quotes/${quoteId}`); // Revalidate quote page if status might change later
+    // Optionally, update quote status to 'Accepted' or 'Converted'
+    // await Data.updateQuote(quoteId, { status: 'Accepted' }); 
+  } else {
+    console.error('Failed to create invoice from quote:', quoteId);
+  }
+  
+  return newInvoice;
 }
 
 
