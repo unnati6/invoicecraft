@@ -22,7 +22,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
+    <div className="flex min-h-screen w-full items-center justify-center animated-gradient-background p-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex w-full justify-center">
           <Image 
@@ -33,25 +33,25 @@ export default function LoginPage() {
             className="dark:invert"
           />
         </div>
-        <Card className="w-full shadow-xl">
+        <Card className="w-full shadow-xl bg-card/90 backdrop-blur-sm"> {/* Added some transparency to card */}
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl">Welcome Back!</CardTitle>
-            <CardDescription>Enter your credentials to access your account</CardDescription>
+            <CardTitle className="text-2xl text-card-foreground">Welcome Back!</CardTitle>
+            <CardDescription className="text-card-foreground/80">Enter your credentials to access your account</CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-card-foreground/90">Email</Label>
                 <div className="relative" suppressHydrationWarning={true}>
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="email" type="email" placeholder="name@example.com" required className="pl-10" />
+                  <Input id="email" type="email" placeholder="name@example.com" required className="pl-10 bg-background/80 text-foreground placeholder:text-muted-foreground/70" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-card-foreground/90">Password</Label>
                 <div className="relative" suppressHydrationWarning={true}>
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="password" type="password" required className="pl-10" placeholder="••••••••" />
+                  <Input id="password" type="password" required className="pl-10 placeholder:text-muted-foreground/70 bg-background/80 text-foreground" placeholder="••••••••" />
                 </div>
               </div>
               <div className="flex items-center justify-end">
@@ -64,7 +64,7 @@ export default function LoginPage() {
               <Button type="submit" className="w-full">
                 Login
               </Button>
-              <p className="text-center text-sm text-muted-foreground">
+              <p className="text-center text-sm text-card-foreground/80">
                 Don&apos;t have an account?{' '}
                 <Link href="/signup" className="font-semibold text-primary hover:underline">
                   Sign Up
