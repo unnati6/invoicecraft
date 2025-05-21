@@ -9,13 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
-import { PlusCircle, Edit, Trash2, BookCopy, LayoutGrid, ListFilter } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, BookCopy, LayoutGrid, ListFilter, Eye } from 'lucide-react';
 import type { CoverPageTemplate } from '@/types';
 import { getAllCoverPageTemplates, removeCoverPageTemplate } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import Image from 'next/image';
+import { CoverPageTemplatePreviewDialog } from '@/components/coverpage-template-preview-dialog';
 
 export default function CoverPageTemplatesPage() {
   const router = useRouter();
@@ -62,7 +63,15 @@ export default function CoverPageTemplatesPage() {
       accessorKey: 'actions',
       header: 'Actions',
       cell: (row: CoverPageTemplate) => (
-        <div className="flex space-x-2">
+        <div className="flex space-x-1">
+          <CoverPageTemplatePreviewDialog
+            template={row}
+            trigger={
+              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Preview Template">
+                <Eye className="h-4 w-4" />
+              </Button>
+            }
+          />
           <Button 
             variant="ghost" 
             size="icon" 
@@ -130,25 +139,38 @@ export default function CoverPageTemplatesPage() {
         ) : viewMode === 'card' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {templates.map((template) => (
-              <Card key={template.id} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle className="truncate" title={template.name}>{template.name}</CardTitle>
-                  <CardDescription>Created: {format(new Date(template.createdAt), 'PP')}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow space-y-2">
-                  <p className="text-sm text-muted-foreground">Title: <span className="font-medium text-foreground">{template.title || "N/A"}</span></p>
-                  <div className="flex flex-wrap gap-2 items-center">
-                    {template.companyLogoEnabled && template.companyLogoUrl && (<Image src={template.companyLogoUrl} alt="Company Logo" width={60} height={20} className="object-contain border rounded-sm p-0.5 bg-muted/30" data-ai-hint="company logo"/>)}
-                    {template.clientLogoEnabled && template.clientLogoUrl && (<Image src={template.clientLogoUrl} alt="Client Logo" width={50} height={18} className="object-contain border rounded-sm p-0.5 bg-muted/30" data-ai-hint="client logo"/>)}
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-end gap-2 border-t pt-4 mt-auto">
-                  <Button variant="ghost" size="icon" onClick={() => router.push(`/templates/coverpages/${template.id}/edit`)} title="Edit Template"><Edit className="h-4 w-4" /></Button>
-                  <DeleteConfirmationDialog onConfirm={() => handleDeleteTemplate(template.id)} itemName={`cover page template "${template.name}"`}
-                    trigger={<Button variant="ghost" size="icon" title="Delete Template"><Trash2 className="h-4 w-4 text-destructive" /></Button>}
-                  />
-                </CardFooter>
-              </Card>
+              <CoverPageTemplatePreviewDialog
+                key={template.id}
+                template={template}
+                trigger={
+                  <Card className="flex flex-col cursor-pointer hover:shadow-lg transition-shadow">
+                    <CardHeader>
+                      <CardTitle className="truncate" title={template.name}>{template.name}</CardTitle>
+                      <CardDescription>Created: {format(new Date(template.createdAt), 'PP')}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-grow space-y-2">
+                      <p className="text-sm text-muted-foreground">Title: <span className="font-medium text-foreground">{template.title || "N/A"}</span></p>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {template.companyLogoEnabled && template.companyLogoUrl && (<Image src={template.companyLogoUrl} alt="Company Logo" width={60} height={20} className="object-contain border rounded-sm p-0.5 bg-muted/30" data-ai-hint="company logo"/>)}
+                        {template.clientLogoEnabled && template.clientLogoUrl && (<Image src={template.clientLogoUrl} alt="Client Logo" width={50} height={18} className="object-contain border rounded-sm p-0.5 bg-muted/30" data-ai-hint="client logo"/>)}
+                      </div>
+                      {(template.additionalImage1Enabled || template.additionalImage2Enabled) && (
+                        <p className="text-xs text-muted-foreground pt-1">
+                          {template.additionalImage1Enabled && "Image 1 Enabled"}
+                          {template.additionalImage1Enabled && template.additionalImage2Enabled && " / "}
+                          {template.additionalImage2Enabled && "Image 2 Enabled"}
+                        </p>
+                      )}
+                    </CardContent>
+                    <CardFooter className="flex justify-end gap-2 border-t pt-4 mt-auto">
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/templates/coverpages/${template.id}/edit`);}} title="Edit Template"><Edit className="h-4 w-4" /></Button>
+                      <DeleteConfirmationDialog onConfirm={() => handleDeleteTemplate(template.id)} itemName={`cover page template "${template.name}"`}
+                        trigger={<Button variant="ghost" size="icon" title="Delete Template" onClick={(e) => e.stopPropagation()}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                      />
+                    </CardFooter>
+                  </Card>
+                }
+              />
             ))}
           </div>
         ) : (

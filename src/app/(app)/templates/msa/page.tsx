@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
-import { PlusCircle, Edit, Trash2, FileCheck2, LayoutGrid, ListFilter, Link2, Link2Off } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, FileCheck2, LayoutGrid, ListFilter, Link2, Link2Off, Eye } from 'lucide-react';
 import type { MsaTemplate, CoverPageTemplate } from '@/types';
 import { getAllMsaTemplates, removeMsaTemplate, getAllCoverPageTemplates, linkCoverPageToMsa } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MsaTemplatePreviewDialog } from '@/components/msa-template-preview-dialog';
 
 export default function MsaTemplatesPage() {
   const router = useRouter();
@@ -104,6 +105,15 @@ export default function MsaTemplatesPage() {
       header: 'Actions',
       cell: (row: MsaTemplate) => (
         <div className="flex space-x-1">
+           <MsaTemplatePreviewDialog
+            template={row}
+            coverPageTemplate={coverPages.find(cp => cp.id === row.coverPageTemplateId)}
+            trigger={
+              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Preview MSA Template">
+                <Eye className="h-4 w-4" />
+              </Button>
+            }
+          />
           <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/templates/msa/${row.id}/edit`); }} title="Edit Template">
             <Edit className="h-4 w-4" />
           </Button>
@@ -149,7 +159,7 @@ export default function MsaTemplatesPage() {
            <div className={`grid grid-cols-1 ${viewMode === 'card' ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : ''} gap-6`}>
             {[...Array(viewMode === 'card' ? 3 : 5)].map((_, i) => (
               viewMode === 'card' ? (
-                <Card key={i}><CardHeader><Skeleton className="h-6 w-3/4 mb-1" /><Skeleton className="h-4 w-1/2" /></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent><CardFooter className="flex justify-end gap-2"><Skeleton className="h-9 w-9" /><Skeleton className="h-9 w-9" /></CardFooter></Card>
+                <Card key={i}><CardHeader><Skeleton className="h-6 w-3/4 mb-1" /><Skeleton className="h-4 w-1/2" /></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent><CardFooter className="flex justify-end gap-2"><Skeleton className="h-9 w-9" /><Skeleton className="h-9 w-9" /><Skeleton className="h-9 w-9" /></CardFooter></Card>
               ) : (
                 <Skeleton key={i} className="h-12 w-full" />
               )
@@ -180,24 +190,49 @@ export default function MsaTemplatesPage() {
         ) : viewMode === 'card' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {templates.map((template) => (
-              <Card key={template.id} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle className="truncate" title={template.name}>{template.name}</CardTitle>
-                  <CardDescription>Created: {format(new Date(template.createdAt), 'PP')}</CardDescription>
-                  <CardDescription>Cover Page: {getCoverPageName(template.coverPageTemplateId)}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow relative">
-                  <ScrollArea className="h-48 w-full rounded-md border bg-muted/20 p-3 relative">
-                    <div className="prose prose-sm max-w-none"><ReactMarkdown rehypePlugins={[rehypeRaw]}>{template.content || "*No content*"}</ReactMarkdown></div>
-                  </ScrollArea>
-                </CardContent>
-                <CardFooter className="flex justify-end gap-2 border-t pt-4 mt-auto">
-                  <Button variant="ghost" size="icon" onClick={() => router.push(`/templates/msa/${template.id}/edit`)} title="Edit MSA Template"><Edit className="h-4 w-4" /></Button>
-                  <DeleteConfirmationDialog onConfirm={() => handleDeleteTemplate(template.id)} itemName={`MSA template "${template.name}"`}
-                    trigger={<Button variant="ghost" size="icon" title="Delete MSA Template"><Trash2 className="h-4 w-4 text-destructive" /></Button>}
-                  />
-                </CardFooter>
-              </Card>
+              <MsaTemplatePreviewDialog
+                key={template.id}
+                template={template}
+                coverPageTemplate={coverPages.find(cp => cp.id === template.coverPageTemplateId)}
+                trigger={
+                  <Card className="flex flex-col cursor-pointer hover:shadow-lg transition-shadow">
+                    <CardHeader>
+                      <CardTitle className="truncate" title={template.name}>{template.name}</CardTitle>
+                      <CardDescription>Created: {format(new Date(template.createdAt), 'PP')}</CardDescription>
+                      <CardDescription>Cover Page: {getCoverPageName(template.coverPageTemplateId)}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-grow relative">
+                      <ScrollArea className="h-48 w-full rounded-md border bg-muted/20 p-3 relative">
+                        <div className="prose prose-sm max-w-none"><ReactMarkdown rehypePlugins={[rehypeRaw]}>{template.content || "*No content*"}</ReactMarkdown></div>
+                      </ScrollArea>
+                    </CardContent>
+                    <CardFooter className="flex justify-end gap-2 border-t pt-4 mt-auto">
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/templates/msa/${template.id}/edit`); }} title="Edit MSA Template"><Edit className="h-4 w-4" /></Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" title="Link Cover Page" disabled={linkingCoverPage === template.id} onClick={(e) => e.stopPropagation()}>
+                            {linkingCoverPage === template.id ? <Link2Off className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem onSelect={() => handleLinkCoverPage(template.id, null)} disabled={!template.coverPageTemplateId}>
+                            None (Unlink Cover Page)
+                          </DropdownMenuItem>
+                          {coverPages.length > 0 && <DropdownMenuSeparator />}
+                          {coverPages.map(cp => (
+                            <DropdownMenuItem key={cp.id} onSelect={() => handleLinkCoverPage(template.id, cp.id)} disabled={template.coverPageTemplateId === cp.id}>
+                              {cp.name}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <DeleteConfirmationDialog onConfirm={() => handleDeleteTemplate(template.id)} itemName={`MSA template "${template.name}"`}
+                        trigger={<Button variant="ghost" size="icon" title="Delete MSA Template" onClick={(e) => e.stopPropagation()}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                      />
+                    </CardFooter>
+                  </Card>
+                }
+              />
             ))}
           </div>
         ) : (
