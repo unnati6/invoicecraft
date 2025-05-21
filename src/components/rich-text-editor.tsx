@@ -4,9 +4,11 @@
 import * as React from 'react';
 import { useEditor, EditorContent, type Editor, Mark } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline'; // Import Underline
 import {
   Bold,
   Italic,
+  Underline as UnderlineIcon, // Import UnderlineIcon
   Heading1,
   Heading2,
   Heading3,
@@ -107,7 +109,7 @@ const dataTags = [
   { label: 'Shipping: Country', value: '{{customerShippingAddress.country}}' },
   { label: 'Document Number', value: '{{documentNumber}}' },
   { label: 'Issue Date', value: '{{issueDate}}' },
-  { label: 'Due Date / Valid Until / Expiry Date', value: '{{dueDate}}' }, // Combined for generic use
+  { label: 'Due Date / Valid Until / Expiry Date', value: '{{dueDate}}' },
   { label: 'Total Amount', value: '{{totalAmount}}' },
   { label: 'Payment Terms', value: '{{paymentTerms}}' },
   { label: 'Commitment Period', value: '{{commitmentPeriod}}' },
@@ -135,6 +137,13 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
       isActive: editor.isActive('italic'),
       label: 'Italic',
       disabled: disabled || !editor.can().chain().focus().toggleItalic().run(),
+    },
+    { // Added Underline button
+      action: () => editor.chain().focus().toggleUnderline().run(),
+      icon: UnderlineIcon,
+      isActive: editor.isActive('underline'),
+      label: 'Underline',
+      disabled: disabled || !editor.can().chain().focus().toggleUnderline().run(),
     },
   ];
 
@@ -188,7 +197,7 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
   return (
     <div className={cn(
       "flex flex-wrap items-center gap-1 border-b border-input p-2 bg-background rounded-t-md",
-      "sticky top-16 z-10" // Added sticky positioning
+      "sticky top-16 z-10" 
     )}>
       {basicFormattingItems.map((item) => (
         <Button
@@ -280,6 +289,7 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
         },
       }),
       FontSizeMark,
+      Underline, // Added Underline extension
     ],
     content: value,
     editable: !disabled,
@@ -324,4 +334,3 @@ declare module '@tiptap/core' {
     };
   }
 }
-
