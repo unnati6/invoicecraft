@@ -4,8 +4,26 @@ import type { AdditionalChargeFormData } from './schemas'; // For form data type
 
 // In-memory store for mock data
 let mockCustomers: Customer[] = [
-  { id: 'cust_1', name: 'Alice Wonderland', email: 'alice@example.com', phone: '123-456-7890', address: { street: '123 Rabbit Hole', city: 'Storyville', state: 'CA', zip: '90210', country: 'USA' }, createdAt: new Date() },
-  { id: 'cust_2', name: 'Bob The Builder', email: 'bob@example.com', phone: '987-654-3210', address: { street: '456 Construction Way', city: 'BuildCity', state: 'NY', zip: '10001', country: 'USA' }, createdAt: new Date() },
+  { 
+    id: 'cust_1', 
+    name: 'Alice Wonderland', 
+    email: 'alice@example.com', 
+    phone: '123-456-7890', 
+    currency: 'USD',
+    billingAddress: { street: '123 Rabbit Hole', city: 'Storyville', state: 'CA', zip: '90210', country: 'USA' }, 
+    shippingAddress: { street: '123 Rabbit Hole', city: 'Storyville', state: 'CA', zip: '90210', country: 'USA' },
+    createdAt: new Date() 
+  },
+  { 
+    id: 'cust_2', 
+    name: 'Bob The Builder', 
+    email: 'bob@example.com', 
+    phone: '987-654-3210', 
+    currency: 'GBP',
+    billingAddress: { street: '456 Construction Way', city: 'BuildCity', state: 'NY', zip: '10001', country: 'USA' },
+    // No shipping address for Bob, or it's different
+    createdAt: new Date() 
+  },
 ];
 
 let mockInvoices: Invoice[] = [
@@ -90,7 +108,14 @@ export const getCustomerById = async (id: string): Promise<Customer | undefined>
 };
 
 export const createCustomer = async (data: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer> => {
-  const newCustomer: Customer = { ...data, id: generateId('cust'), createdAt: new Date() };
+  const newCustomer: Customer = { 
+    ...data, 
+    id: generateId('cust'), 
+    currency: data.currency || 'USD', // Default currency
+    billingAddress: data.billingAddress || undefined,
+    shippingAddress: data.shippingAddress || undefined,
+    createdAt: new Date() 
+  };
   mockCustomers.push(newCustomer);
   return newCustomer;
 };
@@ -98,7 +123,13 @@ export const createCustomer = async (data: Omit<Customer, 'id' | 'createdAt'>): 
 export const updateCustomer = async (id: string, data: Partial<Omit<Customer, 'id' | 'createdAt'>>): Promise<Customer | null> => {
   const index = mockCustomers.findIndex(c => c.id === id);
   if (index === -1) return null;
-  mockCustomers[index] = { ...mockCustomers[index], ...data };
+  mockCustomers[index] = { 
+    ...mockCustomers[index], 
+    ...data,
+    currency: data.currency || mockCustomers[index].currency,
+    billingAddress: data.billingAddress !== undefined ? data.billingAddress : mockCustomers[index].billingAddress,
+    shippingAddress: data.shippingAddress !== undefined ? data.shippingAddress : mockCustomers[index].shippingAddress,
+  };
   return mockCustomers[index];
 };
 

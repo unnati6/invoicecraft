@@ -1,11 +1,18 @@
 
-
 export interface Customer {
   id: string;
   name: string;
   email: string;
   phone?: string;
-  address?: {
+  currency?: string; // Added
+  billingAddress?: { // Renamed from address
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+  };
+  shippingAddress?: { // Added
     street: string;
     city: string;
     state: string;

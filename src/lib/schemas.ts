@@ -1,17 +1,21 @@
 
 import { z } from 'zod';
 
+const addressSchema = z.object({
+  street: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zip: z.string().optional(),
+  country: z.string().optional(),
+}).optional();
+
 export const customerSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   phone: z.string().optional(),
-  address: z.object({
-    street: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
-    zip: z.string().optional(),
-    country: z.string().optional(),
-  }).optional(),
+  currency: z.string().optional(), // Added currency
+  billingAddress: addressSchema, // Renamed from address
+  shippingAddress: addressSchema, // Added shipping address
 });
 
 export type CustomerFormData = z.infer<typeof customerSchema>;
@@ -69,4 +73,3 @@ export const quoteSchema = z.object({
   status: z.enum(['Draft', 'Sent', 'Accepted', 'Declined', 'Expired']).default('Draft'),
 });
 export type QuoteFormData = z.infer<typeof quoteSchema>;
-

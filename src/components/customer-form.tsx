@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,12 +17,23 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { customerSchema, type CustomerFormData } from '@/lib/schemas';
 import type { Customer } from '@/types';
 import { Save } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CustomerFormProps {
   onSubmit: (data: CustomerFormData) => Promise<void>;
   initialData?: Customer | null;
   isSubmitting?: boolean;
 }
+
+const currencies = [
+  { value: 'USD', label: 'USD - United States Dollar' },
+  { value: 'EUR', label: 'EUR - Euro' },
+  { value: 'GBP', label: 'GBP - British Pound Sterling' },
+  { value: 'INR', label: 'INR - Indian Rupee' },
+  { value: 'CAD', label: 'CAD - Canadian Dollar' },
+  { value: 'AUD', label: 'AUD - Australian Dollar' },
+  { value: 'JPY', label: 'JPY - Japanese Yen' },
+];
 
 export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: CustomerFormProps) {
   const form = useForm<CustomerFormData>({
@@ -30,12 +42,20 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
       name: initialData?.name || '',
       email: initialData?.email || '',
       phone: initialData?.phone || '',
-      address: {
-        street: initialData?.address?.street || '',
-        city: initialData?.address?.city || '',
-        state: initialData?.address?.state || '',
-        zip: initialData?.address?.zip || '',
-        country: initialData?.address?.country || '',
+      currency: initialData?.currency || 'USD',
+      billingAddress: {
+        street: initialData?.billingAddress?.street || '',
+        city: initialData?.billingAddress?.city || '',
+        state: initialData?.billingAddress?.state || '',
+        zip: initialData?.billingAddress?.zip || '',
+        country: initialData?.billingAddress?.country || '',
+      },
+      shippingAddress: {
+        street: initialData?.shippingAddress?.street || '',
+        city: initialData?.shippingAddress?.city || '',
+        state: initialData?.shippingAddress?.state || '',
+        zip: initialData?.shippingAddress?.zip || '',
+        country: initialData?.shippingAddress?.country || '',
       },
     },
   });
@@ -76,25 +96,51 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. (123) 456-7890" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <p className="text-sm font-medium text-foreground">Address (Optional)</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
-                name="address.street"
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. (123) 456-7890" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Currency</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value || 'USD'}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {currencies.map(currency => (
+                          <SelectItem key={currency.value} value={currency.value}>
+                            {currency.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <p className="text-base font-semibold text-foreground pt-4">Billing Address</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="billingAddress.street"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Street</FormLabel>
@@ -107,7 +153,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
               />
               <FormField
                 control={form.control}
-                name="address.city"
+                name="billingAddress.city"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>City</FormLabel>
@@ -122,7 +168,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <FormField
                 control={form.control}
-                name="address.state"
+                name="billingAddress.state"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>State / Province</FormLabel>
@@ -135,7 +181,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
               />
               <FormField
                 control={form.control}
-                name="address.zip"
+                name="billingAddress.zip"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>ZIP / Postal Code</FormLabel>
@@ -148,7 +194,78 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
               />
               <FormField
                 control={form.control}
-                name="address.country"
+                name="billingAddress.country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. USA" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <p className="text-base font-semibold text-foreground pt-4">Shipping Address</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="shippingAddress.street"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Street</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 456 Oak Ave" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="shippingAddress.city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Otherville" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <FormField
+                control={form.control}
+                name="shippingAddress.state"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>State / Province</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. TX" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="shippingAddress.zip"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ZIP / Postal Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 75001" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="shippingAddress.country"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Country</FormLabel>

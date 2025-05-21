@@ -34,12 +34,17 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
   const customerToDisplay = customer || { 
     name: invoice.customerName || 'N/A', 
     email: 'N/A', 
-    address: undefined 
+    billingAddress: undefined,
+    shippingAddress: undefined,
+    currency: 'USD'
   };
 
   if (customer) {
     customerToDisplay.name = customer.name;
     customerToDisplay.email = customer.email;
+    customerToDisplay.currency = customer.currency || 'USD';
+    customerToDisplay.billingAddress = customer.billingAddress;
+    customerToDisplay.shippingAddress = customer.shippingAddress;
   }
 
   const yourCompany = {
@@ -54,6 +59,10 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
   const partnerLogoUrl = 'https://placehold.co/150x50.png'; 
 
   const totalAdditionalChargesValue = invoice.additionalCharges?.reduce((sum, charge) => sum + charge.calculatedAmount, 0) || 0;
+
+  const hasShippingAddress = customerToDisplay.shippingAddress && 
+                             (customerToDisplay.shippingAddress.street || 
+                              customerToDisplay.shippingAddress.city); 
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
@@ -86,24 +95,40 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         </div>
       </div>
 
-      {/* Bill To and Dates */}
-      <div className="grid grid-cols-2 gap-8 mb-8">
-        <div>
+      {/* Bill To, Ship To and Dates */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div className="md:col-span-1">
           <h3 className="font-semibold mb-1 text-muted-foreground">BILL TO:</h3>
           <p className="font-medium">{customerToDisplay.name}</p>
-          {customerToDisplay.address && (
+          {customerToDisplay.billingAddress && (
             <>
-              <p className="text-sm">{customerToDisplay.address.street}</p>
-              <p className="text-sm">{customerToDisplay.address.city}, {customerToDisplay.address.state} {customerToDisplay.address.zip}</p>
-              <p className="text-sm">{customerToDisplay.address.country}</p>
+              <p className="text-sm">{customerToDisplay.billingAddress.street}</p>
+              <p className="text-sm">{customerToDisplay.billingAddress.city}, {customerToDisplay.billingAddress.state} {customerToDisplay.billingAddress.zip}</p>
+              <p className="text-sm">{customerToDisplay.billingAddress.country}</p>
             </>
           )}
           <p className="text-sm">{customerToDisplay.email}</p>
         </div>
-        <div className="text-left md:text-right">
+
+        {hasShippingAddress && (
+          <div className="md:col-span-1">
+            <h3 className="font-semibold mb-1 text-muted-foreground">SHIP TO:</h3>
+            <p className="font-medium">{customerToDisplay.name}</p>
+            {customerToDisplay.shippingAddress && (
+                 <>
+                    <p className="text-sm">{customerToDisplay.shippingAddress.street}</p>
+                    <p className="text-sm">{customerToDisplay.shippingAddress.city}, {customerToDisplay.shippingAddress.state} {customerToDisplay.shippingAddress.zip}</p>
+                    <p className="text-sm">{customerToDisplay.shippingAddress.country}</p>
+                </>
+            )}
+          </div>
+        )}
+        
+        <div className={`text-left ${hasShippingAddress ? 'md:text-right md:col-span-1' : 'md:text-right md:col-start-3 md:col-span-1'}`}>
           <p><span className="font-semibold text-muted-foreground">Issue Date:</span> {format(new Date(invoice.issueDate), 'PPP')}</p>
           <p><span className="font-semibold text-muted-foreground">Due Date:</span> {format(new Date(invoice.dueDate), 'PPP')}</p>
           <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.status === 'Paid' ? 'bg-primary/10 text-primary' : invoice.status === 'Overdue' ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-secondary-foreground'}`}>{invoice.status}</span></p>
+           {customerToDisplay.currency && <p><span className="font-semibold text-muted-foreground">Currency:</span> {customerToDisplay.currency}</p>}
         </div>
       </div>
 
