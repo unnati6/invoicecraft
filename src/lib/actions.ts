@@ -61,6 +61,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     issueDate: data.issueDate,
     dueDate: data.dueDate,
     taxRate: data.taxRate || 0,
+    linkedMsaTemplateId: data.linkedMsaTemplateId,
     msaContent: data.msaContent,
     msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     termsAndConditions: data.termsAndConditions,
@@ -82,6 +83,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
+      linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId,
     };
 
     const updated = await Data.updateInvoice(id, finalData);
@@ -145,6 +147,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     issueDate: data.issueDate,
     validUntilDate: data.validUntilDate,
     taxRate: data.taxRate || 0,
+    linkedMsaTemplateId: data.linkedMsaTemplateId,
     msaContent: data.msaContent,
     msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     termsAndConditions: data.termsAndConditions,
@@ -166,6 +169,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
+      linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId,
     };
 
     const updated = await Data.updateOrderForm(id, finalData);
@@ -233,6 +237,7 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
       value: ac.value,
     })) : [],
     taxRate: orderForm.taxRate,
+    linkedMsaTemplateId: orderForm.linkedMsaTemplateId,
     msaContent: orderForm.msaContent,
     msaCoverPageTemplateId: orderForm.msaCoverPageTemplateId,
     termsAndConditions: orderForm.termsAndConditions,

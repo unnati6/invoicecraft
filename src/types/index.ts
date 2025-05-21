@@ -40,12 +40,12 @@ export interface AdditionalChargeItem {
 
 export interface CoverPageTemplate {
   id: string;
-  name: string;
-  title?: string;
+  name: string; // Name of the cover page template itself
+  title?: string; // Title to display on the cover page (e.g., "Master Service Agreement")
   companyLogoEnabled?: boolean;
-  companyLogoUrl?: string;
+  companyLogoUrl?: string; // URL or placeholder for company logo
   clientLogoEnabled?: boolean;
-  clientLogoUrl?: string;
+  clientLogoUrl?: string;   // URL or placeholder for client logo
   additionalImage1Enabled?: boolean;
   additionalImage1Url?: string;
   additionalImage2Enabled?: boolean;
@@ -57,7 +57,7 @@ export interface MsaTemplate {
   id: string;
   name: string;
   content: string; // HTML content from RichTextEditor
-  coverPageTemplateId?: string; // Link to a CoverPageTemplate
+  coverPageTemplateId?: string; 
   createdAt: Date;
 }
 
@@ -75,8 +75,9 @@ export interface Invoice {
   taxRate: number; 
   taxAmount: number; 
   total: number; 
+  linkedMsaTemplateId?: string; // ID of the selected MSA template
   msaContent?: string;
-  msaCoverPageTemplateId?: string; // Denormalized for easier access in PDF generation
+  msaCoverPageTemplateId?: string; 
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
   paymentTerms?: string;
@@ -108,8 +109,9 @@ export interface OrderForm {
   taxRate: number;
   taxAmount: number; 
   total: number; 
+  linkedMsaTemplateId?: string; // ID of the selected MSA template
   msaContent?: string;
-  msaCoverPageTemplateId?: string; // Denormalized for easier access in PDF generation
+  msaCoverPageTemplateId?: string; 
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   paymentTerms?: string;

@@ -17,7 +17,6 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox'; // Added
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { invoiceSchema, type InvoiceFormData, type AdditionalChargeFormData } from '@/lib/schemas';
 import type { Invoice, Customer, TermsTemplate, MsaTemplate } from '@/types';
@@ -64,6 +63,7 @@ const commitmentPeriodOptions = [
   { value: "Custom", label: "Custom" },
 ];
 
+const NO_MSA_TEMPLATE_SELECTED = "none";
 
 export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: InvoiceFormProps) {
   const [customers, setCustomers] = React.useState<Customer[]>([]);
@@ -95,6 +95,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
             valueType: ac.valueType,
             value: ac.value,
           })) || [],
+          linkedMsaTemplateId: initialData.linkedMsaTemplateId || NO_MSA_TEMPLATE_SELECTED,
           msaContent: initialData.msaContent || '',
           msaCoverPageTemplateId: initialData.msaCoverPageTemplateId || '',
           termsAndConditions: initialData.termsAndConditions || '<p></p>',
@@ -110,6 +111,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
           items: [{ description: '', quantity: 1, rate: 0 }],
           additionalCharges: [],
           taxRate: 0,
+          linkedMsaTemplateId: NO_MSA_TEMPLATE_SELECTED,
           msaContent: '',
           msaCoverPageTemplateId: '',
           termsAndConditions: '<p></p>', 
@@ -222,13 +224,14 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
     if (selectedTemplate) form.setValue('termsAndConditions', selectedTemplate.content, { shouldDirty: true, shouldValidate: true });
   };
 
-  const handleMsaTemplateSelect = (templateId: string) => {
-    if (!templateId || templateId === "none") {
+  const handleMsaTemplateSelect = (selectedMsaTemplateId: string) => {
+    form.setValue('linkedMsaTemplateId', selectedMsaTemplateId, {shouldDirty: true});
+    if (selectedMsaTemplateId === NO_MSA_TEMPLATE_SELECTED || !selectedMsaTemplateId) {
       form.setValue('msaContent', '', { shouldDirty: true });
       form.setValue('msaCoverPageTemplateId', '', { shouldDirty: true });
       return;
     }
-    const selectedTemplate = msaTemplates.find(t => t.id === templateId);
+    const selectedTemplate = msaTemplates.find(t => t.id === selectedMsaTemplateId);
     if (selectedTemplate) {
       form.setValue('msaContent', selectedTemplate.content, { shouldDirty: true });
       form.setValue('msaCoverPageTemplateId', selectedTemplate.coverPageTemplateId || '', { shouldDirty: true });
@@ -271,7 +274,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                         <div className="flex items-center gap-2">
                         <Select 
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value} // Use value for controlled component
                             disabled={isLoadingCustomers}
                         >
                           <FormControl>
@@ -364,7 +367,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl>
                           <SelectContent>
                             {['Draft', 'Sent', 'Paid', 'Overdue'].map(status => (<SelectItem key={status} value={status}>{status}</SelectItem>))}
@@ -387,7 +390,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Payment Terms</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl><SelectTrigger><SelectValue placeholder="Select payment terms" /></SelectTrigger></FormControl>
                           <SelectContent>
                             {paymentTermOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
@@ -403,7 +406,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Commitment Period</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl><SelectTrigger><SelectValue placeholder="Select commitment period" /></SelectTrigger></FormControl>
                           <SelectContent>
                             {commitmentPeriodOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
@@ -525,7 +528,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                     <FormField control={form.control} name={`additionalCharges.${index}.valueType`} render={({ field: typeField }) => (
                       <FormItem className="col-span-6 md:col-span-3">
                         {index === 0 && <FormLabel className="text-xs">Type *</FormLabel>}
-                        <Select onValueChange={typeField.onChange} defaultValue={typeField.value}>
+                        <Select onValueChange={typeField.onChange} value={typeField.value}>
                           <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
                           <SelectContent>
                             <SelectItem value="fixed">Fixed ({currentCurrencySymbol})</SelectItem>
@@ -553,7 +556,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
               </CardContent>
             </Card>
 
-             <Card>
+            <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle className="flex items-center"><FileCheck2 className="mr-2 h-5 w-5" /> Master Service Agreement (MSA)</CardTitle>
@@ -561,26 +564,35 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {isLoadingTemplates ? (<Skeleton className="h-10 w-full" />) : (
-                        <FormItem>
-                            <FormLabel>Apply MSA Template</FormLabel>
-                            <Select 
-                                onValueChange={handleMsaTemplateSelect} 
-                                defaultValue={form.getValues('msaCoverPageTemplateId') ? msaTemplates.find(t => t.coverPageTemplateId === form.getValues('msaCoverPageTemplateId'))?.id || "" : ""}
-                            >
-                                <FormControl><SelectTrigger><SelectValue placeholder="Select an MSA template (optional)" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                <SelectItem value="none">None (No MSA)</SelectItem>
-                                {msaTemplates.map(template => (<SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
+                        <FormField
+                            control={form.control}
+                            name="linkedMsaTemplateId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Apply MSA Template</FormLabel>
+                                    <Select 
+                                        onValueChange={(value) => {
+                                            field.onChange(value); // Update the linkedMsaTemplateId
+                                            handleMsaTemplateSelect(value); // Update msaContent and msaCoverPageTemplateId
+                                        }}
+                                        value={field.value || NO_MSA_TEMPLATE_SELECTED}
+                                    >
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Select an MSA template (optional)" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value={NO_MSA_TEMPLATE_SELECTED}>None (No MSA)</SelectItem>
+                                            {msaTemplates.map(template => (<SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     )}
                     <FormField
                         control={form.control}
                         name="msaContent"
                         render={({ field }) => (
-                            <FormItem className="hidden">
+                            <FormItem className="hidden"> 
                             <FormControl><Input {...field} /></FormControl>
                             <FormMessage />
                             </FormItem>
@@ -589,7 +601,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                      <FormField
                         control={form.control}
                         name="msaCoverPageTemplateId"
-                        render={({ field }) => ( // This field will be set by handleMsaTemplateSelect
+                        render={({ field }) => ( 
                             <FormItem className="hidden">
                             <FormControl><Input {...field} /></FormControl>
                             <FormMessage />

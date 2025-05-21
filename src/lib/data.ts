@@ -30,7 +30,7 @@ let mockMsaTemplates: MsaTemplate[] = [
     id: 'msa_tpl_1',
     name: 'General Services MSA',
     content: '<h1>Master Service Agreement</h1><p>This Master Service Agreement (MSA) is entered into by and between Your Awesome Company LLC and {{customerName}} ("Client").</p><h2>1. Services</h2><p>Company agrees to provide services as described in applicable Order Forms or Invoices.</p>',
-    coverPageTemplateId: 'cpt_1', // Link to a cover page
+    coverPageTemplateId: 'cpt_1', 
     createdAt: new Date(),
   },
   {
@@ -65,7 +65,8 @@ let mockInvoices: Invoice[] = [
     taxRate: 10,
     taxAmount: 135, 
     total: 1485, 
-    msaContent: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.content, // Example: Use content from a mock MSA
+    linkedMsaTemplateId: 'msa_tpl_1',
+    msaContent: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.content, 
     msaCoverPageTemplateId: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.coverPageTemplateId,
     termsAndConditions: 'Payment due within 30 days. Late fees apply.',
     status: 'Sent',
@@ -117,7 +118,9 @@ let mockOrderForms: OrderForm[] = [
     taxRate: 10,
     taxAmount: 315, 
     total: 3465, 
-    msaContent: "<p>This is the MSA content for Order Form OF-001. It outlines general service terms agreed with {{customerName}}.</p>",
+    linkedMsaTemplateId: 'msa_tpl_1',
+    msaContent: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.content,
+    msaCoverPageTemplateId: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.coverPageTemplateId,
     termsAndConditions: 'This order form is valid for 30 days. Prices subject to change thereafter.',
     status: 'Sent',
     createdAt: new Date(2024, 0, 10),
@@ -145,7 +148,7 @@ let mockCoverPageTemplates: CoverPageTemplate[] = [
     name: 'Standard Cover Page',
     title: 'Master Service Agreement',
     companyLogoEnabled: true,
-    companyLogoUrl: '', // Will try to use branding logo
+    companyLogoUrl: '', 
     clientLogoEnabled: true,
     clientLogoUrl: 'https://placehold.co/150x50.png',
     additionalImage1Enabled: false,
@@ -310,6 +313,7 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     taxRate: taxRate,
     taxAmount: taxAmount,
     total: grandTotal,
+    linkedMsaTemplateId: data.linkedMsaTemplateId,
     msaContent: data.msaContent,
     msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     paymentTerms: data.paymentTerms,
@@ -330,7 +334,8 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
   if (index === -1) return null;
 
   let existingInvoice = mockInvoices[index];
-  let updatedData = { ...existingInvoice, ...data };
+  let updatedData: Invoice = { ...existingInvoice, ...data } as Invoice;
+
 
   const customerIdForLookup = data.customerId || existingInvoice.customerId;
   const customer = mockCustomers.find(c => c.id === customerIdForLookup);
@@ -357,6 +362,7 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
       taxRate: taxRateForCalc,
       taxAmount: taxAmount,
       total: grandTotal,
+      linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
       paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingInvoice.paymentTerms,
@@ -446,6 +452,7 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
     taxRate: taxRate,
     taxAmount: taxAmount,
     total: grandTotal,
+    linkedMsaTemplateId: data.linkedMsaTemplateId,
     msaContent: data.msaContent,
     msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     paymentTerms: data.paymentTerms,
@@ -466,7 +473,7 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
   if (index === -1) return null;
 
   let existingOrderForm = mockOrderForms[index];
-  let updatedData = { ...existingOrderForm, ...data };
+  let updatedData: OrderForm = { ...existingOrderForm, ...data } as OrderForm;
 
   const customerIdForLookup = data.customerId || existingOrderForm.customerId;
   const customer = mockCustomers.find(c => c.id === customerIdForLookup);
@@ -493,6 +500,7 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
       taxRate: taxRateForCalc,
       taxAmount: taxAmount,
       total: grandTotal,
+      linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
       paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingOrderForm.paymentTerms,
