@@ -5,13 +5,14 @@ import * as _React from 'react';
 import type { Invoice, Customer, AdditionalChargeItem } from '@/types';
 import { format } from 'date-fns';
 import Image from 'next/image';
+import { getCurrencySymbol } from '@/lib/currency-utils';
 
 const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
 const SIGNATURE_STORAGE_KEY = 'branding_company_signature_data_url';
 
 
 interface InvoicePreviewContentProps {
-  document: Invoice; 
+  document: Invoice;
   customer?: Customer;
 }
 
@@ -31,9 +32,9 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
   }, []);
 
 
-  const customerToDisplay = customer || { 
-    name: invoice.customerName || 'N/A', 
-    email: 'N/A', 
+  const customerToDisplay = customer || {
+    name: invoice.customerName || 'N/A',
+    email: 'N/A',
     billingAddress: undefined,
     shippingAddress: undefined,
     currency: 'USD'
@@ -47,22 +48,24 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
     customerToDisplay.shippingAddress = customer.shippingAddress;
   }
 
+  const currencySymbol = getCurrencySymbol(customerToDisplay.currency);
+
   const yourCompany = {
-    logoUrl: companyLogoUrl, 
+    logoUrl: companyLogoUrl,
     name: 'Your Awesome Company LLC',
     addressLine1: '456 Innovation Drive',
     addressLine2: 'Suite 100, Tech City, TX 75001',
     email: 'billing@yourcompany.com',
     phone: '(555) 123-4567'
   };
-  
-  const partnerLogoUrl = 'https://placehold.co/150x50.png'; 
+
+  const partnerLogoUrl = 'https://placehold.co/150x50.png';
 
   const totalAdditionalChargesValue = invoice.additionalCharges?.reduce((sum, charge) => sum + charge.calculatedAmount, 0) || 0;
 
-  const hasShippingAddress = customerToDisplay.shippingAddress && 
-                             (customerToDisplay.shippingAddress.street || 
-                              customerToDisplay.shippingAddress.city); 
+  const hasShippingAddress = customerToDisplay.shippingAddress &&
+                             (customerToDisplay.shippingAddress.street ||
+                              customerToDisplay.shippingAddress.city);
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
@@ -70,11 +73,11 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
       <div className="flex justify-between items-start mb-10">
         <div className="w-1/2">
           {yourCompany.logoUrl ? (
-            <Image 
-              src={yourCompany.logoUrl} 
+            <Image
+              src={yourCompany.logoUrl}
               alt={`${yourCompany.name} Logo`}
-              width={180} 
-              height={54} 
+              width={180}
+              height={54}
               className="mb-3"
               style={{ objectFit: 'contain', maxHeight: '54px' }}
             />
@@ -123,7 +126,7 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
             )}
           </div>
         )}
-        
+
         <div className={`text-left ${hasShippingAddress ? 'md:text-right md:col-span-1' : 'md:text-right md:col-start-3 md:col-span-1'}`}>
           <p><span className="font-semibold text-muted-foreground">Issue Date:</span> {format(new Date(invoice.issueDate), 'PPP')}</p>
           <p><span className="font-semibold text-muted-foreground">Due Date:</span> {format(new Date(invoice.dueDate), 'PPP')}</p>
@@ -148,14 +151,14 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
               <tr key={item.id} className="border-b border-border">
                 <td className="p-2 border border-border">{item.description}</td>
                 <td className="p-2 text-right border border-border">{item.quantity.toFixed(2)}</td>
-                <td className="p-2 text-right border border-border">${item.rate.toFixed(2)}</td>
-                <td className="p-2 text-right border border-border">${item.amount.toFixed(2)}</td>
+                <td className="p-2 text-right border border-border">{currencySymbol}{item.rate.toFixed(2)}</td>
+                <td className="p-2 text-right border border-border">{currencySymbol}{item.amount.toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      
+
       {/* Additional Charges Table */}
       {invoice.additionalCharges && invoice.additionalCharges.length > 0 && (
         <div className="mb-8">
@@ -168,24 +171,24 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
                     {charge.description}
                     {charge.valueType === 'percentage' && ` (${charge.value}%)`}
                   </td>
-                  <td className="p-2 text-right border border-border">${charge.calculatedAmount.toFixed(2)}</td>
+                  <td className="p-2 text-right border border-border">{currencySymbol}{charge.calculatedAmount.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-      
+
       {/* Partner Logo Section */}
       {partnerLogoUrl && (
         <div className="mb-8 mt-4 py-4 border-t border-b border-dashed">
             <p className="text-xs text-muted-foreground mb-2 text-center">In partnership with:</p>
             <div className="flex justify-center">
-                <Image 
-                    src={partnerLogoUrl} 
-                    alt="Partner Logo" 
-                    width={150} 
-                    height={50} 
+                <Image
+                    src={partnerLogoUrl}
+                    alt="Partner Logo"
+                    width={150}
+                    height={50}
                     style={{ objectFit: 'contain', maxHeight: '50px' }}
                     data-ai-hint="partner logo"
                 />
@@ -198,21 +201,21 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         <div className="w-full max-w-xs space-y-2">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Subtotal (Items):</span>
-            <span>${invoice.subtotal.toFixed(2)}</span>
+            <span>{currencySymbol}{invoice.subtotal.toFixed(2)}</span>
           </div>
           {totalAdditionalChargesValue > 0 && (
             <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Additional Charges:</span>
-                <span>${totalAdditionalChargesValue.toFixed(2)}</span>
+                <span>{currencySymbol}{totalAdditionalChargesValue.toFixed(2)}</span>
             </div>
           )}
           <div className="flex justify-between">
             <span className="text-muted-foreground">Tax ({invoice.taxRate}%):</span>
-            <span>${invoice.taxAmount.toFixed(2)}</span>
+            <span>{currencySymbol}{invoice.taxAmount.toFixed(2)}</span>
           </div>
           <div className="flex justify-between border-t border-border pt-2 mt-2">
             <span className="font-bold text-lg">Total:</span>
-            <span className="font-bold text-lg">${invoice.total.toFixed(2)}</span>
+            <span className="font-bold text-lg">{currencySymbol}{invoice.total.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -224,7 +227,7 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
           <p className="text-sm whitespace-pre-wrap">{invoice.termsAndConditions}</p>
         </div>
       )}
-      
+
       {/* Signature Section */}
       <div className="mt-12 pt-8 border-t">
         <div className="grid grid-cols-2 gap-8">
