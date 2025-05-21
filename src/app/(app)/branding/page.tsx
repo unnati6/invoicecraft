@@ -15,7 +15,7 @@ import { SignaturePad } from '@/components/signature-pad';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { brandingSettingsSchema, type BrandingSettingsFormData } from '@/lib/schemas';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormMessage, FormLabel } from '@/components/ui/form';
 
 
 const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
