@@ -459,6 +459,18 @@ export async function removeMsaTemplate(id: string): Promise<boolean> {
   return success;
 }
 
+export async function linkCoverPageToMsa(msaTemplateId: string, coverPageTemplateId: string | null): Promise<MsaTemplate | null> {
+  const msaTemplate = await Data.getMsaTemplateById(msaTemplateId);
+  if (!msaTemplate) return null;
+
+  const updatedMsaTemplate = await Data.updateMsaTemplate(msaTemplateId, { coverPageTemplateId: coverPageTemplateId || undefined });
+  if (updatedMsaTemplate) {
+    revalidatePath('/templates/msa');
+  }
+  return updatedMsaTemplate;
+}
+
+
 // Cover Page Template Actions
 export async function getAllCoverPageTemplates(): Promise<CoverPageTemplate[]> {
   return Data.getCoverPageTemplates();
