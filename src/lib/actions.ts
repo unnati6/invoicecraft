@@ -20,12 +20,17 @@ export async function fetchCustomerById(id: string): Promise<Customer | undefine
 export async function saveCustomer(data: CustomerFormData, id?: string): Promise<Customer | null> {
   if (id) {
     const updated = await Data.updateCustomer(id, data);
-    if (updated) revalidatePath('/customers');
-    if (updated) revalidatePath(`/customers/${id}/edit`);
+    if (updated) {
+      revalidatePath('/customers');
+      revalidatePath(`/customers/${id}/edit`);
+    }
     return updated;
   } else {
     const newCustomer = await Data.createCustomer(data);
-    revalidatePath('/customers');
+    if (newCustomer) {
+      revalidatePath('/customers');
+      // No specific detail page for new customer to revalidate immediately, list is enough
+    }
     return newCustomer;
   }
 }
@@ -57,7 +62,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     items: data.items, 
   };
 
-  if (id) {
+  if (id) { // Updating existing invoice
     const existingInvoice = await Data.getInvoiceById(id);
     if (!existingInvoice) return null;
 
@@ -68,14 +73,17 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
 
     const updated = await Data.updateInvoice(id, finalData);
     if (updated) {
-      revalidatePath('/invoices');
-      revalidatePath(`/invoices/${id}`);
-      revalidatePath(`/invoices/${id}/terms`);
+      revalidatePath('/invoices'); // List page
+      revalidatePath(`/invoices/${id}`); // Detail page
+      revalidatePath(`/invoices/${id}/terms`); // Terms page
     }
     return updated;
-  } else {
+  } else { // Creating new invoice
     const newInvoice = await Data.createInvoice(invoiceDataCore);
-    revalidatePath('/invoices');
+    if (newInvoice) {
+      revalidatePath('/invoices'); // List page
+      revalidatePath(`/invoices/${newInvoice.id}`); // New detail page
+    }
     return newInvoice;
   }
 }
@@ -124,7 +132,7 @@ export async function saveQuote(data: QuoteFormData, id?: string): Promise<Quote
     items: data.items,
   };
 
-  if (id) {
+  if (id) { // Updating existing quote
     const existingQuote = await Data.getQuoteById(id);
     if (!existingQuote) return null;
 
@@ -135,14 +143,17 @@ export async function saveQuote(data: QuoteFormData, id?: string): Promise<Quote
 
     const updated = await Data.updateQuote(id, finalData);
     if (updated) {
-      revalidatePath('/quotes');
-      revalidatePath(`/quotes/${id}`);
-      revalidatePath(`/quotes/${id}/terms`);
+      revalidatePath('/quotes'); // List page
+      revalidatePath(`/quotes/${id}`); // Detail page
+      revalidatePath(`/quotes/${id}/terms`); // Terms page
     }
     return updated;
-  } else {
+  } else { // Creating new quote
     const newQuote = await Data.createQuote(quoteDataCore);
-    if(newQuote) revalidatePath('/quotes');
+    if(newQuote) {
+      revalidatePath('/quotes'); // List page
+      revalidatePath(`/quotes/${newQuote.id}`); // New detail page
+    }
     return newQuote;
   }
 }
@@ -184,7 +195,7 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice | 
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
     dueDate: addDays(new Date(), 30), // Default due date 30 days from now
-    items: quote.items.map(item => ({ // Ensure items match InvoiceItemFormData (omit id, amount is calculated)
+    items: quote.items.map(item => ({ 
       description: item.description,
       quantity: item.quantity,
       rate: item.rate,
@@ -197,8 +208,9 @@ export async function convertQuoteToInvoice(quoteId: string): Promise<Invoice | 
   const newInvoice = await Data.createInvoice(newInvoiceData);
 
   if (newInvoice) {
-    revalidatePath('/invoices');
-    revalidatePath(`/quotes/${quoteId}`); // Revalidate quote page if status might change later
+    revalidatePath('/invoices'); // Invoice list page
+    revalidatePath(`/quotes/${quoteId}`); // Original quote page
+    revalidatePath(`/invoices/${newInvoice.id}`); // New invoice detail page
     // Optionally, update quote status to 'Accepted' or 'Converted'
     // await Data.updateQuote(quoteId, { status: 'Accepted' }); 
   } else {
