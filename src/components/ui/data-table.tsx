@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -11,26 +12,33 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox'; // Added Checkbox
 
 interface ColumnDef<T> {
-  accessorKey: keyof T | string; // Allow string for custom accessors/renderers
+  accessorKey: keyof T | string;
   header: React.ReactNode;
   cell: (row: T) => React.ReactNode;
   size?: number;
 }
 
-interface DataTableProps<T> {
+interface DataTableProps<T extends { id: string }> { // Ensure T has an id
   columns: ColumnDef<T>[];
   data: T[];
   onRowClick?: (row: T) => void;
   noResultsMessage?: string;
+  isSelectable?: boolean;
+  rowSelection?: Record<string, boolean>;
+  onRowSelectionChange?: (selection: Record<string, boolean>) => void;
 }
 
-export function DataTable<T>({
+export function DataTable<T extends { id: string }>({
   columns,
   data,
   onRowClick,
   noResultsMessage = "No results found.",
+  isSelectable = false,
+  rowSelection = {},
+  onRowSelectionChange,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 10;
@@ -41,15 +49,72 @@ export function DataTable<T>({
     currentPage * itemsPerPage
   );
 
+  const handleSelectAllClick = (checked: boolean | 'indeterminate') => {
+    if (!onRowSelectionChange) return;
+    const newSelection = { ...rowSelection };
+    paginatedData.forEach(row => {
+      if (checked === true) {
+        newSelection[row.id] = true;
+      } else {
+        delete newSelection[row.id]; // If unchecking, remove from selection
+      }
+    });
+    onRowSelectionChange(newSelection);
+  };
+  
+  const handleRowSelectClick = (rowId: string, checked: boolean) => {
+    if (!onRowSelectionChange) return;
+    const newSelection = { ...rowSelection };
+    if (checked) {
+      newSelection[rowId] = true;
+    } else {
+      delete newSelection[rowId];
+    }
+    onRowSelectionChange(newSelection);
+  };
+
+  const paginatedDataIds = paginatedData.map(row => row.id);
+  const numSelectedOnPage = paginatedDataIds.filter(id => rowSelection[id]).length;
+  const allSelectedOnPage = paginatedData.length > 0 && numSelectedOnPage === paginatedData.length;
+  const someSelectedOnPage = numSelectedOnPage > 0 && !allSelectedOnPage;
+
+
+  const tableColumns = React.useMemo(() => {
+    if (!isSelectable) return columns;
+    
+    const selectionColumn: ColumnDef<T> = {
+      accessorKey: 'select',
+      header: () => (
+        <Checkbox
+          checked={allSelectedOnPage}
+          data-state={someSelectedOnPage ? 'indeterminate' : allSelectedOnPage ? 'checked' : 'unchecked'}
+          onCheckedChange={(checked) => handleSelectAllClick(checked)}
+          aria-label="Select all rows on this page"
+        />
+      ),
+      cell: (row: T) => (
+        <Checkbox
+          checked={!!rowSelection[row.id]}
+          onCheckedChange={(checked) => handleRowSelectClick(row.id, !!checked)}
+          aria-label={`Select row ${row.id}`}
+          onClick={(e) => e.stopPropagation()} // Prevent row click when interacting with checkbox
+        />
+      ),
+      size: 50,
+    };
+    return [selectionColumn, ...columns];
+  }, [columns, isSelectable, rowSelection, paginatedData, allSelectedOnPage, someSelectedOnPage]);
+
+
   return (
     <div className="w-full space-y-4">
       <ScrollArea className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
-              {columns.map((column, index) => (
+              {tableColumns.map((column, index) => (
                 <TableHead key={String(column.accessorKey) + index} style={{ width: column.size ? `${column.size}px` : undefined }}>
-                  {column.header}
+                  {typeof column.header === 'function' ? column.header(null) : column.header}
                 </TableHead>
               ))}
             </TableRow>
@@ -58,12 +123,16 @@ export function DataTable<T>({
             {paginatedData.length > 0 ? (
               paginatedData.map((row, rowIndex) => (
                 <TableRow
-                  key={`row-${rowIndex}`}
+                  key={`row-${row.id || rowIndex}`}
                   onClick={() => onRowClick?.(row)}
-                  className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : ''}
+                  className={cn(
+                    onRowClick ? 'cursor-pointer hover:bg-muted/50' : '',
+                    rowSelection[row.id] ? 'bg-muted/50' : ''
+                  )}
+                  data-state={rowSelection[row.id] ? 'selected' : undefined}
                 >
-                  {columns.map((column, colIndex) => (
-                    <TableCell key={`cell-${rowIndex}-${colIndex}`}>
+                  {tableColumns.map((column, colIndex) => (
+                    <TableCell key={`cell-${row.id || rowIndex}-${colIndex}`}>
                       {column.cell(row)}
                     </TableCell>
                   ))}
@@ -71,7 +140,7 @@ export function DataTable<T>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell colSpan={tableColumns.length} className="h-24 text-center">
                   {noResultsMessage}
                 </TableCell>
               </TableRow>
