@@ -3,9 +3,10 @@
 
 import type { Quote, Customer } from '@/types';
 import { format } from 'date-fns';
+import Image from 'next/image';
 
 interface QuotePreviewContentProps {
-  document: Quote; // Changed from 'quote' to 'document'
+  document: Quote; 
   customer?: Customer;
 }
 
@@ -21,24 +22,48 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
     customerToDisplay.email = customer.email;
   }
 
+  // Placeholder for your company details - replace with dynamic data later
+  const yourCompany = {
+    logoUrl: 'https://placehold.co/200x60.png', // Replace with your actual logo URL
+    name: 'Your Awesome Company LLC',
+    addressLine1: '456 Innovation Drive',
+    addressLine2: 'Suite 100, Tech City, TX 75001',
+    email: 'sales@yourcompany.com',
+    phone: '(555) 123-7890'
+  };
+  
+  const partnerLogoUrl = 'https://placehold.co/150x50.png'; // Replace with actual partner logo URL
+
+
   return (
-    <div className="p-6 bg-card text-foreground font-sans text-sm"> {/* Added base font styles */}
-      {/* Header */}
-      <div className="flex justify-between items-start mb-8">
-        <div>
+    <div className="p-6 bg-card text-foreground font-sans text-sm">
+      {/* Header with Your Company Logo & Details */}
+      <div className="flex justify-between items-start mb-10">
+        <div className="w-1/2">
+          {yourCompany.logoUrl && (
+            <Image 
+              src={yourCompany.logoUrl} 
+              alt={`${yourCompany.name} Logo`}
+              width={180} 
+              height={54} // Adjust height based on your logo's aspect ratio
+              className="mb-3"
+              data-ai-hint="company logo"
+            />
+          )}
+          <h2 className="text-xl font-semibold text-primary">{yourCompany.name}</h2>
+          <p className="text-xs text-muted-foreground">{yourCompany.addressLine1}</p>
+          <p className="text-xs text-muted-foreground">{yourCompany.addressLine2}</p>
+          <p className="text-xs text-muted-foreground">Email: {yourCompany.email}</p>
+          <p className="text-xs text-muted-foreground">Phone: {yourCompany.phone}</p>
+        </div>
+        <div className="text-right w-1/2">
           <h1 className="text-3xl font-bold text-primary">QUOTE</h1>
           <p className="text-muted-foreground">Quote #: {quote.quoteNumber}</p>
-        </div>
-        <div className="text-right">
-          <h2 className="text-xl font-semibold">InvoiceCraft Inc.</h2>
-          <p className="text-sm text-muted-foreground">123 App Street, Suite 4B</p>
-          <p className="text-sm text-muted-foreground">DevCity, ST 54321</p>
-          <p className="text-sm text-muted-foreground">contact@invoicecraft.com</p>
         </div>
       </div>
 
       {/* Bill To and Dates */}
-      <div className="grid grid-cols-2 gap-8 mb-8"> {/* Changed to grid-cols-2 */}
+      <div className="grid grid-cols-2 gap-8 mb-8">
         <div>
           <h3 className="font-semibold mb-1 text-muted-foreground">QUOTE FOR:</h3>
           <p className="font-medium">{customerToDisplay.name}</p>
@@ -51,16 +76,16 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
           )}
           <p className="text-sm">{customerToDisplay.email}</p>
         </div>
-        <div className="text-left md:text-right"> {/* Ensure text-right on larger screens */}
+        <div className="text-left md:text-right">
           <p><span className="font-semibold text-muted-foreground">Issue Date:</span> {format(new Date(quote.issueDate), 'PPP')}</p>
           <p><span className="font-semibold text-muted-foreground">Expiry Date:</span> {format(new Date(quote.expiryDate), 'PPP')}</p>
-          <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${quote.status === 'Accepted' ? 'bg-green-100 text-green-700' : quote.status === 'Declined' || quote.status === 'Expired' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{quote.status}</span></p>
+           <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${quote.status === 'Accepted' ? 'bg-primary/10 text-primary' : quote.status === 'Declined' || quote.status === 'Expired' ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-secondary-foreground'}`}>{quote.status}</span></p>
         </div>
       </div>
 
       {/* Items Table */}
       <div className="mb-8">
-        <table className="w-full border-collapse"> {/* Added border-collapse */}
+        <table className="w-full border-collapse">
           <thead className="bg-muted/50">
             <tr>
               <th className="p-2 text-left font-semibold border border-border">Description</th>
@@ -82,6 +107,22 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
         </table>
       </div>
 
+      {/* Partner Logo Section */}
+      {partnerLogoUrl && (
+        <div className="mb-8 mt-4 py-4 border-t border-b border-dashed">
+            <p className="text-xs text-muted-foreground mb-2 text-center">In partnership with:</p>
+            <div className="flex justify-center">
+                <Image 
+                    src={partnerLogoUrl} 
+                    alt="Partner Logo" 
+                    width={150} 
+                    height={50} 
+                    data-ai-hint="partner logo"
+                />
+            </div>
+        </div>
+      )}
+
       {/* Totals */}
       <div className="flex justify-end mb-8">
         <div className="w-full max-w-xs space-y-2">
@@ -89,6 +130,7 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
             <span className="text-muted-foreground">Subtotal:</span>
             <span>${quote.subtotal.toFixed(2)}</span>
           </div>
+           {/* TODO: Add display for additionalCharges here */}
           <div className="flex justify-between">
             <span className="text-muted-foreground">Tax ({quote.taxRate}%):</span>
             <span>${quote.taxAmount.toFixed(2)}</span>
@@ -108,13 +150,28 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
         </div>
       )}
 
+      {/* Signature Section */}
+      <div className="mt-12 pt-8 border-t">
+        <div className="grid grid-cols-2 gap-8">
+            <div>
+                <p className="font-semibold mb-1">Prepared By (Your Company):</p>
+                <div className="h-16 border-b border-gray-400 mb-2"></div>
+                <p className="text-xs text-muted-foreground">{yourCompany.name}</p>
+            </div>
+            <div>
+                <p className="font-semibold mb-1">Client Acknowledgement (Optional):</p>
+                 <div className="h-16 border-b border-gray-400 mb-2"></div>
+                <p className="text-xs text-muted-foreground">{customerToDisplay.name}</p>
+            </div>
+        </div>
+      </div>
+
       {/* Footer Note */}
-      <div className="text-center text-sm text-muted-foreground mt-8">
-        <p>Thank you for considering our services!</p>
+      <div className="text-center text-sm text-muted-foreground mt-12">
+        <p>Thank you for considering our services! Questions? Contact {yourCompany.email}</p>
       </div>
     </div>
   );
 }
 
 QuotePreviewContent.displayName = "QuotePreviewContent";
-

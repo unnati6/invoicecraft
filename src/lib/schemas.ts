@@ -16,14 +16,22 @@ export const customerSchema = z.object({
 
 export type CustomerFormData = z.infer<typeof customerSchema>;
 
-export const invoiceItemSchema = z.object({
-  id: z.string().optional(), // For existing items
+const baseItemSchema = z.object({
+  id: z.string().optional(), 
   description: z.string().min(1, { message: "Description cannot be empty." }),
   quantity: z.number().min(0.01, { message: "Quantity must be positive." }),
   rate: z.number().min(0, { message: "Rate must be non-negative." }),
 });
 
+export const invoiceItemSchema = baseItemSchema;
 export type InvoiceItemFormData = z.infer<typeof invoiceItemSchema>;
+
+export const additionalChargeSchema = z.object({
+  id: z.string().optional(),
+  description: z.string().min(1, { message: "Description cannot be empty." }),
+  amount: z.number().min(0.01, { message: "Amount must be positive." }),
+});
+export type AdditionalChargeFormData = z.infer<typeof additionalChargeSchema>;
 
 export const invoiceSchema = z.object({
   customerId: z.string().min(1, { message: "Customer is required." }),
@@ -31,6 +39,7 @@ export const invoiceSchema = z.object({
   issueDate: z.date({ required_error: "Issue date is required." }),
   dueDate: z.date({ required_error: "Due date is required." }),
   items: z.array(invoiceItemSchema).min(1, { message: "At least one item is required." }),
+  additionalCharges: z.array(additionalChargeSchema).optional(),
   taxRate: z.number().min(0).max(100).optional().default(0),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Paid', 'Overdue']).default('Draft'),
@@ -43,13 +52,7 @@ export const termsSchema = z.object({
 });
 export type TermsFormData = z.infer<typeof termsSchema>;
 
-// Schemas for Quotes
-export const quoteItemSchema = z.object({ // Similar to InvoiceItemSchema
-  id: z.string().optional(),
-  description: z.string().min(1, { message: "Description cannot be empty." }),
-  quantity: z.number().min(0.01, { message: "Quantity must be positive." }),
-  rate: z.number().min(0, { message: "Rate must be non-negative." }),
-});
+export const quoteItemSchema = baseItemSchema; 
 export type QuoteItemFormData = z.infer<typeof quoteItemSchema>;
 
 export const quoteSchema = z.object({
@@ -58,6 +61,7 @@ export const quoteSchema = z.object({
   issueDate: z.date({ required_error: "Issue date is required." }),
   expiryDate: z.date({ required_error: "Expiry date is required." }),
   items: z.array(quoteItemSchema).min(1, { message: "At least one item is required." }),
+  additionalCharges: z.array(additionalChargeSchema).optional(),
   taxRate: z.number().min(0).max(100).optional().default(0),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Accepted', 'Declined', 'Expired']).default('Draft'),

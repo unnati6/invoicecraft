@@ -1,4 +1,5 @@
 
+
 export interface Customer {
   id: string;
   name: string;
@@ -22,24 +23,31 @@ export interface InvoiceItem {
   amount: number;
 }
 
+export interface AdditionalChargeItem {
+  id: string;
+  description: string;
+  amount: number;
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
-  customerId: string; // Link to Customer
-  customerName?: string; // Denormalized for display
+  customerId: string; 
+  customerName?: string; 
   issueDate: Date;
   dueDate: Date;
   items: InvoiceItem[];
-  subtotal: number;
-  taxRate: number; // Percentage, e.g., 10 for 10%
-  taxAmount: number;
-  total: number;
+  additionalCharges?: AdditionalChargeItem[];
+  subtotal: number; // Subtotal of main items ONLY
+  taxRate: number; 
+  taxAmount: number; // Tax calculated on (subtotal + sum of additional charges)
+  total: number; // Grand total
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
   createdAt: Date;
 }
 
-export interface QuoteItem { // Similar to InvoiceItem
+export interface QuoteItem { 
   id: string;
   description: string;
   quantity: number;
@@ -53,12 +61,13 @@ export interface Quote {
   customerId: string;
   customerName?: string;
   issueDate: Date;
-  expiryDate: Date; // Quotes typically have an expiry date
+  expiryDate: Date; 
   items: QuoteItem[];
-  subtotal: number;
+  additionalCharges?: AdditionalChargeItem[];
+  subtotal: number; // Subtotal of main items ONLY
   taxRate: number;
-  taxAmount: number;
-  total: number;
+  taxAmount: number; // Tax calculated on (subtotal + sum of additional charges)
+  total: number; // Grand total
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   createdAt: Date;
