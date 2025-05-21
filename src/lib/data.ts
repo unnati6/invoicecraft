@@ -75,24 +75,25 @@ const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().
 
 // Customer Functions
 export const getCustomers = async (): Promise<Customer[]> => {
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+  // Simulate API delay for list fetching if desired, but not for core data ops
+  // await new Promise(resolve => setTimeout(resolve, 500)); 
   return [...mockCustomers];
 };
 
 export const getCustomerById = async (id: string): Promise<Customer | undefined> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
+  // No delay for direct fetch by ID
   return mockCustomers.find(c => c.id === id);
 };
 
 export const createCustomer = async (data: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // No delay for create
   const newCustomer: Customer = { ...data, id: generateId('cust'), createdAt: new Date() };
   mockCustomers.push(newCustomer);
   return newCustomer;
 };
 
 export const updateCustomer = async (id: string, data: Partial<Omit<Customer, 'id' | 'createdAt'>>): Promise<Customer | null> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // No delay for update
   const index = mockCustomers.findIndex(c => c.id === id);
   if (index === -1) return null;
   mockCustomers[index] = { ...mockCustomers[index], ...data };
@@ -100,7 +101,7 @@ export const updateCustomer = async (id: string, data: Partial<Omit<Customer, 'i
 };
 
 export const deleteCustomer = async (id: string): Promise<boolean> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // No delay for delete
   const initialLength = mockCustomers.length;
   mockCustomers = mockCustomers.filter(c => c.id !== id);
   return mockCustomers.length < initialLength;
@@ -109,7 +110,7 @@ export const deleteCustomer = async (id: string): Promise<boolean> => {
 
 // Invoice Functions
 export const getInvoices = async (): Promise<Invoice[]> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // await new Promise(resolve => setTimeout(resolve, 500));
   return [...mockInvoices].map(inv => ({
     ...inv,
     customerName: mockCustomers.find(c => c.id === inv.customerId)?.name || 'Unknown Customer'
@@ -117,7 +118,7 @@ export const getInvoices = async (): Promise<Invoice[]> => {
 };
 
 export const getInvoiceById = async (id: string): Promise<Invoice | undefined> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
+  // No delay for direct fetch by ID
   const invoice = mockInvoices.find(i => i.id === id);
   if (invoice) {
     return {
@@ -129,8 +130,7 @@ export const getInvoiceById = async (id: string): Promise<Invoice | undefined> =
 };
 
 export const createInvoice = async (data: Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'> & { items: Omit<InvoiceItem, 'id' | 'amount'>[] } ): Promise<Invoice> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
+  // No delay for create
   const itemsWithAmounts: InvoiceItem[] = data.items.map(item => ({
     ...item,
     id: generateId('item'),
@@ -141,7 +141,8 @@ export const createInvoice = async (data: Omit<Invoice, 'id' | 'createdAt' | 'su
   const taxAmount = subtotal * (data.taxRate / 100);
   const total = subtotal + taxAmount;
 
-  const customer = await getCustomerById(data.customerId);
+  // Fetch customer name synchronously if possible, or handle potential undefined if getCustomerById remains async without delay
+  const customer = mockCustomers.find(c => c.id === data.customerId);
 
   const newInvoice: Invoice = {
     ...data,
@@ -158,14 +159,14 @@ export const createInvoice = async (data: Omit<Invoice, 'id' | 'createdAt' | 'su
 };
 
 export const updateInvoice = async (id: string, data: Partial<Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'>> & { items?: Omit<InvoiceItem, 'id' | 'amount'>[] }): Promise<Invoice | null> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // No delay for update
   const index = mockInvoices.findIndex(i => i.id === id);
   if (index === -1) return null;
 
   let updatedInvoice = { ...mockInvoices[index], ...data };
 
   if (data.items || data.taxRate !== undefined) {
-    const itemsWithAmounts: InvoiceItem[] = (data.items || updatedInvoice.items).map((item: any) => ({ // any for items that might not have amount yet
+    const itemsWithAmounts: InvoiceItem[] = (data.items || updatedInvoice.items).map((item: any) => ({ 
       id: item.id || generateId('item'),
       description: item.description,
       quantity: item.quantity,
@@ -189,7 +190,7 @@ export const updateInvoice = async (id: string, data: Partial<Omit<Invoice, 'id'
   }
   
   if (data.customerId) {
-     const customer = await getCustomerById(data.customerId);
+     const customer = mockCustomers.find(c => c.id === data.customerId);
      updatedInvoice.customerName = customer?.name || 'Unknown Customer';
   }
 
@@ -198,14 +199,14 @@ export const updateInvoice = async (id: string, data: Partial<Omit<Invoice, 'id'
 };
 
 export const deleteInvoice = async (id: string): Promise<boolean> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // No delay for delete
   const initialLength = mockInvoices.length;
   mockInvoices = mockInvoices.filter(i => i.id !== id);
   return mockInvoices.length < initialLength;
 };
 
 export const getNextInvoiceNumber = async (): Promise<string> => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // No delay
     const lastInvoice = mockInvoices.length > 0 ? mockInvoices.sort((a,b) => a.invoiceNumber.localeCompare(b.invoiceNumber))[mockInvoices.length-1] : null;
     if (!lastInvoice || !lastInvoice.invoiceNumber.startsWith("INV-")) {
         return "INV-001";
@@ -220,7 +221,7 @@ export const getNextInvoiceNumber = async (): Promise<string> => {
 
 // Quote Functions
 export const getQuotes = async (): Promise<Quote[]> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // await new Promise(resolve => setTimeout(resolve, 500));
   return [...mockQuotes].map(quo => ({
     ...quo,
     customerName: mockCustomers.find(c => c.id === quo.customerId)?.name || 'Unknown Customer'
@@ -228,7 +229,7 @@ export const getQuotes = async (): Promise<Quote[]> => {
 };
 
 export const getQuoteById = async (id: string): Promise<Quote | undefined> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
+  // No delay for direct fetch by ID
   const quote = mockQuotes.find(q => q.id === id);
   if (quote) {
     return {
@@ -240,8 +241,7 @@ export const getQuoteById = async (id: string): Promise<Quote | undefined> => {
 };
 
 export const createQuote = async (data: Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'> & { items: Omit<QuoteItem, 'id' | 'amount'>[] }): Promise<Quote> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
+  // No delay for create
   const itemsWithAmounts: QuoteItem[] = data.items.map(item => ({
     ...item,
     id: generateId('q_item'),
@@ -252,7 +252,7 @@ export const createQuote = async (data: Omit<Quote, 'id' | 'createdAt' | 'subtot
   const taxAmount = subtotal * (data.taxRate / 100);
   const total = subtotal + taxAmount;
 
-  const customer = await getCustomerById(data.customerId);
+  const customer = mockCustomers.find(c => c.id === data.customerId);
 
   const newQuote: Quote = {
     ...data,
@@ -269,7 +269,7 @@ export const createQuote = async (data: Omit<Quote, 'id' | 'createdAt' | 'subtot
 };
 
 export const updateQuote = async (id: string, data: Partial<Omit<Quote, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName'>> & { items?: Omit<QuoteItem, 'id' | 'amount'>[] }): Promise<Quote | null> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // No delay for update
   const index = mockQuotes.findIndex(q => q.id === id);
   if (index === -1) return null;
 
@@ -300,7 +300,7 @@ export const updateQuote = async (id: string, data: Partial<Omit<Quote, 'id' | '
   }
   
   if (data.customerId) {
-     const customer = await getCustomerById(data.customerId);
+     const customer = mockCustomers.find(c => c.id === data.customerId);
      updatedQuote.customerName = customer?.name || 'Unknown Customer';
   }
 
@@ -309,14 +309,14 @@ export const updateQuote = async (id: string, data: Partial<Omit<Quote, 'id' | '
 };
 
 export const deleteQuote = async (id: string): Promise<boolean> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // No delay for delete
   const initialLength = mockQuotes.length;
   mockQuotes = mockQuotes.filter(q => q.id !== id);
   return mockQuotes.length < initialLength;
 };
 
 export const getNextQuoteNumber = async (): Promise<string> => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // No delay
     const lastQuote = mockQuotes.length > 0 ? mockQuotes.sort((a,b) => a.quoteNumber.localeCompare(b.quoteNumber))[mockQuotes.length-1] : null;
     if (!lastQuote || !lastQuote.quoteNumber.startsWith("QUO-")) {
         return "QUO-001";
