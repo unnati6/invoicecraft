@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, usePathname } from 'next/navigation'; // Added usePathname
 import { AppHeader } from '@/components/layout/app-header';
 import { QuoteForm } from '@/components/quote-form';
 import type { QuoteFormData } from '@/lib/schemas';
@@ -18,6 +18,7 @@ import Link from 'next/link';
 export default function EditQuotePage() {
   const router = useRouter();
   const params = useParams();
+  const pathname = usePathname(); // Added
   const quoteId = params.id as string;
   const { toast } = useToast();
   
@@ -51,7 +52,7 @@ export default function EditQuotePage() {
       }
       loadQuote();
     }
-  }, [quoteId, router, toast]);
+  }, [quoteId, router, toast, pathname]); // Added pathname
 
   const handleSubmit = async (data: QuoteFormData) => {
     setIsSubmitting(true);
@@ -196,4 +197,3 @@ function FormSkeleton() {
     </div>
   );
 }
-

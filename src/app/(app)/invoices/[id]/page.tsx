@@ -1,7 +1,8 @@
+
 'use client';
 
 import * as React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, usePathname } from 'next/navigation'; // Added usePathname
 import { AppHeader } from '@/components/layout/app-header';
 import { InvoiceForm } from '@/components/invoice-form';
 import type { InvoiceFormData } from '@/lib/schemas';
@@ -10,13 +11,14 @@ import { useToast } from '@/hooks/use-toast';
 import type { Invoice, Customer } from '@/types';
 import { Button } from '@/components/ui/button';
 import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog';
-import { Eye, FileEdit, ReceiptText, Download, FileSpreadsheet } from 'lucide-react';
+import { Eye, FileEdit } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 
 export default function EditInvoicePage() {
   const router = useRouter();
   const params = useParams();
+  const pathname = usePathname(); // Added
   const invoiceId = params.id as string;
   const { toast } = useToast();
   
@@ -49,7 +51,7 @@ export default function EditInvoicePage() {
       }
       loadInvoice();
     }
-  }, [invoiceId, router, toast]);
+  }, [invoiceId, router, toast, pathname]); // Added pathname
 
   const handleSubmit = async (data: InvoiceFormData) => {
     setIsSubmitting(true);
