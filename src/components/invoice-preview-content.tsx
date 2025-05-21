@@ -1,9 +1,13 @@
 
 'use client';
 
+import *_React from 'react'; // Use _React to avoid confusion if React is used elsewhere
 import type { Invoice, Customer } from '@/types';
 import { format } from 'date-fns';
 import Image from 'next/image';
+
+const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
+
 
 interface InvoicePreviewContentProps {
   document: Invoice; 
@@ -11,6 +15,18 @@ interface InvoicePreviewContentProps {
 }
 
 export function InvoicePreviewContent({ document: invoice, customer }: InvoicePreviewContentProps) {
+  const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
+
+   _React.useEffect(() => {
+    const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
+    if (storedLogo) {
+      setCompanyLogoUrl(storedLogo);
+    } else {
+      setCompanyLogoUrl('https://placehold.co/200x60.png'); // Default placeholder
+    }
+  }, []);
+
+
   const customerToDisplay = customer || { 
     name: invoice.customerName || 'N/A', 
     email: 'N/A', 
@@ -22,9 +38,8 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
     customerToDisplay.email = customer.email;
   }
 
-  // Placeholder for your company details - replace with dynamic data later
   const yourCompany = {
-    logoUrl: 'https://placehold.co/200x60.png', // Replace with your actual logo URL
+    logoUrl: companyLogoUrl, 
     name: 'Your Awesome Company LLC',
     addressLine1: '456 Innovation Drive',
     addressLine2: 'Suite 100, Tech City, TX 75001',
@@ -32,7 +47,12 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
     phone: '(555) 123-4567'
   };
   
-  const partnerLogoUrl = 'https://placehold.co/150x50.png'; // Replace with actual partner logo URL
+  const partnerLogoUrl = 'https://placehold.co/150x50.png'; 
+
+  if (!yourCompany.logoUrl) {
+    // Still loading from localStorage or no logo set, render a minimal version or placeholder
+    return <div className="p-6 text-center">Loading preview or no logo set...</div>;
+  }
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
@@ -44,8 +64,9 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
               src={yourCompany.logoUrl} 
               alt={`${yourCompany.name} Logo`}
               width={180} 
-              height={54} // Adjust height based on your logo's aspect ratio
+              height={54} 
               className="mb-3"
+              style={{ objectFit: 'contain', maxHeight: '54px' }}
               data-ai-hint="company logo"
             />
           )}
@@ -116,6 +137,7 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
                     alt="Partner Logo" 
                     width={150} 
                     height={50} 
+                    style={{ objectFit: 'contain', maxHeight: '50px' }}
                     data-ai-hint="partner logo"
                 />
             </div>

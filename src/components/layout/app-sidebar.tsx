@@ -14,7 +14,7 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { FileText, Users, Settings, LogOut, Quote as QuoteIconLucide } from 'lucide-react'; 
+import { FileText, Users, Settings, LogOut, Quote as QuoteIconLucide, Image as ImageIcon } from 'lucide-react'; 
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
@@ -47,6 +47,10 @@ export function AppSidebar() {
     { href: '/invoices', label: 'Invoices', icon: FileText },
     { href: '/quotes', label: 'Quotes', icon: QuoteIconLucide },
     { href: '/customers', label: 'Customers', icon: Users },
+  ];
+
+  const settingsMenuItems = [
+     { href: '/branding', label: 'Branding', icon: ImageIcon },
   ];
 
   return (
@@ -85,8 +89,26 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="border-t p-2">
         <SidebarMenu>
+          {settingsMenuItems.map((item) => (
+             <SidebarMenuItem key={item.href}>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith(item.href)}
+                tooltip={item.label}
+                className={cn(
+                  "justify-start",
+                  {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': pathname.startsWith(item.href)}
+                )}
+              >
+                <Link href={item.href}>
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Settings" className="justify-start">
+            <SidebarMenuButton tooltip="Settings (General)" className="justify-start">
               <Settings className="h-5 w-5" />
               <span>Settings</span>
             </SidebarMenuButton>
