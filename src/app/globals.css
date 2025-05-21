@@ -100,8 +100,9 @@ body {
   }
 
   .animated-gradient-background {
-    background: linear-gradient(270deg, hsl(220, 15%, 10%), hsl(210, 80%, 30%), hsl(220, 25%, 7%));
-    background-size: 400% 400%; /* Made slightly smaller for a potentially faster perceived movement */
-    animation: animatedGradient 15s ease infinite;
+    /* New gradient: White, Light Purple, Light Orange */
+    background: linear-gradient(135deg, hsl(0, 0%, 100%), hsl(270, 100%, 95%), hsl(30, 100%, 95%));
+    background-size: 500% 500%; /* Adjusted for lighter colors, allows smoother transition */
+    animation: animatedGradient 20s ease infinite; /* Slightly longer duration */
   }
 }
