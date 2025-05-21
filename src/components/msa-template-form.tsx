@@ -14,6 +14,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { RichTextEditor } from '@/components/rich-text-editor';
 import { msaTemplateSchema, type MsaTemplateFormData } from '@/lib/schemas';
@@ -32,6 +33,7 @@ export function MsaTemplateForm({ onSubmit, initialData, isSubmitting = false }:
     defaultValues: {
       name: initialData?.name || '',
       content: initialData?.content || '<p></p>',
+      includeCoverPage: initialData?.includeCoverPage || false,
     },
   });
 
@@ -76,6 +78,27 @@ export function MsaTemplateForm({ onSubmit, initialData, isSubmitting = false }:
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="includeCoverPage"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>Include Cover Page</FormLabel>
+                    <FormDescription>
+                      If checked, a cover page will be added when this MSA is included in a document PDF.
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
           </CardContent>
           <CardFooter>
             <Button type="submit" disabled={isSubmitting}>
@@ -90,3 +113,4 @@ export function MsaTemplateForm({ onSubmit, initialData, isSubmitting = false }:
 }
 
 MsaTemplateForm.displayName = "MsaTemplateForm";
+

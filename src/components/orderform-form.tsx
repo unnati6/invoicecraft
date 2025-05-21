@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { orderFormSchema, type OrderFormFormData, type AdditionalChargeFormData } from '@/lib/schemas';
 import type { OrderForm, Customer, TermsTemplate, MsaTemplate } from '@/types';
@@ -94,6 +95,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: O
             value: ac.value,
           })) || [],
           msaContent: initialData.msaContent || '',
+          msaIncludesCoverPage: initialData.msaIncludesCoverPage || false,
           termsAndConditions: initialData.termsAndConditions || '<p></p>',
           paymentTerms: initialData.paymentTerms || "Net 30 Days",
           commitmentPeriod: initialData.commitmentPeriod || "N/A",
@@ -108,6 +110,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: O
           additionalCharges: [],
           taxRate: 0,
           msaContent: '',
+          msaIncludesCoverPage: false,
           termsAndConditions: '<p></p>', 
           status: 'Draft',
           customerId: '',
@@ -221,10 +224,14 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: O
   const handleMsaTemplateSelect = (templateId: string) => {
     if (templateId === "none" || !templateId) {
       form.setValue('msaContent', '', { shouldDirty: true });
+      form.setValue('msaIncludesCoverPage', false, { shouldDirty: true });
       return;
     }
     const selectedTemplate = msaTemplates.find(t => t.id === templateId);
-    if (selectedTemplate) form.setValue('msaContent', selectedTemplate.content, { shouldDirty: true });
+    if (selectedTemplate) {
+      form.setValue('msaContent', selectedTemplate.content, { shouldDirty: true });
+      form.setValue('msaIncludesCoverPage', selectedTemplate.includeCoverPage || false, { shouldDirty: true });
+    }
   };
 
   const debouncedSaveTerms = React.useCallback(
@@ -569,8 +576,18 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: O
                         control={form.control}
                         name="msaContent"
                         render={({ field }) => (
-                            <FormItem className="hidden"> {/* This field is populated by template selection, not directly edited here */}
+                            <FormItem className="hidden"> 
                             <FormControl><Input {...field} /></FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="msaIncludesCoverPage"
+                        render={({ field }) => (
+                            <FormItem className="hidden">
+                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                             <FormMessage />
                             </FormItem>
                         )}
@@ -657,3 +674,4 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: O
 }
 
 OrderFormForm.displayName = "OrderFormForm";
+

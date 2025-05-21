@@ -47,6 +47,7 @@ export const invoiceSchema = z.object({
   additionalCharges: z.array(additionalChargeFormSchema).optional(), 
   taxRate: z.number().min(0).max(100).optional().default(0),
   msaContent: z.string().optional(),
+  msaIncludesCoverPage: z.boolean().optional().default(false),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Paid', 'Overdue']).default('Draft'),
   paymentTerms: z.string().optional(),
@@ -82,6 +83,7 @@ export const orderFormSchema = z.object({
   additionalCharges: z.array(additionalChargeFormSchema).optional(), 
   taxRate: z.number().min(0).max(100).optional().default(0),
   msaContent: z.string().optional(),
+  msaIncludesCoverPage: z.boolean().optional().default(false),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Accepted', 'Declined', 'Expired']).default('Draft'),
   paymentTerms: z.string().optional(),
@@ -108,6 +110,7 @@ export type TermsTemplateFormData = z.infer<typeof termsTemplateSchema>;
 export const msaTemplateSchema = z.object({
   name: z.string().min(2, { message: "Template name must be at least 2 characters." }),
   content: z.string().optional().default('<p></p>'),
+  includeCoverPage: z.boolean().optional().default(false),
 });
 export type MsaTemplateFormData = z.infer<typeof msaTemplateSchema>;
 
@@ -116,3 +119,4 @@ export const brandingSettingsSchema = z.object({
   orderFormPrefix: z.string().optional().default("OF-"),
 });
 export type BrandingSettingsFormData = z.infer<typeof brandingSettingsSchema>;
+

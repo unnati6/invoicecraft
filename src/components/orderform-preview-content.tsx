@@ -175,10 +175,12 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
       {processedMsaContent && (
-        <div className="mb-8 prose prose-sm max-w-none">
-          <ReactMarkdown rehypePlugins={[rehypeRaw]}>{processedMsaContent}</ReactMarkdown>
+        <>
+          <div className="mb-4 prose prose-sm max-w-none">
+            <ReactMarkdown rehypePlugins={[rehypeRaw]}>{processedMsaContent}</ReactMarkdown>
+          </div>
           <hr className="my-6 border-border" />
-        </div>
+        </>
       )}
 
       <div className="flex justify-between items-start mb-10">
@@ -330,3 +332,4 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
 }
 
 OrderFormPreviewContent.displayName = "OrderFormPreviewContent";
+

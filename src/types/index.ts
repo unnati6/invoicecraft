@@ -53,6 +53,7 @@ export interface Invoice {
   taxAmount: number; 
   total: number; 
   msaContent?: string;
+  msaIncludesCoverPage?: boolean;
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
   paymentTerms?: string;
@@ -85,6 +86,7 @@ export interface OrderForm {
   taxAmount: number; 
   total: number; 
   msaContent?: string;
+  msaIncludesCoverPage?: boolean;
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   paymentTerms?: string;
@@ -105,5 +107,7 @@ export interface MsaTemplate {
   id: string;
   name: string;
   content: string; // HTML content from RichTextEditor
+  includeCoverPage?: boolean;
   createdAt: Date;
 }
+

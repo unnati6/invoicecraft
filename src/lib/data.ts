@@ -49,7 +49,8 @@ let mockInvoices: Invoice[] = [
     taxRate: 10,
     taxAmount: 135, 
     total: 1485, 
-    msaContent: "<p>This is a sample MSA for INV-001.</p>",
+    msaContent: "<p>This is a sample MSA for INV-001. It's been agreed upon by {{customerName}}.</p>",
+    msaIncludesCoverPage: true,
     termsAndConditions: 'Payment due within 30 days. Late fees apply.',
     status: 'Sent',
     createdAt: new Date(2023, 10, 15)
@@ -100,7 +101,8 @@ let mockOrderForms: OrderForm[] = [
     taxRate: 10,
     taxAmount: 315, 
     total: 3465, 
-    msaContent: "<p>This is the MSA content for Order Form OF-001. It outlines general service terms.</p>",
+    msaContent: "<p>This is the MSA content for Order Form OF-001. It outlines general service terms agreed with {{customerName}}.</p>",
+    msaIncludesCoverPage: false,
     termsAndConditions: 'This order form is valid for 30 days. Prices subject to change thereafter.',
     status: 'Sent',
     createdAt: new Date(2024, 0, 10),
@@ -117,7 +119,7 @@ let mockTermsTemplates: TermsTemplate[] = [
   {
     id: 'terms_tpl_2',
     name: 'Software Development Contract Terms',
-    content: '<h2>Project Scope</h2><p>The scope of work is defined in Appendix A.</p><h2>Payment Schedule</h2><ul><li>50% upfront</li><li>25% upon milestone 1 completion</li><li>25% upon final delivery</li></ul>',
+    content: '<h2>Project Scope</h2><p>The scope of work is defined in Appendix A.</p><h2>Payment Schedule</h2><ul><li>50% upfront</li><li>25% upon milestone 1 completion</li><li>25% upon final delivery</li></ul><p>This agreement is made with {{customerName}}.</p><p>Please sign below:</p>{{signaturePanel}}',
     createdAt: new Date(),
   }
 ];
@@ -126,13 +128,15 @@ let mockMsaTemplates: MsaTemplate[] = [
   {
     id: 'msa_tpl_1',
     name: 'General Services MSA',
-    content: '<h1>Master Service Agreement</h1><p>This Master Service Agreement (MSA) is entered into by and between Your Awesome Company LLC and {{customerName}} ("Client").</p><h2>1. Services</h2><p>Company agrees to provide services as described in applicable Order Forms.</p>',
+    content: '<h1>Master Service Agreement</h1><p>This Master Service Agreement (MSA) is entered into by and between Your Awesome Company LLC and {{customerName}} ("Client").</p><h2>1. Services</h2><p>Company agrees to provide services as described in applicable Order Forms or Invoices.</p>',
+    includeCoverPage: true,
     createdAt: new Date(),
   },
   {
     id: 'msa_tpl_2',
-    name: 'Consulting MSA',
+    name: 'Consulting MSA (No Cover)',
     content: '<h1>Consulting Master Service Agreement</h1><p>This agreement governs all consulting services provided by Your Awesome Company LLC to {{customerName}}.</p><h2>Scope of Work</h2><p>Specific services and deliverables will be detailed in separate Statements of Work (SOWs) or Order Forms, which will reference this MSA.</p>',
+    includeCoverPage: false,
     createdAt: new Date(),
   }
 ];
@@ -195,7 +199,7 @@ function calculateTotalsAndCharges(
 } {
     const processedItems = itemsData.map(item => ({
         ...item,
-        id: generateId('item'), 
+        id: (item as any).id || generateId('item'), 
         amount: item.quantity * item.rate,
     }));
 
@@ -284,6 +288,7 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     taxAmount: taxAmount,
     total: grandTotal,
     msaContent: data.msaContent,
+    msaIncludesCoverPage: data.msaIncludesCoverPage,
     paymentTerms: data.paymentTerms,
     commitmentPeriod: data.commitmentPeriod,
     serviceStartDate: data.serviceStartDate,
@@ -330,6 +335,7 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
       taxAmount: taxAmount,
       total: grandTotal,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
+      msaIncludesCoverPage: data.msaIncludesCoverPage !== undefined ? data.msaIncludesCoverPage : existingInvoice.msaIncludesCoverPage,
       paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingInvoice.paymentTerms,
       commitmentPeriod: data.commitmentPeriod !== undefined ? data.commitmentPeriod : existingInvoice.commitmentPeriod,
       serviceStartDate: data.serviceStartDate !== undefined ? data.serviceStartDate : existingInvoice.serviceStartDate,
@@ -347,20 +353,19 @@ export const deleteInvoice = async (id: string): Promise<boolean> => {
 };
 
 export const getNextInvoiceNumber = async (): Promise<string> => {
-    // For prototype, prefix is hardcoded here. In production, this would come from settings.
-    const prefix = "INV-"; 
+    const prefix = typeof localStorage !== 'undefined' ? localStorage.getItem('branding_invoice_prefix') || "INV-" : "INV-";
     const relevantInvoices = mockInvoices.filter(inv => inv.invoiceNumber.startsWith(prefix));
     if (relevantInvoices.length === 0) {
         return `${prefix}001`;
     }
     const lastInvoice = relevantInvoices.sort((a,b) => {
-        const numA = parseInt(a.invoiceNumber.substring(prefix.length), 10);
-        const numB = parseInt(b.invoiceNumber.substring(prefix.length), 10);
+        const numA = parseInt(a.invoiceNumber.substring(prefix.length), 10) || 0;
+        const numB = parseInt(b.invoiceNumber.substring(prefix.length), 10) || 0;
         return numA - numB;
     })[relevantInvoices.length - 1];
     
     try {
-        const num = parseInt(lastInvoice.invoiceNumber.substring(prefix.length));
+        const num = parseInt(lastInvoice.invoiceNumber.substring(prefix.length)) || 0;
         return `${prefix}${(num + 1).toString().padStart(3, '0')}`;
     } catch (e) {
         return `${prefix}${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
@@ -419,6 +424,7 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
     taxAmount: taxAmount,
     total: grandTotal,
     msaContent: data.msaContent,
+    msaIncludesCoverPage: data.msaIncludesCoverPage,
     paymentTerms: data.paymentTerms,
     commitmentPeriod: data.commitmentPeriod,
     serviceStartDate: data.serviceStartDate,
@@ -465,6 +471,7 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
       taxAmount: taxAmount,
       total: grandTotal,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
+      msaIncludesCoverPage: data.msaIncludesCoverPage !== undefined ? data.msaIncludesCoverPage : existingOrderForm.msaIncludesCoverPage,
       paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingOrderForm.paymentTerms,
       commitmentPeriod: data.commitmentPeriod !== undefined ? data.commitmentPeriod : existingOrderForm.commitmentPeriod,
       serviceStartDate: data.serviceStartDate !== undefined ? data.serviceStartDate : existingOrderForm.serviceStartDate,
@@ -482,20 +489,19 @@ export const deleteOrderForm = async (id: string): Promise<boolean> => {
 };
 
 export const getNextOrderFormNumber = async (): Promise<string> => {
-    // For prototype, prefix is hardcoded here. In production, this would come from settings.
-    const prefix = "OF-"; 
+    const prefix = typeof localStorage !== 'undefined' ? localStorage.getItem('branding_orderform_prefix') || "OF-" : "OF-";
     const relevantOrderForms = mockOrderForms.filter(of => of.orderFormNumber.startsWith(prefix));
     if (relevantOrderForms.length === 0) {
         return `${prefix}001`;
     }
     const lastOrderForm = relevantOrderForms.sort((a,b) => {
-        const numA = parseInt(a.orderFormNumber.substring(prefix.length), 10);
-        const numB = parseInt(b.orderFormNumber.substring(prefix.length), 10);
+        const numA = parseInt(a.orderFormNumber.substring(prefix.length), 10) || 0;
+        const numB = parseInt(b.orderFormNumber.substring(prefix.length), 10) || 0;
         return numA - numB;
     })[relevantOrderForms.length - 1];
     
     try {
-        const num = parseInt(lastOrderForm.orderFormNumber.substring(prefix.length));
+        const num = parseInt(lastOrderForm.orderFormNumber.substring(prefix.length)) || 0;
         return `${prefix}${(num + 1).toString().padStart(3, '0')}`;
     } catch (e) {
         return `${prefix}${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
@@ -553,6 +559,7 @@ export const createMsaTemplate = async (data: MsaTemplateFormData): Promise<MsaT
     id: generateId('msa_tpl'),
     name: data.name,
     content: data.content || '<p></p>',
+    includeCoverPage: data.includeCoverPage || false,
     createdAt: new Date(),
   };
   mockMsaTemplates.push(newTemplate);
@@ -566,6 +573,7 @@ export const updateMsaTemplate = async (id: string, data: Partial<MsaTemplateFor
     ...mockMsaTemplates[index],
     ...data,
     content: data.content !== undefined ? (data.content || '<p></p>') : mockMsaTemplates[index].content,
+    includeCoverPage: data.includeCoverPage !== undefined ? data.includeCoverPage : mockMsaTemplates[index].includeCoverPage,
   };
   return mockMsaTemplates[index];
 };
@@ -575,3 +583,4 @@ export const deleteMsaTemplate = async (id: string): Promise<boolean> => {
   mockMsaTemplates = mockMsaTemplates.filter(t => t.id !== id);
   return mockMsaTemplates.length < initialLength;
 };
+
