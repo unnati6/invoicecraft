@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Sidebar,
@@ -12,14 +13,31 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { FileText, Users, Settings, LogOut, HomeIcon } from 'lucide-react'; // Using HomeIcon as a generic app icon
+import { FileText, Users, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
-  <Link href="/invoices" className="flex items-center gap-2 px-2 py-1 text-lg font-semibold text-primary">
-    <HomeIcon className="h-7 w-7 text-primary" />
-    <span>InvoiceCraft</span>
+  <Link href="/invoices" className="flex items-center gap-2 px-2 py-1 text-lg font-semibold">
+    <Image 
+      src="https://placehold.co/120x30.png?text=YourLogo" 
+      alt="InvoiceCraft Logo" 
+      width={120} 
+      height={30} 
+      data-ai-hint="logo company" 
+      className="dark:invert" // Basic inversion for dark mode, replace with proper dark logo if available
+    />
   </Link>
+);
+
+const AppIcon = () => (
+   <Image 
+      src="https://placehold.co/32x32.png?text=L" 
+      alt="InvoiceCraft Icon" 
+      width={28} 
+      height={28} 
+      data-ai-hint="logo icon"
+      className="dark:invert" // Basic inversion for dark mode
+    />
 );
 
 
@@ -39,7 +57,7 @@ export function AppSidebar() {
                  <AppLogo />
             </div>
             <div className="hidden group-data-[collapsible=icon]:block">
-                <HomeIcon className="h-7 w-7 text-primary" />
+                <AppIcon />
             </div>
          </div>
       </SidebarHeader>
@@ -74,10 +92,13 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Logout" className="justify-start">
-              <LogOut className="h-5 w-5" />
-              <span>Logout</span>
-            </SidebarMenuButton>
+             {/* For a real app, this would trigger a logout action */}
+            <Link href="/login"> 
+              <SidebarMenuButton tooltip="Logout" className="justify-start w-full">
+                <LogOut className="h-5 w-5" />
+                <span>Logout</span>
+              </SidebarMenuButton>
+            </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
