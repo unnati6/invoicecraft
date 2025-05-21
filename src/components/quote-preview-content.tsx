@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import Image from 'next/image';
 
 const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
+const SIGNATURE_STORAGE_KEY = 'branding_company_signature_data_url';
 
 interface QuotePreviewContentProps {
   document: Quote; 
@@ -15,14 +16,16 @@ interface QuotePreviewContentProps {
 
 export function QuotePreviewContent({ document: quote, customer }: QuotePreviewContentProps) {
   const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
+  const [companySignatureUrl, setCompanySignatureUrl] = _React.useState<string | null>(null);
 
   _React.useEffect(() => {
     const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
     if (storedLogo) {
       setCompanyLogoUrl(storedLogo);
-    } else {
-      // Keep this consistent or remove if branding page sets a default
-      // setCompanyLogoUrl('https://placehold.co/200x60.png'); 
+    }
+    const storedSignature = localStorage.getItem(SIGNATURE_STORAGE_KEY);
+    if (storedSignature) {
+      setCompanySignatureUrl(storedSignature);
     }
   }, []);
 
@@ -61,7 +64,6 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
               height={54} 
               className="mb-3"
               style={{ objectFit: 'contain', maxHeight: '54px' }}
-              data-ai-hint="company logo"
             />
           ) : (
              <div className="mb-3 w-[180px] h-[54px] bg-muted rounded flex items-center justify-center text-muted-foreground text-xs">
@@ -174,7 +176,19 @@ export function QuotePreviewContent({ document: quote, customer }: QuotePreviewC
         <div className="grid grid-cols-2 gap-8">
             <div>
                 <p className="font-semibold mb-1">Prepared By (Your Company):</p>
-                <div className="h-16 border-b border-gray-400 mb-2"></div>
+                 {companySignatureUrl ? (
+                  <div className="relative h-20 mb-2">
+                    <Image
+                      src={companySignatureUrl}
+                      alt="Company Signature"
+                      layout="fill"
+                      objectFit="contain"
+                      className="border-b border-gray-400"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-16 border-b border-gray-400 mb-2"></div>
+                )}
                 <p className="text-xs text-muted-foreground">{yourCompany.name}</p>
             </div>
             <div>
