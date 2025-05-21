@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation'; // Added usePathname
 import { AppHeader } from '@/components/layout/app-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function QuotesPage() {
   const router = useRouter();
+  const pathname = usePathname(); // Added
   const { toast } = useToast();
   const [quotes, setQuotes] = React.useState<Quote[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -37,7 +38,7 @@ export default function QuotesPage() {
       }
     }
     fetchData();
-  }, [toast]);
+  }, [toast, pathname]); // Added pathname to dependency array
 
   const handleDeleteQuote = async (id: string) => {
     try {
@@ -51,7 +52,7 @@ export default function QuotesPage() {
 
   const getStatusVariant = (status: Quote['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-      case 'Accepted': return 'default'; // Green-ish in theme
+      case 'Accepted': return 'default'; 
       case 'Sent': return 'secondary';
       case 'Declined': 
       case 'Expired': return 'destructive';
@@ -59,7 +60,7 @@ export default function QuotesPage() {
       default: return 'outline';
     }
   };
-  const acceptedBadgeClass = "bg-accent text-accent-foreground hover:bg-accent/80";
+  const acceptedBadgeClass = "bg-primary text-primary-foreground hover:bg-primary/80";
 
 
   const columns = [

@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation'; // Added usePathname
 import { AppHeader } from '@/components/layout/app-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +26,7 @@ import {
 
 export default function InvoicesPage() {
   const router = useRouter();
+  const pathname = usePathname(); // Added
   const { toast } = useToast();
   const [invoices, setInvoices] = React.useState<Invoice[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -43,7 +44,7 @@ export default function InvoicesPage() {
       }
     }
     fetchData();
-  }, [toast]);
+  }, [toast, pathname]); // Added pathname to dependency array
 
   const handleDeleteInvoice = async (id: string) => {
     try {
@@ -64,7 +65,7 @@ export default function InvoicesPage() {
       default: return 'outline';
     }
   };
-  const paidBadgeClass = "bg-accent text-accent-foreground hover:bg-accent/80";
+  const paidBadgeClass = "bg-primary text-primary-foreground hover:bg-primary/80";
 
 
   const columns = [

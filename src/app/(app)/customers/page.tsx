@@ -1,14 +1,15 @@
+
 'use client';
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation'; // Added usePathname
 import { AppHeader } from '@/components/layout/app-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
-import { PlusCircle, Edit, Eye, Trash2 } from 'lucide-react'; // Added Trash2 here
+import { PlusCircle, Edit, Eye, Trash2 } from 'lucide-react';
 import type { Customer } from '@/types';
 import { getAllCustomers, removeCustomer } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function CustomersPage() {
   const router = useRouter();
+  const pathname = usePathname(); // Added
   const { toast } = useToast();
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -33,7 +35,7 @@ export default function CustomersPage() {
       }
     }
     fetchData();
-  }, [toast]);
+  }, [toast, pathname]); // Added pathname to dependency array
 
   const handleDeleteCustomer = async (id: string) => {
     try {
@@ -118,7 +120,7 @@ export default function CustomersPage() {
             <DataTable
               columns={columns}
               data={customers}
-              onRowClick={(row) => router.push(`/customers/${row.id}/edit`)} // Or a dedicated view page if needed
+              onRowClick={(row) => router.push(`/customers/${row.id}/edit`)} 
               noResultsMessage="No customers found. Add your first customer!"
             />
           </CardContent>
