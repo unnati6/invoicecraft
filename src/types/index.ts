@@ -38,6 +38,29 @@ export interface AdditionalChargeItem {
   calculatedAmount: number; 
 }
 
+export interface CoverPageTemplate {
+  id: string;
+  name: string;
+  title?: string;
+  companyLogoEnabled?: boolean;
+  companyLogoUrl?: string;
+  clientLogoEnabled?: boolean;
+  clientLogoUrl?: string;
+  additionalImage1Enabled?: boolean;
+  additionalImage1Url?: string;
+  additionalImage2Enabled?: boolean;
+  additionalImage2Url?: string;
+  createdAt: Date;
+}
+
+export interface MsaTemplate {
+  id: string;
+  name: string;
+  content: string; // HTML content from RichTextEditor
+  coverPageTemplateId?: string; // Link to a CoverPageTemplate
+  createdAt: Date;
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -53,7 +76,7 @@ export interface Invoice {
   taxAmount: number; 
   total: number; 
   msaContent?: string;
-  msaIncludesCoverPage?: boolean;
+  msaCoverPageTemplateId?: string; // Denormalized for easier access in PDF generation
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
   paymentTerms?: string;
@@ -86,7 +109,7 @@ export interface OrderForm {
   taxAmount: number; 
   total: number; 
   msaContent?: string;
-  msaIncludesCoverPage?: boolean;
+  msaCoverPageTemplateId?: string; // Denormalized for easier access in PDF generation
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   paymentTerms?: string;
@@ -102,12 +125,3 @@ export interface TermsTemplate {
   content: string; // HTML content from RichTextEditor
   createdAt: Date;
 }
-
-export interface MsaTemplate {
-  id: string;
-  name: string;
-  content: string; // HTML content from RichTextEditor
-  includeCoverPage?: boolean;
-  createdAt: Date;
-}
-

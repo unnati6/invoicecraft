@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox'; // Added
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { invoiceSchema, type InvoiceFormData, type AdditionalChargeFormData } from '@/lib/schemas';
 import type { Invoice, Customer, TermsTemplate, MsaTemplate } from '@/types';
@@ -95,7 +96,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
             value: ac.value,
           })) || [],
           msaContent: initialData.msaContent || '',
-          msaIncludesCoverPage: initialData.msaIncludesCoverPage || false,
+          msaCoverPageTemplateId: initialData.msaCoverPageTemplateId || '',
           termsAndConditions: initialData.termsAndConditions || '<p></p>',
           paymentTerms: initialData.paymentTerms || "Net 30 Days",
           commitmentPeriod: initialData.commitmentPeriod || "N/A",
@@ -110,7 +111,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
           additionalCharges: [],
           taxRate: 0,
           msaContent: '',
-          msaIncludesCoverPage: false,
+          msaCoverPageTemplateId: '',
           termsAndConditions: '<p></p>', 
           status: 'Draft',
           customerId: '',
@@ -222,15 +223,15 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   };
 
   const handleMsaTemplateSelect = (templateId: string) => {
-    if (templateId === "none" || !templateId) {
+    if (!templateId || templateId === "none") {
       form.setValue('msaContent', '', { shouldDirty: true });
-      form.setValue('msaIncludesCoverPage', false, { shouldDirty: true });
+      form.setValue('msaCoverPageTemplateId', '', { shouldDirty: true });
       return;
     }
     const selectedTemplate = msaTemplates.find(t => t.id === templateId);
     if (selectedTemplate) {
       form.setValue('msaContent', selectedTemplate.content, { shouldDirty: true });
-      form.setValue('msaIncludesCoverPage', selectedTemplate.includeCoverPage || false, { shouldDirty: true });
+      form.setValue('msaCoverPageTemplateId', selectedTemplate.coverPageTemplateId || '', { shouldDirty: true });
     }
   };
 
@@ -562,7 +563,10 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                     {isLoadingTemplates ? (<Skeleton className="h-10 w-full" />) : (
                         <FormItem>
                             <FormLabel>Apply MSA Template</FormLabel>
-                            <Select onValueChange={handleMsaTemplateSelect} defaultValue={initialData?.msaContent ? msaTemplates.find(t => t.content === initialData.msaContent)?.id || "none" : "none"}>
+                            <Select 
+                                onValueChange={handleMsaTemplateSelect} 
+                                defaultValue={form.getValues('msaCoverPageTemplateId') ? msaTemplates.find(t => t.coverPageTemplateId === form.getValues('msaCoverPageTemplateId'))?.id || "" : ""}
+                            >
                                 <FormControl><SelectTrigger><SelectValue placeholder="Select an MSA template (optional)" /></SelectTrigger></FormControl>
                                 <SelectContent>
                                 <SelectItem value="none">None (No MSA)</SelectItem>
@@ -584,10 +588,10 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                     />
                      <FormField
                         control={form.control}
-                        name="msaIncludesCoverPage"
-                        render={({ field }) => (
+                        name="msaCoverPageTemplateId"
+                        render={({ field }) => ( // This field will be set by handleMsaTemplateSelect
                             <FormItem className="hidden">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            <FormControl><Input {...field} /></FormControl>
                             <FormMessage />
                             </FormItem>
                         )}
@@ -674,4 +678,3 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
 }
 
 InvoiceForm.displayName = "InvoiceForm";
-

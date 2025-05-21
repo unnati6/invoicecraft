@@ -1,6 +1,6 @@
 
-import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate, MsaTemplate } from '@/types';
-import type { AdditionalChargeFormData, TermsTemplateFormData, MsaTemplateFormData } from './schemas'; 
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate, MsaTemplate, CoverPageTemplate } from '@/types';
+import type { AdditionalChargeFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData } from './schemas'; 
 import { addDays } from 'date-fns';
 
 let mockCustomers: Customer[] = [
@@ -23,6 +23,22 @@ let mockCustomers: Customer[] = [
     billingAddress: { street: '456 Construction Way', city: 'BuildCity', state: 'NY', zip: '10001', country: 'USA' },
     createdAt: new Date() 
   },
+];
+
+let mockMsaTemplates: MsaTemplate[] = [
+  {
+    id: 'msa_tpl_1',
+    name: 'General Services MSA',
+    content: '<h1>Master Service Agreement</h1><p>This Master Service Agreement (MSA) is entered into by and between Your Awesome Company LLC and {{customerName}} ("Client").</p><h2>1. Services</h2><p>Company agrees to provide services as described in applicable Order Forms or Invoices.</p>',
+    coverPageTemplateId: 'cpt_1', // Link to a cover page
+    createdAt: new Date(),
+  },
+  {
+    id: 'msa_tpl_2',
+    name: 'Consulting MSA (No Cover)',
+    content: '<h1>Consulting Master Service Agreement</h1><p>This agreement governs all consulting services provided by Your Awesome Company LLC to {{customerName}}.</p><h2>Scope of Work</h2><p>Specific services and deliverables will be detailed in separate Statements of Work (SOWs) or Order Forms, which will reference this MSA.</p>',
+    createdAt: new Date(),
+  }
 ];
 
 let mockInvoices: Invoice[] = [
@@ -49,8 +65,8 @@ let mockInvoices: Invoice[] = [
     taxRate: 10,
     taxAmount: 135, 
     total: 1485, 
-    msaContent: "<p>This is a sample MSA for INV-001. It's been agreed upon by {{customerName}}.</p>",
-    msaIncludesCoverPage: true,
+    msaContent: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.content, // Example: Use content from a mock MSA
+    msaCoverPageTemplateId: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.coverPageTemplateId,
     termsAndConditions: 'Payment due within 30 days. Late fees apply.',
     status: 'Sent',
     createdAt: new Date(2023, 10, 15)
@@ -102,7 +118,6 @@ let mockOrderForms: OrderForm[] = [
     taxAmount: 315, 
     total: 3465, 
     msaContent: "<p>This is the MSA content for Order Form OF-001. It outlines general service terms agreed with {{customerName}}.</p>",
-    msaIncludesCoverPage: false,
     termsAndConditions: 'This order form is valid for 30 days. Prices subject to change thereafter.',
     status: 'Sent',
     createdAt: new Date(2024, 0, 10),
@@ -124,21 +139,29 @@ let mockTermsTemplates: TermsTemplate[] = [
   }
 ];
 
-let mockMsaTemplates: MsaTemplate[] = [
+let mockCoverPageTemplates: CoverPageTemplate[] = [
   {
-    id: 'msa_tpl_1',
-    name: 'General Services MSA',
-    content: '<h1>Master Service Agreement</h1><p>This Master Service Agreement (MSA) is entered into by and between Your Awesome Company LLC and {{customerName}} ("Client").</p><h2>1. Services</h2><p>Company agrees to provide services as described in applicable Order Forms or Invoices.</p>',
-    includeCoverPage: true,
+    id: 'cpt_1',
+    name: 'Standard Cover Page',
+    title: 'Master Service Agreement',
+    companyLogoEnabled: true,
+    companyLogoUrl: '', // Will try to use branding logo
+    clientLogoEnabled: true,
+    clientLogoUrl: 'https://placehold.co/150x50.png',
+    additionalImage1Enabled: false,
+    additionalImage1Url: '',
+    additionalImage2Enabled: false,
+    additionalImage2Url: '',
     createdAt: new Date(),
   },
   {
-    id: 'msa_tpl_2',
-    name: 'Consulting MSA (No Cover)',
-    content: '<h1>Consulting Master Service Agreement</h1><p>This agreement governs all consulting services provided by Your Awesome Company LLC to {{customerName}}.</p><h2>Scope of Work</h2><p>Specific services and deliverables will be detailed in separate Statements of Work (SOWs) or Order Forms, which will reference this MSA.</p>',
-    includeCoverPage: false,
+    id: 'cpt_2',
+    name: 'Minimalist Cover',
+    title: 'Service Agreement',
+    companyLogoEnabled: true,
+    clientLogoEnabled: false,
     createdAt: new Date(),
-  }
+  },
 ];
 
 
@@ -288,7 +311,7 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     taxAmount: taxAmount,
     total: grandTotal,
     msaContent: data.msaContent,
-    msaIncludesCoverPage: data.msaIncludesCoverPage,
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     paymentTerms: data.paymentTerms,
     commitmentPeriod: data.commitmentPeriod,
     serviceStartDate: data.serviceStartDate,
@@ -335,7 +358,7 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
       taxAmount: taxAmount,
       total: grandTotal,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
-      msaIncludesCoverPage: data.msaIncludesCoverPage !== undefined ? data.msaIncludesCoverPage : existingInvoice.msaIncludesCoverPage,
+      msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
       paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingInvoice.paymentTerms,
       commitmentPeriod: data.commitmentPeriod !== undefined ? data.commitmentPeriod : existingInvoice.commitmentPeriod,
       serviceStartDate: data.serviceStartDate !== undefined ? data.serviceStartDate : existingInvoice.serviceStartDate,
@@ -424,7 +447,7 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
     taxAmount: taxAmount,
     total: grandTotal,
     msaContent: data.msaContent,
-    msaIncludesCoverPage: data.msaIncludesCoverPage,
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     paymentTerms: data.paymentTerms,
     commitmentPeriod: data.commitmentPeriod,
     serviceStartDate: data.serviceStartDate,
@@ -471,7 +494,7 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
       taxAmount: taxAmount,
       total: grandTotal,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
-      msaIncludesCoverPage: data.msaIncludesCoverPage !== undefined ? data.msaIncludesCoverPage : existingOrderForm.msaIncludesCoverPage,
+      msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
       paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingOrderForm.paymentTerms,
       commitmentPeriod: data.commitmentPeriod !== undefined ? data.commitmentPeriod : existingOrderForm.commitmentPeriod,
       serviceStartDate: data.serviceStartDate !== undefined ? data.serviceStartDate : existingOrderForm.serviceStartDate,
@@ -559,7 +582,7 @@ export const createMsaTemplate = async (data: MsaTemplateFormData): Promise<MsaT
     id: generateId('msa_tpl'),
     name: data.name,
     content: data.content || '<p></p>',
-    includeCoverPage: data.includeCoverPage || false,
+    coverPageTemplateId: data.coverPageTemplateId,
     createdAt: new Date(),
   };
   mockMsaTemplates.push(newTemplate);
@@ -573,7 +596,7 @@ export const updateMsaTemplate = async (id: string, data: Partial<MsaTemplateFor
     ...mockMsaTemplates[index],
     ...data,
     content: data.content !== undefined ? (data.content || '<p></p>') : mockMsaTemplates[index].content,
-    includeCoverPage: data.includeCoverPage !== undefined ? data.includeCoverPage : mockMsaTemplates[index].includeCoverPage,
+    coverPageTemplateId: data.coverPageTemplateId !== undefined ? data.coverPageTemplateId : mockMsaTemplates[index].coverPageTemplateId,
   };
   return mockMsaTemplates[index];
 };
@@ -584,3 +607,37 @@ export const deleteMsaTemplate = async (id: string): Promise<boolean> => {
   return mockMsaTemplates.length < initialLength;
 };
 
+// Cover Page Template Functions
+export const getCoverPageTemplates = async (): Promise<CoverPageTemplate[]> => {
+  return [...mockCoverPageTemplates];
+};
+
+export const getCoverPageTemplateById = async (id: string): Promise<CoverPageTemplate | undefined> => {
+  return mockCoverPageTemplates.find(t => t.id === id);
+};
+
+export const createCoverPageTemplate = async (data: CoverPageTemplateFormData): Promise<CoverPageTemplate> => {
+  const newTemplate: CoverPageTemplate = {
+    id: generateId('cpt'),
+    ...data,
+    createdAt: new Date(),
+  };
+  mockCoverPageTemplates.push(newTemplate);
+  return newTemplate;
+};
+
+export const updateCoverPageTemplate = async (id: string, data: Partial<CoverPageTemplateFormData>): Promise<CoverPageTemplate | null> => {
+  const index = mockCoverPageTemplates.findIndex(t => t.id === id);
+  if (index === -1) return null;
+  mockCoverPageTemplates[index] = {
+    ...mockCoverPageTemplates[index],
+    ...data,
+  };
+  return mockCoverPageTemplates[index];
+};
+
+export const deleteCoverPageTemplate = async (id: string): Promise<boolean> => {
+  const initialLength = mockCoverPageTemplates.length;
+  mockCoverPageTemplates = mockCoverPageTemplates.filter(t => t.id !== id);
+  return mockCoverPageTemplates.length < initialLength;
+};

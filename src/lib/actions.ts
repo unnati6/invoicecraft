@@ -3,8 +3,8 @@
 
 import { revalidatePath } from 'next/cache';
 import * as Data from './data';
-import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate } from '@/types';
-import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData } from './schemas';
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate } from '@/types';
+import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData } from './schemas';
 import { format, addDays } from 'date-fns';
 import { Buffer } from 'buffer'; 
 
@@ -62,6 +62,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     dueDate: data.dueDate,
     taxRate: data.taxRate || 0,
     msaContent: data.msaContent,
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     termsAndConditions: data.termsAndConditions,
     status: data.status,
     items: data.items,
@@ -80,6 +81,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
       ...invoiceDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
+      msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
     };
 
     const updated = await Data.updateInvoice(id, finalData);
@@ -144,6 +146,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     validUntilDate: data.validUntilDate,
     taxRate: data.taxRate || 0,
     msaContent: data.msaContent,
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     termsAndConditions: data.termsAndConditions,
     status: data.status,
     items: data.items,
@@ -162,6 +165,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       ...orderFormDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
+      msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
     };
 
     const updated = await Data.updateOrderForm(id, finalData);
@@ -230,6 +234,7 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
     })) : [],
     taxRate: orderForm.taxRate,
     msaContent: orderForm.msaContent,
+    msaCoverPageTemplateId: orderForm.msaCoverPageTemplateId,
     termsAndConditions: orderForm.termsAndConditions,
     status: 'Draft' as Invoice['status'],
     paymentTerms: orderForm.paymentTerms,
@@ -445,6 +450,40 @@ export async function removeMsaTemplate(id: string): Promise<boolean> {
   const success = await Data.deleteMsaTemplate(id);
   if (success) {
     revalidatePath('/templates/msa');
+  }
+  return success;
+}
+
+// Cover Page Template Actions
+export async function getAllCoverPageTemplates(): Promise<CoverPageTemplate[]> {
+  return Data.getCoverPageTemplates();
+}
+
+export async function fetchCoverPageTemplateById(id: string): Promise<CoverPageTemplate | undefined> {
+  return Data.getCoverPageTemplateById(id);
+}
+
+export async function saveCoverPageTemplate(data: CoverPageTemplateFormData, id?: string): Promise<CoverPageTemplate | null> {
+  if (id) {
+    const updated = await Data.updateCoverPageTemplate(id, data);
+    if (updated) {
+      revalidatePath('/templates/coverpages');
+      revalidatePath(`/templates/coverpages/${id}/edit`);
+    }
+    return updated;
+  } else {
+    const newTemplate = await Data.createCoverPageTemplate(data);
+    if (newTemplate) {
+      revalidatePath('/templates/coverpages');
+    }
+    return newTemplate;
+  }
+}
+
+export async function removeCoverPageTemplate(id: string): Promise<boolean> {
+  const success = await Data.deleteCoverPageTemplate(id);
+  if (success) {
+    revalidatePath('/templates/coverpages');
   }
   return success;
 }

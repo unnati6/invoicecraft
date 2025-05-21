@@ -12,15 +12,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription, // Added FormDescription
+  FormDescription, 
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription as CardDesc } from '@/components/ui/card'; // Aliased CardDescription to avoid conflict
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription as CardDesc } from '@/components/ui/card';
 import { RichTextEditor } from '@/components/rich-text-editor';
 import { msaTemplateSchema, type MsaTemplateFormData } from '@/lib/schemas';
-import type { MsaTemplate } from '@/types';
+import type { MsaTemplate, CoverPageTemplate } from '@/types';
+import { getAllCoverPageTemplates } from '@/lib/actions';
 import { Save } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 interface MsaTemplateFormProps {
   onSubmit: (data: MsaTemplateFormData) => Promise<void>;
@@ -29,14 +32,34 @@ interface MsaTemplateFormProps {
 }
 
 export function MsaTemplateForm({ onSubmit, initialData, isSubmitting = false }: MsaTemplateFormProps) {
+  const [coverPageTemplates, setCoverPageTemplates] = React.useState<CoverPageTemplate[]>([]);
+  const [isLoadingCoverPageTemplates, setIsLoadingCoverPageTemplates] = React.useState(true);
+  const { toast } = useToast();
+
   const form = useForm<MsaTemplateFormData>({
     resolver: zodResolver(msaTemplateSchema),
     defaultValues: {
       name: initialData?.name || '',
       content: initialData?.content || '<p></p>',
-      includeCoverPage: initialData?.includeCoverPage || false,
+      coverPageTemplateId: initialData?.coverPageTemplateId || '',
     },
   });
+
+  React.useEffect(() => {
+    async function loadCoverPageTemplates() {
+      setIsLoadingCoverPageTemplates(true);
+      try {
+        const templates = await getAllCoverPageTemplates();
+        setCoverPageTemplates(templates);
+      } catch (error) {
+        console.error("Failed to load cover page templates", error);
+        toast({ title: "Error", description: "Could not load cover page templates.", variant: "destructive" });
+      } finally {
+        setIsLoadingCoverPageTemplates(false);
+      }
+    }
+    loadCoverPageTemplates();
+  }, [toast]);
 
   return (
     <Form {...form}>
@@ -44,7 +67,7 @@ export function MsaTemplateForm({ onSubmit, initialData, isSubmitting = false }:
         <Card>
           <CardHeader>
             <CardTitle>{initialData ? 'Edit MSA Template' : 'Create New MSA Template'}</CardTitle>
-            <CardDesc> {/* Used aliased CardDesc */}
+            <CardDesc> 
               {initialData ? 'Modify the details of your Master Service Agreement template.' : 'Define a reusable Master Service Agreement template.'}
             </CardDesc>
           </CardHeader>
@@ -81,28 +104,37 @@ export function MsaTemplateForm({ onSubmit, initialData, isSubmitting = false }:
             />
             <FormField
               control={form.control}
-              name="includeCoverPage"
+              name="coverPageTemplateId"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isSubmitting}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Include Cover Page</FormLabel>
-                    <FormDescription>
-                      If checked, a cover page will be added when this MSA is included in a document PDF.
-                    </FormDescription>
-                  </div>
+                <FormItem>
+                  <FormLabel>Cover Page Template (Optional)</FormLabel>
+                  {isLoadingCoverPageTemplates ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="None (No Cover Page)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">None (No Cover Page)</SelectItem>
+                        {coverPageTemplates.map(template => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <FormDescription>Select a pre-designed cover page to attach to this MSA.</FormDescription>
+                  <FormMessage />
                 </FormItem>
               )}
             />
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || isLoadingCoverPageTemplates}>
               <Save className="mr-2 h-4 w-4" />
               {isSubmitting ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Template')}
             </Button>
@@ -114,4 +146,3 @@ export function MsaTemplateForm({ onSubmit, initialData, isSubmitting = false }:
 }
 
 MsaTemplateForm.displayName = "MsaTemplateForm";
-

@@ -15,7 +15,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList, FileCheck2 } from 'lucide-react'; 
+import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList, FileCheck2, BookCopy } from 'lucide-react'; 
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
@@ -44,7 +44,7 @@ const AppIcon = () => (
 export function AppSidebar() {
   const pathname = usePathname();
 
-  const menuItems = [
+  const mainMenuItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/invoices', label: 'Invoices', icon: FileText },
     { href: '/orderforms', label: 'Order Forms', icon: OrderFormIcon },
@@ -54,6 +54,7 @@ export function AppSidebar() {
   const templateMenuItems = [
     { href: '/templates/terms', label: 'T&C Templates', icon: ClipboardList },
     { href: '/templates/msa', label: 'MSA Templates', icon: FileCheck2 },
+    { href: '/templates/coverpages', label: 'Cover Pages', icon: BookCopy },
   ];
 
   const settingsMenuItems = [
@@ -61,9 +62,11 @@ export function AppSidebar() {
   ];
 
   const isActive = (href: string) => {
-    if (href === '/dashboard' || href === '/templates/terms' || href === '/templates/msa') {
+    // Exact match for dashboard or specific template pages to avoid highlighting parent "Templates" group
+    if (href === '/dashboard' || href === '/templates/terms' || href === '/templates/msa' || href === '/templates/coverpages') {
         return pathname === href || pathname.startsWith(href + '/');
     }
+    // StartsWith for other main sections like /invoices, /customers
     return pathname.startsWith(href);
   };
 
@@ -81,7 +84,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className="flex-1">
         <SidebarMenu>
-          {menuItems.map((item) => (
+          {mainMenuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild

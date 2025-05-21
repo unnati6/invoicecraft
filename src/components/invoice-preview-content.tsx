@@ -124,6 +124,7 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
     if (isClient) {
       const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
       if (storedLogo) setCompanyLogoUrl(storedLogo);
+      else setCompanyLogoUrl('/images/revynox_logo_black.png'); // Default if nothing in localStorage
       
       const storedSignature = localStorage.getItem(SIGNATURE_STORAGE_KEY);
       if (storedSignature) setCompanySignatureUrl(storedSignature);
@@ -139,20 +140,20 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 
       let addressLine1 = street;
       let addressLine2 = `${city}${city && (stateVal || zip || country) ? ', ' : ''}${stateVal} ${zip}${zip && country ? ', ' : ''}${country}`.trim();
-      if (!addressLine1 && addressLine2) {
+      if (!addressLine1 && addressLine2) { // If street is empty but city/state/zip/country has value
         addressLine1 = addressLine2;
         addressLine2 = '';
       }
       
       setYourCompany({
         name,
-        addressLine1: addressLine1 || 'Your Address Line 1',
-        addressLine2: addressLine2.length > 0 ? addressLine2 : 'City, State, Zip, Country',
+        addressLine1: addressLine1 || 'Your Address Line 1', // Fallback if all parts are empty
+        addressLine2: addressLine2.length > 0 ? addressLine2 : '', // Fallback to empty if only city/state/zip/country was there
         phone,
         email,
       });
     }
-  }, []);
+  }, []); // Removed dependencies to avoid re-running unnecessarily if props don't change yourCompany state
 
 
   const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
@@ -165,13 +166,13 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 
 
   const currencySymbol = getCurrencySymbol(customerToDisplay.currency);
-  const partnerLogoUrl = 'https://placehold.co/150x50.png';
+  const partnerLogoUrl = 'https://placehold.co/150x50.png'; // This can be made dynamic later
   const totalAdditionalChargesValue = invoice.additionalCharges?.reduce((sum, charge) => sum + charge.calculatedAmount, 0) || 0;
   const hasShippingAddress = customerToDisplay.shippingAddress &&
                              (customerToDisplay.shippingAddress.street ||
                               customerToDisplay.shippingAddress.city);
   
-  const processedMsaContent = replacePlaceholders(invoice.msaContent, invoice, customer);
+  const processedMsaContent = invoice.msaContent ? replacePlaceholders(invoice.msaContent, invoice, customer) : undefined;
   const processedTermsAndConditions = replacePlaceholders(invoice.termsAndConditions, invoice, customer);
 
   return (
@@ -187,11 +188,11 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
       <div className="flex justify-between items-start mb-10">
         <div className="w-1/2">
           {companyLogoUrl ? (
-            <Image src={companyLogoUrl} alt={`${yourCompany.name} Logo`} width={180} height={54} className="mb-3" style={{ objectFit: 'contain', maxHeight: '54px' }}/>
+            <Image src={companyLogoUrl} alt={`${yourCompany.name} Logo`} width={180} height={54} className="mb-3" style={{ objectFit: 'contain', maxHeight: '54px' }} data-ai-hint="company logo" />
           ) : ( <div className="mb-3 w-[180px] h-[54px] bg-muted rounded flex items-center justify-center text-muted-foreground text-xs">Your Logo</div> )}
           <h2 className="text-xl font-semibold text-primary">{yourCompany.name}</h2>
           <p className="text-xs text-muted-foreground">{yourCompany.addressLine1}</p>
-          <p className="text-xs text-muted-foreground">{yourCompany.addressLine2}</p>
+          {yourCompany.addressLine2 && <p className="text-xs text-muted-foreground">{yourCompany.addressLine2}</p>}
           <p className="text-xs text-muted-foreground">Email: {yourCompany.email}</p>
           <p className="text-xs text-muted-foreground">Phone: {yourCompany.phone}</p>
         </div>
@@ -270,6 +271,7 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 
       {invoice.additionalCharges && invoice.additionalCharges.length > 0 && (
         <div className="mb-8">
+          {/* Removed "Additional Charges" heading */}
           <table className="w-full border-collapse">
             <tbody>
               {invoice.additionalCharges.map((charge) => (
@@ -286,9 +288,10 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         </div>
       )}
 
-      {partnerLogoUrl && (
+      {partnerLogoUrl && ( // This assumes partnerLogoUrl can be dynamically set or is a placeholder
         <div className="mb-8 mt-4 py-4 border-t border-b border-dashed">
-            <div className="flex justify-start">
+            <div className="flex justify-start"> {/* Changed from justify-center to justify-start */}
+                {/* Removed "In partnership with:" title */}
                 <Image src={partnerLogoUrl} alt="Partner Logo" width={150} height={50} style={{ objectFit: 'contain', maxHeight: '50px' }} data-ai-hint="partner logo" />
             </div>
         </div>
@@ -333,4 +336,3 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 }
 
 InvoicePreviewContent.displayName = "InvoicePreviewContent";
-
