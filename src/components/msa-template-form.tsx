@@ -21,9 +21,13 @@ import { RichTextEditor } from '@/components/rich-text-editor';
 import { msaTemplateSchema, type MsaTemplateFormData } from '@/lib/schemas';
 import type { MsaTemplate, CoverPageTemplate } from '@/types';
 import { getAllCoverPageTemplates } from '@/lib/actions';
-import { Save } from 'lucide-react';
+import { Save, FileImage } from 'lucide-react'; // Changed Icon
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
+
+
+const NO_COVER_PAGE_VALUE = "_no_cover_page_"; // Special value for "None"
 
 interface MsaTemplateFormProps {
   onSubmit: (data: MsaTemplateFormData) => Promise<void>;
@@ -41,7 +45,7 @@ export function MsaTemplateForm({ onSubmit, initialData, isSubmitting = false }:
     defaultValues: {
       name: initialData?.name || '',
       content: initialData?.content || '<p></p>',
-      coverPageTemplateId: initialData?.coverPageTemplateId || '',
+      coverPageTemplateId: initialData?.coverPageTemplateId || NO_COVER_PAGE_VALUE, // Use special value
     },
   });
 
@@ -61,9 +65,17 @@ export function MsaTemplateForm({ onSubmit, initialData, isSubmitting = false }:
     loadCoverPageTemplates();
   }, [toast]);
 
+  const handleFormSubmit = (data: MsaTemplateFormData) => {
+    const dataToSubmit = {
+      ...data,
+      coverPageTemplateId: data.coverPageTemplateId === NO_COVER_PAGE_VALUE ? '' : data.coverPageTemplateId,
+    };
+    onSubmit(dataToSubmit);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
+      <form onSubmit={form.handleSubmit(handleFormSubmit)}>
         <Card>
           <CardHeader>
             <CardTitle>{initialData ? 'Edit MSA Template' : 'Create New MSA Template'}</CardTitle>
@@ -111,14 +123,18 @@ export function MsaTemplateForm({ onSubmit, initialData, isSubmitting = false }:
                   {isLoadingCoverPageTemplates ? (
                     <Skeleton className="h-10 w-full" />
                   ) : (
-                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                    <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value || NO_COVER_PAGE_VALUE} // Ensure value is controlled
+                        disabled={isSubmitting}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="None (No Cover Page)" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None (No Cover Page)</SelectItem>
+                        <SelectItem value={NO_COVER_PAGE_VALUE}>None (No Cover Page)</SelectItem>
                         {coverPageTemplates.map(template => (
                           <SelectItem key={template.id} value={template.id}>
                             {template.name}
