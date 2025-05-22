@@ -19,7 +19,7 @@ let mockCustomers: Customer[] = [
     name: 'Bob The Builder',
     email: 'bob@example.com',
     phone: '987-654-3210',
-    currency: 'GBP', // Bob uses GBP
+    currency: 'USD', // Bob now uses USD (Changed from GBP)
     billingAddress: { street: '456 Construction Way', city: 'BuildCity', state: 'NY', zip: '10001', country: 'USA' },
     createdAt: new Date()
   },
@@ -54,6 +54,9 @@ let mockInvoices: Invoice[] = [
     commitmentPeriod: "N/A",
     serviceStartDate: new Date(2023, 10, 1),
     serviceEndDate: new Date(2023, 10, 30),
+    linkedMsaTemplateId: 'msa_tpl_1',
+    msaContent: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.content,
+    msaCoverPageTemplateId: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.coverPageTemplateId,
     items: [
       { id: 'item_1', description: 'Web Design Service', quantity: 1, rate: 1200, amount: 1200 },
       { id: 'item_2', description: 'Hosting (1 year)', quantity: 1, rate: 100, amount: 100 },
@@ -65,9 +68,6 @@ let mockInvoices: Invoice[] = [
     taxRate: 10,
     taxAmount: 135,
     total: 1485,
-    linkedMsaTemplateId: 'msa_tpl_1',
-    msaContent: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.content,
-    msaCoverPageTemplateId: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.coverPageTemplateId,
     termsAndConditions: 'Payment due within 30 days. Late fees apply.',
     status: 'Sent',
     createdAt: new Date(2023, 10, 15)
@@ -77,9 +77,9 @@ let mockInvoices: Invoice[] = [
     invoiceNumber: 'INV-002',
     customerId: 'cust_2',
     customerName: 'Bob The Builder',
-    currencyCode: 'GBP',
+    currencyCode: 'USD', // Will be derived as USD due to cust_2 change
     issueDate: new Date(2023, 11, 1),
-    dueDate: new Date(2023, 12, 1),
+    dueDate: new Date(2023, 12, 1), // Corrected month index for December
     paymentTerms: "Due on Receipt",
     items: [
       { id: 'item_3', description: 'Consultation', quantity: 5, rate: 80, amount: 400 },
@@ -107,6 +107,9 @@ let mockOrderForms: OrderForm[] = [
     commitmentPeriod: "3 Months",
     serviceStartDate: new Date(2024, 0, 15),
     serviceEndDate: new Date(2024, 3, 14),
+    linkedMsaTemplateId: 'msa_tpl_1',
+    msaContent: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.content,
+    msaCoverPageTemplateId: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.coverPageTemplateId,
     items: [
       { id: 'of_item_1', description: 'Initial Project Scoping', quantity: 1, rate: 500, amount: 500 },
       { id: 'of_item_2', description: 'Phase 1 Development Estimate', quantity: 1, rate: 2500, amount: 2500 },
@@ -118,9 +121,6 @@ let mockOrderForms: OrderForm[] = [
     taxRate: 10,
     taxAmount: 315,
     total: 3465,
-    linkedMsaTemplateId: 'msa_tpl_1',
-    msaContent: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.content,
-    msaCoverPageTemplateId: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.coverPageTemplateId,
     termsAndConditions: 'This order form is valid for 30 days. Prices subject to change thereafter.',
     status: 'Sent',
     createdAt: new Date(2024, 0, 10),
@@ -172,7 +172,6 @@ const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().
 
 // Customer Functions
 export const getCustomers = async (): Promise<Customer[]> => {
-  // Return a new array of new objects to prevent unintended mutations of mock data
   return mockCustomers.map(c => ({
     ...c,
     billingAddress: c.billingAddress ? { ...c.billingAddress } : undefined,
@@ -182,7 +181,6 @@ export const getCustomers = async (): Promise<Customer[]> => {
 
 export const getCustomerById = async (id: string): Promise<Customer | undefined> => {
   const customer = mockCustomers.find(c => c.id === id);
-  // Return a new object to prevent unintended mutations
   return customer ? {
     ...customer,
     billingAddress: customer.billingAddress ? { ...customer.billingAddress } : undefined,
@@ -199,23 +197,23 @@ export const createCustomer = async (data: Omit<Customer, 'id' | 'createdAt'>): 
     shippingAddress: data.shippingAddress ? { ...data.shippingAddress } : undefined,
     createdAt: new Date()
   };
-  mockCustomers.push(newCustomer); // Add the new object to the array
-  return { ...newCustomer }; // Return a clone
+  mockCustomers.push(newCustomer);
+  return { ...newCustomer };
 };
 
 export const updateCustomer = async (id: string, data: Partial<Omit<Customer, 'id' | 'createdAt'>>): Promise<Customer | null> => {
   const index = mockCustomers.findIndex(c => c.id === id);
   if (index === -1) return null;
 
-  const updatedCustomer: Customer = { // Create a new object for the update
+  const updatedCustomer: Customer = {
     ...mockCustomers[index],
     ...data,
     currency: data.currency || mockCustomers[index].currency,
     billingAddress: data.billingAddress !== undefined ? (data.billingAddress ? {...data.billingAddress} : undefined) : (mockCustomers[index].billingAddress ? {...mockCustomers[index].billingAddress} : undefined),
     shippingAddress: data.shippingAddress !== undefined ? (data.shippingAddress ? {...data.shippingAddress} : undefined) : (mockCustomers[index].shippingAddress ? {...mockCustomers[index].shippingAddress} : undefined),
   };
-  mockCustomers[index] = updatedCustomer; // Replace the object in the array
-  return { ...updatedCustomer }; // Return a clone
+  mockCustomers[index] = updatedCustomer;
+  return { ...updatedCustomer };
 };
 
 export const deleteCustomer = async (id: string): Promise<boolean> => {
@@ -277,7 +275,7 @@ function calculateTotalsAndCharges(
 
 // Invoice Functions
 export const getInvoices = async (): Promise<Invoice[]> => {
-  return mockInvoices.map(inv => { // Return new array with new objects
+  return mockInvoices.map(inv => {
     const customer = mockCustomers.find(c => c.id === inv.customerId);
     return {
       ...inv,
@@ -293,7 +291,7 @@ export const getInvoiceById = async (id: string): Promise<Invoice | undefined> =
   const invoice = mockInvoices.find(i => i.id === id);
   if (invoice) {
     const customer = mockCustomers.find(c => c.id === invoice.customerId);
-    return { // Return a new object
+    return {
       ...invoice,
       items: invoice.items.map(item => ({...item})),
       additionalCharges: invoice.additionalCharges ? invoice.additionalCharges.map(ac => ({...ac})) : undefined,
@@ -340,7 +338,7 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     createdAt: new Date(),
   };
   mockInvoices.push(newInvoice);
-  return { ...newInvoice, items: newInvoice.items.map(i => ({...i})), additionalCharges: newInvoice.additionalCharges?.map(ac => ({...ac})) }; // Return a clone
+  return { ...newInvoice, items: newInvoice.items.map(i => ({...i})), additionalCharges: newInvoice.additionalCharges?.map(ac => ({...ac})) };
 };
 
 type UpdateInvoiceInputData = Partial<Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'>> &
@@ -351,17 +349,14 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
   if (index === -1) return null;
 
   let existingInvoice = mockInvoices[index];
-  // Create a new base object for the update
   let updatedDataIntermediate: Invoice = {
     ...existingInvoice,
     ...data,
-    // Ensure dates are Date objects if provided
     issueDate: data.issueDate ? new Date(data.issueDate) : existingInvoice.issueDate,
     dueDate: data.dueDate ? new Date(data.dueDate) : existingInvoice.dueDate,
     serviceStartDate: data.serviceStartDate ? new Date(data.serviceStartDate) : existingInvoice.serviceStartDate,
     serviceEndDate: data.serviceEndDate ? new Date(data.serviceEndDate) : existingInvoice.serviceEndDate,
   } as Invoice;
-
 
   const customerIdForLookup = updatedDataIntermediate.customerId;
   const customer = mockCustomers.find(c => c.id === customerIdForLookup);
@@ -390,8 +385,8 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
       total: grandTotal,
   };
 
-  mockInvoices[index] = finalUpdatedInvoice; // Replace object in array
-  return { ...finalUpdatedInvoice, items: finalUpdatedInvoice.items.map(i => ({...i})), additionalCharges: finalUpdatedInvoice.additionalCharges?.map(ac => ({...ac})) }; // Return a clone
+  mockInvoices[index] = finalUpdatedInvoice;
+  return { ...finalUpdatedInvoice, items: finalUpdatedInvoice.items.map(i => ({...i})), additionalCharges: finalUpdatedInvoice.additionalCharges?.map(ac => ({...ac})) };
 };
 
 export const deleteInvoice = async (id: string): Promise<boolean> => {
@@ -422,7 +417,7 @@ export const getNextInvoiceNumber = async (): Promise<string> => {
 
 // OrderForm Functions
 export const getOrderForms = async (): Promise<OrderForm[]> => {
-  return mockOrderForms.map(of => { // Return new array with new objects
+  return mockOrderForms.map(of => {
     const customer = mockCustomers.find(c => c.id === of.customerId);
     return {
       ...of,
@@ -438,7 +433,7 @@ export const getOrderFormById = async (id: string): Promise<OrderForm | undefine
   const orderForm = mockOrderForms.find(q => q.id === id);
   if (orderForm) {
      const customer = mockCustomers.find(c => c.id === orderForm.customerId);
-    return { // Return a new object
+    return {
       ...orderForm,
       items: orderForm.items.map(item => ({...item})),
       additionalCharges: orderForm.additionalCharges ? orderForm.additionalCharges.map(ac => ({...ac})) : undefined,
@@ -485,7 +480,7 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
     createdAt: new Date(),
   };
   mockOrderForms.push(newOrderForm);
-  return { ...newOrderForm, items: newOrderForm.items.map(i => ({...i})), additionalCharges: newOrderForm.additionalCharges?.map(ac => ({...ac})) }; // Return a clone
+  return { ...newOrderForm, items: newOrderForm.items.map(i => ({...i})), additionalCharges: newOrderForm.additionalCharges?.map(ac => ({...ac})) };
 };
 
 type UpdateOrderFormInputData = Partial<Omit<OrderForm, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'>> &
@@ -532,8 +527,8 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
       total: grandTotal,
   };
 
-  mockOrderForms[index] = finalUpdatedOrderForm; // Replace object in array
-  return { ...finalUpdatedOrderForm, items: finalUpdatedOrderForm.items.map(i => ({...i})), additionalCharges: finalUpdatedOrderForm.additionalCharges?.map(ac => ({...ac})) }; // Return a clone
+  mockOrderForms[index] = finalUpdatedOrderForm;
+  return { ...finalUpdatedOrderForm, items: finalUpdatedOrderForm.items.map(i => ({...i})), additionalCharges: finalUpdatedOrderForm.additionalCharges?.map(ac => ({...ac})) };
 };
 
 export const deleteOrderForm = async (id: string): Promise<boolean> => {
@@ -564,12 +559,12 @@ export const getNextOrderFormNumber = async (): Promise<string> => {
 
 // TermsTemplate Functions
 export const getTermsTemplates = async (): Promise<TermsTemplate[]> => {
-  return mockTermsTemplates.map(t => ({ ...t })); // Return clones
+  return mockTermsTemplates.map(t => ({ ...t }));
 };
 
 export const getTermsTemplateById = async (id: string): Promise<TermsTemplate | undefined> => {
   const template = mockTermsTemplates.find(t => t.id === id);
-  return template ? { ...template } : undefined; // Return a clone
+  return template ? { ...template } : undefined;
 };
 
 export const createTermsTemplate = async (data: TermsTemplateFormData): Promise<TermsTemplate> => {
@@ -580,19 +575,19 @@ export const createTermsTemplate = async (data: TermsTemplateFormData): Promise<
     createdAt: new Date(),
   };
   mockTermsTemplates.push(newTemplate);
-  return { ...newTemplate }; // Return a clone
+  return { ...newTemplate };
 };
 
 export const updateTermsTemplate = async (id: string, data: Partial<TermsTemplateFormData>): Promise<TermsTemplate | null> => {
   const index = mockTermsTemplates.findIndex(t => t.id === id);
   if (index === -1) return null;
-  const updatedTemplate = { // Create new object
+  const updatedTemplate = {
     ...mockTermsTemplates[index],
     ...data,
     content: data.content !== undefined ? (data.content || '<p></p>') : mockTermsTemplates[index].content,
   };
-  mockTermsTemplates[index] = updatedTemplate; // Replace in array
-  return { ...updatedTemplate }; // Return a clone
+  mockTermsTemplates[index] = updatedTemplate;
+  return { ...updatedTemplate };
 };
 
 export const deleteTermsTemplate = async (id: string): Promise<boolean> => {
@@ -603,12 +598,12 @@ export const deleteTermsTemplate = async (id: string): Promise<boolean> => {
 
 // MSA Template Functions
 export const getMsaTemplates = async (): Promise<MsaTemplate[]> => {
-  return mockMsaTemplates.map(t => ({ ...t })); // Return clones
+  return mockMsaTemplates.map(t => ({ ...t }));
 };
 
 export const getMsaTemplateById = async (id: string): Promise<MsaTemplate | undefined> => {
   const template = mockMsaTemplates.find(t => t.id === id);
-  return template ? { ...template } : undefined; // Return a clone
+  return template ? { ...template } : undefined;
 };
 
 export const createMsaTemplate = async (data: MsaTemplateFormData): Promise<MsaTemplate> => {
@@ -616,24 +611,24 @@ export const createMsaTemplate = async (data: MsaTemplateFormData): Promise<MsaT
     id: generateId('msa_tpl'),
     name: data.name,
     content: data.content || '<p></p>',
-    coverPageTemplateId: data.coverPageTemplateId,
+    coverPageTemplateId: data.coverPageTemplateId === "_no_cover_page_" ? undefined : data.coverPageTemplateId,
     createdAt: new Date(),
   };
   mockMsaTemplates.push(newTemplate);
-  return { ...newTemplate }; // Return a clone
+  return { ...newTemplate };
 };
 
 export const updateMsaTemplate = async (id: string, data: Partial<MsaTemplateFormData>): Promise<MsaTemplate | null> => {
   const index = mockMsaTemplates.findIndex(t => t.id === id);
   if (index === -1) return null;
-  const updatedTemplate = { // Create new object
+  const updatedTemplate = {
     ...mockMsaTemplates[index],
     ...data,
     content: data.content !== undefined ? (data.content || '<p></p>') : mockMsaTemplates[index].content,
-    coverPageTemplateId: data.coverPageTemplateId !== undefined ? data.coverPageTemplateId : mockMsaTemplates[index].coverPageTemplateId,
+    coverPageTemplateId: data.coverPageTemplateId === "_no_cover_page_" ? undefined : (data.coverPageTemplateId !== undefined ? data.coverPageTemplateId : mockMsaTemplates[index].coverPageTemplateId),
   };
-  mockMsaTemplates[index] = updatedTemplate; // Replace in array
-  return { ...updatedTemplate }; // Return a clone
+  mockMsaTemplates[index] = updatedTemplate;
+  return { ...updatedTemplate };
 };
 
 export const deleteMsaTemplate = async (id: string): Promise<boolean> => {
@@ -644,12 +639,12 @@ export const deleteMsaTemplate = async (id: string): Promise<boolean> => {
 
 // Cover Page Template Functions
 export const getCoverPageTemplates = async (): Promise<CoverPageTemplate[]> => {
-  return mockCoverPageTemplates.map(t => ({ ...t })); // Return clones
+  return mockCoverPageTemplates.map(t => ({ ...t }));
 };
 
 export const getCoverPageTemplateById = async (id: string): Promise<CoverPageTemplate | undefined> => {
   const template = mockCoverPageTemplates.find(t => t.id === id);
-  return template ? { ...template } : undefined; // Return a clone
+  return template ? { ...template } : undefined;
 };
 
 export const createCoverPageTemplate = async (data: CoverPageTemplateFormData): Promise<CoverPageTemplate> => {
@@ -659,18 +654,18 @@ export const createCoverPageTemplate = async (data: CoverPageTemplateFormData): 
     createdAt: new Date(),
   };
   mockCoverPageTemplates.push(newTemplate);
-  return { ...newTemplate }; // Return a clone
+  return { ...newTemplate };
 };
 
 export const updateCoverPageTemplate = async (id: string, data: Partial<CoverPageTemplateFormData>): Promise<CoverPageTemplate | null> => {
   const index = mockCoverPageTemplates.findIndex(t => t.id === id);
   if (index === -1) return null;
-  const updatedTemplate = { // Create new object
+  const updatedTemplate = {
     ...mockCoverPageTemplates[index],
     ...data,
   };
-  mockCoverPageTemplates[index] = updatedTemplate; // Replace in array
-  return { ...updatedTemplate }; // Return a clone
+  mockCoverPageTemplates[index] = updatedTemplate;
+  return { ...updatedTemplate };
 };
 
 export const deleteCoverPageTemplate = async (id: string): Promise<boolean> => {
