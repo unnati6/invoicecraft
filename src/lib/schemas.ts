@@ -13,15 +13,15 @@ export const customerSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   phone: z.string().optional(),
-  currency: z.string().optional(), 
-  billingAddress: addressSchema, 
-  shippingAddress: addressSchema, 
+  currency: z.string().optional(),
+  billingAddress: addressSchema,
+  shippingAddress: addressSchema,
 });
 
 export type CustomerFormData = z.infer<typeof customerSchema>;
 
 const baseItemSchema = z.object({
-  id: z.string().optional(), 
+  id: z.string().optional(),
   description: z.string().min(1, { message: "Description cannot be empty." }),
   quantity: z.number().min(0.01, { message: "Quantity must be positive." }),
   rate: z.number().min(0, { message: "Rate must be non-negative." }),
@@ -72,7 +72,7 @@ export const invoiceSchema = z.object({
   issueDate: z.date({ required_error: "Issue date is required." }),
   dueDate: z.date({ required_error: "Due date is required." }),
   items: z.array(invoiceItemSchema).min(1, { message: "At least one item is required." }),
-  additionalCharges: z.array(additionalChargeFormSchema).optional(), 
+  additionalCharges: z.array(additionalChargeFormSchema).optional(),
   ...discountSchemaFields,
   taxRate: z.number().min(0).max(100).optional().default(0),
   linkedMsaTemplateId: z.string().optional(),
@@ -120,7 +120,7 @@ export type TermsFormData = z.infer<typeof termsSchema>;
 export const orderFormItemSchema = baseItemSchema.extend({
   procurementPrice: z.number().optional(),
   vendorName: z.string().optional(),
-}); 
+});
 export type OrderFormItemFormData = z.infer<typeof orderFormItemSchema>;
 
 export const orderFormSchema = z.object({
@@ -129,7 +129,7 @@ export const orderFormSchema = z.object({
   issueDate: z.date({ required_error: "Issue date is required." }),
   validUntilDate: z.date({ required_error: "Valid until date is required." }),
   items: z.array(orderFormItemSchema).min(1, { message: "At least one item is required." }),
-  additionalCharges: z.array(additionalChargeFormSchema).optional(), 
+  additionalCharges: z.array(additionalChargeFormSchema).optional(),
   ...discountSchemaFields,
   taxRate: z.number().min(0).max(100).optional().default(0),
   linkedMsaTemplateId: z.string().optional(),
@@ -170,7 +170,7 @@ export type OrderFormFormData = z.infer<typeof orderFormSchema>;
 
 export const termsTemplateSchema = z.object({
   name: z.string().min(2, { message: "Template name must be at least 2 characters." }),
-  content: z.string().optional().default('<p></p>'), 
+  content: z.string().optional().default('<p></p>'),
 });
 export type TermsTemplateFormData = z.infer<typeof termsTemplateSchema>;
 
@@ -184,5 +184,10 @@ export const repositoryItemSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, { message: "Item name cannot be empty." }),
   defaultRate: z.number().min(0, {message: "Default rate must be non-negative."}).optional(),
+  defaultProcurementPrice: z.number().optional(),
+  defaultVendorName: z.string().optional(),
+  currencyCode: z.string().optional(),
+  customerId: z.string().optional(),
+  customerName: z.string().optional(),
 });
 export type RepositoryItemFormData = z.infer<typeof repositoryItemSchema>;

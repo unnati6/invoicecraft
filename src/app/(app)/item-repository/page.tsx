@@ -10,7 +10,7 @@ import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
 import { PlusCircle, Edit, Trash2, PackageSearch } from 'lucide-react';
 import type { RepositoryItem } from '@/types';
-import { getAllRepositoryItems, removeRepositoryItem } from '@/lib/actions';
+import { getAllRepositoryItems, removeRepositoryItem, fetchRepositoryItemById } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
@@ -49,7 +49,6 @@ export default function ItemRepositoryPage() {
   };
 
   const handleAddNewItem = () => {
-     console.log("Attempting to add new item");
      toast({
       title: "Feature Not Implemented",
       description: "Adding new repository items requires a dedicated form which is not yet built.",
@@ -66,7 +65,7 @@ export default function ItemRepositoryPage() {
     return items.filter(item =>
       item.name.toLowerCase().includes(lowercasedFilter) ||
       (item.defaultVendorName && item.defaultVendorName.toLowerCase().includes(lowercasedFilter)) ||
-      (item.clientName && item.clientName.toLowerCase().includes(lowercasedFilter))
+      (item.customerName && item.customerName.toLowerCase().includes(lowercasedFilter))
     );
   }, [items, searchTerm]);
 
@@ -87,10 +86,10 @@ export default function ItemRepositoryPage() {
       header: 'Default Vendor Name',
       cell: (row: RepositoryItem) => row.defaultVendorName || 'N/A'
     },
-    { 
-      accessorKey: 'clientName', 
-      header: 'Client Name', 
-      cell: (row: RepositoryItem) => row.clientName || 'N/A' 
+    {
+      accessorKey: 'customerName',
+      header: 'Customer Name',
+      cell: (row: RepositoryItem) => row.customerName || 'N/A'
     },
     {
       accessorKey: 'createdAt',
@@ -109,7 +108,7 @@ export default function ItemRepositoryPage() {
           </Link>
           <DeleteConfirmationDialog
             onConfirm={() => handleDeleteItem(row.id)}
-            itemName={`repository item "${row.name}"${row.clientName ? ` for ${row.clientName}` : ''}`}
+            itemName={`repository item "${row.name}"${row.customerName ? ` for ${row.customerName}` : ''}`}
             trigger={
               <Button variant="ghost" size="icon" title="Delete Item">
                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -135,8 +134,8 @@ export default function ItemRepositoryPage() {
             <CardHeader>
               <CardTitle>All Repository Items</CardTitle>
               <CardDescription>
-                Manage your predefined items and services. Items can be global defaults or client-specific if created/updated via an Order Form.
-                <strong className="block mt-1">Note: Editing items via this page modifies their default values in the repository.</strong>
+                This repository stores default values for your items and services. Items can be global defaults, or they can become customer-specific if their details (like rate or vendor) are modified on an Order Form for a particular customer.
+                <strong className="block mt-1">Note: To edit an item's default values, use the "Edit" action. To add a new global default item, use the "Add New Item" button (form not yet implemented).</strong>
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -158,7 +157,7 @@ export default function ItemRepositoryPage() {
         <div className="flex items-center gap-2">
           <Input
             type="text"
-            placeholder="Filter by item, vendor, or client..."
+            placeholder="Filter by item, vendor, or customer..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="h-10 w-64"
@@ -173,7 +172,7 @@ export default function ItemRepositoryPage() {
           <CardHeader>
             <CardTitle>All Repository Items</CardTitle>
             <CardDescription>
-              This repository stores default values for your items and services. Items can be global defaults, or they can become client-specific if their details (like rate or vendor) are modified on an Order Form for a particular client.
+              This repository stores default values for your items and services. Items can be global defaults, or they can become customer-specific if their details (like rate or vendor) are modified on an Order Form for a particular customer.
               <strong className="block mt-1">Note: To edit an item's default values, use the "Edit" action. To add a new global default item, use the "Add New Item" button (form not yet implemented).</strong>
             </CardDescription>
           </CardHeader>
@@ -202,4 +201,3 @@ export default function ItemRepositoryPage() {
     </>
   );
 }
-    
