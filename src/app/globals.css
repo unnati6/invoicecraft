@@ -13,8 +13,10 @@ body {
     --foreground: 215 28% 17.8%; /* Dark gray for text */
     --card: 0 0% 100%; /* White cards */
     --card-foreground: 215 28% 17.8%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 28% 17.8%;
+    
+    --popover: 145 60% 95%; /* Very light green for popovers */
+    --popover-foreground: 145 60% 25%; /* Dark green text for popovers */
+    
     --primary: 145 60% 40%; /* Green */
     --primary-foreground: 0 0% 100%; /* White */
     --secondary: 210 25% 92%; /* Light blue-gray for secondary elements */
@@ -50,8 +52,10 @@ body {
     --foreground: 210 20% 90%; /* Light gray for text */
     --card: 220 15% 15%; /* Slightly lighter dark for cards */
     --card-foreground: 210 20% 90%;
-    --popover: 220 15% 15%;
-    --popover-foreground: 210 20% 90%;
+
+    --popover: 145 50% 18%; /* Dark green for popovers in dark mode */
+    --popover-foreground: 145 50% 85%; /* Light green text for popovers in dark mode */
+    
     --primary: 145 55% 50%; /* Green for dark mode */
     --primary-foreground: 0 0% 100%; 
     --secondary: 215 20% 28%; /* Darker secondary */
