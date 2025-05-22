@@ -15,27 +15,27 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList, FileCheck2, BookCopy } from 'lucide-react'; 
+import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList, FileCheck2, BookCopy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
   <Link href="/dashboard" className="flex items-center gap-2 px-2 py-1 text-lg font-semibold">
-    <Image 
-      src="/images/revynox_logo_black.png" 
-      alt="Revynox Logo" 
-      width={120} 
-      height={30} 
-      className="dark:invert" 
+    <Image
+      src="/images/revynox_logo_black.png"
+      alt="Revynox Logo"
+      width={120}
+      height={30}
+      className="dark:invert"
     />
   </Link>
 );
 
 const AppIcon = () => (
-   <Image 
-      src="/images/revynox_logo_black.png" 
-      alt="Revynox Icon" 
-      width={28} 
-      height={28} 
+   <Image
+      src="/images/revynox_logo_black.png"
+      alt="Revynox Icon"
+      width={28}
+      height={28}
       className="dark:invert"
     />
 );
@@ -46,9 +46,9 @@ export function AppSidebar() {
 
   const mainMenuItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/invoices', label: 'Invoices', icon: FileText },
-    { href: '/orderforms', label: 'Order Forms', icon: OrderFormIcon },
     { href: '/customers', label: 'Customers', icon: Users },
+    { href: '/orderforms', label: 'Order Forms', icon: OrderFormIcon },
+    { href: '/invoices', label: 'Invoices', icon: FileText },
   ];
 
   const templateMenuItems = [
@@ -158,7 +158,7 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <Link href="/login"> 
+            <Link href="/login">
               <SidebarMenuButton tooltip="Logout" className="justify-start w-full">
                 <LogOut className="h-5 w-5" />
                 <span>Logout</span>
