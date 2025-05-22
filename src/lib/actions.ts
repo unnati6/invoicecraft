@@ -6,7 +6,7 @@ import * as Data from './data';
 import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate } from '@/types';
 import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData, BrandingSettingsFormData } from './schemas';
 import { format, addDays } from 'date-fns';
-import { Buffer } from 'buffer'; 
+import { Buffer } from 'buffer';
 
 // Customer Actions
 export async function getAllCustomers(): Promise<Customer[]> {
@@ -23,14 +23,14 @@ export async function saveCustomer(data: CustomerFormData, id?: string): Promise
     if (updated) {
       revalidatePath('/customers');
       revalidatePath(`/customers/${id}/edit`);
-      revalidatePath('/(app)/dashboard', 'page'); 
+      revalidatePath('/(app)/dashboard', 'page');
     }
     return updated;
   } else {
     const newCustomer = await Data.createCustomer(data);
     if (newCustomer) {
       revalidatePath('/customers');
-      revalidatePath('/(app)/dashboard', 'page'); 
+      revalidatePath('/(app)/dashboard', 'page');
     }
     return newCustomer;
   }
@@ -40,7 +40,7 @@ export async function removeCustomer(id: string): Promise<boolean> {
   const success = await Data.deleteCustomer(id);
   if (success) {
     revalidatePath('/customers');
-    revalidatePath('/(app)/dashboard', 'page'); 
+    revalidatePath('/(app)/dashboard', 'page');
   }
   return success;
 }
@@ -61,9 +61,9 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     issueDate: data.issueDate,
     dueDate: data.dueDate,
     taxRate: data.taxRate || 0,
-    linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId, // Handle "None"
+    linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId,
     msaContent: data.msaContent,
-    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId, // Ensure this is passed from form data
     termsAndConditions: data.termsAndConditions,
     status: data.status,
     items: data.items,
@@ -74,7 +74,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     serviceEndDate: data.serviceEndDate,
   };
 
-  if (id) { 
+  if (id) {
     const existingInvoice = await Data.getInvoiceById(id);
     if (!existingInvoice) return null;
 
@@ -88,17 +88,17 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
 
     const updated = await Data.updateInvoice(id, finalData);
     if (updated) {
-      revalidatePath('/invoices'); 
-      revalidatePath(`/invoices/${updated.id}`); 
+      revalidatePath('/invoices');
+      revalidatePath(`/invoices/${updated.id}`);
       revalidatePath(`/invoices/${updated.id}/terms`);
-      revalidatePath('/(app)/dashboard', 'page'); 
+      revalidatePath('/(app)/dashboard', 'page');
     }
     return updated;
-  } else { 
+  } else {
     const newInvoice = await Data.createInvoice(invoiceDataCore);
     if (newInvoice) {
-      revalidatePath('/invoices'); 
-      revalidatePath(`/invoices/${newInvoice.id}`); 
+      revalidatePath('/invoices');
+      revalidatePath(`/invoices/${newInvoice.id}`);
       revalidatePath('/(app)/dashboard', 'page');
     }
     return newInvoice;
@@ -117,7 +117,7 @@ export async function removeInvoice(id: string): Promise<boolean> {
 export async function saveInvoiceTerms(id: string, data: TermsFormData): Promise<Invoice | null> {
   const invoice = await Data.getInvoiceById(id);
   if (!invoice) return null;
-  
+
   const updated = await Data.updateInvoice(id, { termsAndConditions: data.termsAndConditions });
 
   if (updated) {
@@ -147,9 +147,9 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     issueDate: data.issueDate,
     validUntilDate: data.validUntilDate,
     taxRate: data.taxRate || 0,
-    linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId, // Handle "None"
+    linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId,
     msaContent: data.msaContent,
-    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId, // Ensure this is passed from form data
     termsAndConditions: data.termsAndConditions,
     status: data.status,
     items: data.items,
@@ -160,7 +160,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     serviceEndDate: data.serviceEndDate,
   };
 
-  if (id) { 
+  if (id) {
     const existingOrderForm = await Data.getOrderFormById(id);
     if (!existingOrderForm) return null;
 
@@ -174,16 +174,16 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
 
     const updated = await Data.updateOrderForm(id, finalData);
     if (updated) {
-      revalidatePath('/orderforms'); 
-      revalidatePath(`/orderforms/${updated.id}`); 
-      revalidatePath(`/orderforms/${updated.id}/terms`); 
+      revalidatePath('/orderforms');
+      revalidatePath(`/orderforms/${updated.id}`);
+      revalidatePath(`/orderforms/${updated.id}/terms`);
     }
     return updated;
-  } else { 
+  } else {
     const newOrderForm = await Data.createOrderForm(orderFormDataCore);
     if(newOrderForm) {
-      revalidatePath('/orderforms'); 
-      revalidatePath(`/orderforms/${newOrderForm.id}`); 
+      revalidatePath('/orderforms');
+      revalidatePath(`/orderforms/${newOrderForm.id}`);
     }
     return newOrderForm;
   }
@@ -198,7 +198,7 @@ export async function removeOrderForm(id: string): Promise<boolean> {
 export async function saveOrderFormTerms(id: string, data: TermsFormData): Promise<OrderForm | null> {
   const orderForm = await Data.getOrderFormById(id);
   if (!orderForm) return null;
-  
+
   const updated = await Data.updateOrderForm(id, { termsAndConditions: data.termsAndConditions });
 
   if (updated) {
@@ -220,13 +220,13 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
   }
 
   const nextInvoiceNumber = await Data.getNextInvoiceNumber();
-  
+
   const newInvoiceData: Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'> & { items: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: any[] } = {
     customerId: orderForm.customerId,
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
-    dueDate: addDays(new Date(), 30), 
-    items: orderForm.items.map(item => ({ 
+    dueDate: addDays(new Date(), 30),
+    items: orderForm.items.map(item => ({
       description: item.description,
       quantity: item.quantity,
       rate: item.rate,
@@ -252,15 +252,15 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
 
   if (newInvoice) {
     await Data.updateOrderForm(orderFormId, { status: 'Accepted' });
-    revalidatePath('/invoices'); 
-    revalidatePath(`/invoices/${newInvoice.id}`); 
+    revalidatePath('/invoices');
+    revalidatePath(`/invoices/${newInvoice.id}`);
     revalidatePath('/orderforms');
-    revalidatePath(`/orderforms/${orderFormId}`); 
+    revalidatePath(`/orderforms/${orderFormId}`);
     revalidatePath('/(app)/dashboard', 'page');
   } else {
     console.error('Failed to create invoice from order form:', orderFormId);
   }
-  
+
   return newInvoice;
 }
 
@@ -307,8 +307,8 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
     'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
     'Invoice Subtotal', 'Invoice Tax Rate (%)', 'Invoice Tax Amount', 'Invoice Total'
   ];
-  
-  let csvContent = headers.map(escapeCsvField).join(',') + '\\n';
+
+  let csvContent = headers.map(escapeCsvField).join(',') + '\n';
 
   invoice.items.forEach(item => {
     const row = [
@@ -330,12 +330,12 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
       invoice.taxAmount,
       invoice.total
     ];
-    csvContent += row.map(escapeCsvField).join(',') + '\\n';
+    csvContent += row.map(escapeCsvField).join(',') + '\n';
   });
-  
+
   const fileData = Buffer.from(csvContent).toString('base64');
-  return { 
-    success: true, 
+  return {
+    success: true,
     message: "CSV file generated.",
     fileName: `Invoice_${invoice.invoiceNumber}.csv`,
     fileData: fileData,
@@ -355,8 +355,8 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
     'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
     'OrderForm Subtotal', 'OrderForm Tax Rate (%)', 'OrderForm Tax Amount', 'OrderForm Total'
   ];
-  
-  let csvContent = headers.map(escapeCsvField).join(',') + '\\n';
+
+  let csvContent = headers.map(escapeCsvField).join(',') + '\n';
 
   orderForm.items.forEach(item => {
     const row = [
@@ -378,12 +378,12 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
       orderForm.taxAmount,
       orderForm.total
     ];
-    csvContent += row.map(escapeCsvField).join(',') + '\\n';
+    csvContent += row.map(escapeCsvField).join(',') + '\n';
   });
-  
+
   const fileData = Buffer.from(csvContent).toString('base64');
-  return { 
-    success: true, 
+  return {
+    success: true,
     message: "CSV file generated.",
     fileName: `OrderForm_${orderForm.orderFormNumber}.csv`,
     fileData: fileData,
@@ -521,3 +521,5 @@ export async function saveBrandingSettings(data: BrandingSettingsFormData): Prom
   revalidatePath('/(app)/branding', 'page');
   return true;
 }
+
+    
