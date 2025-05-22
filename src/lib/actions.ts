@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as Data from './data';
-import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem } from '@/types';
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, PurchaseOrderItem } from '@/types';
 import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData, BrandingSettingsFormData, RepositoryItemFormData } from './schemas';
 import { format, addDays } from 'date-fns';
 import { Buffer } from 'buffer';
@@ -113,7 +113,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     const invoiceCurrency = customer?.currency || savedInvoice.currencyCode || 'USD';
     for (const item of savedInvoice.items) {
       await Data.upsertRepositoryItemFromOrderForm(
-        item, // InvoiceItem can be cast or handled by upsertRepositoryItem
+        item, 
         savedInvoice.customerId,
         customer?.name || 'Unknown Customer',
         invoiceCurrency
@@ -160,19 +160,18 @@ export async function markInvoiceAsPaid(invoiceId: string): Promise<Invoice | nu
 
   if (invoice.status === 'Paid') {
     console.warn(`Invoice ${invoiceId} is already paid.`);
-    // Consider returning the invoice itself or null/error if no action should be taken client-side
     return invoice; 
   }
 
   const updatedInvoice = await Data.updateInvoice(invoiceId, { status: 'Paid' });
 
   if (updatedInvoice) {
-    revalidatePath('/invoices'); // For the list page
-    revalidatePath(`/invoices/${invoiceId}`); // For the specific invoice detail page
+    revalidatePath('/invoices'); 
+    revalidatePath(`/invoices/${invoiceId}`); 
     if (updatedInvoice.customerId) {
-        revalidatePath(`/customers/${updatedInvoice.customerId}/edit`); // For the customer edit page
+        revalidatePath(`/customers/${updatedInvoice.customerId}/edit`); 
     }
-    revalidatePath('/(app)/dashboard', 'page'); // For the dashboard
+    revalidatePath('/(app)/dashboard', 'page'); 
     return updatedInvoice;
   }
   return null;
@@ -254,6 +253,38 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       );
     }
     revalidatePath('/item-repository'); 
+
+    // PO Generation Logic
+    await Data.deletePurchaseOrdersByOrderFormId(savedOrderForm.id);
+    const vendorItems: Record<string, OrderFormItem[]> = {};
+    savedOrderForm.items.forEach(item => {
+      if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice > 0) {
+        if (!vendorItems[item.vendorName]) {
+          vendorItems[item.vendorName] = [];
+        }
+        vendorItems[item.vendorName].push(item);
+      }
+    });
+
+    for (const vendorName in vendorItems) {
+      const poNumber = await Data.getNextPoNumber();
+      const poItemsForVendor = vendorItems[vendorName].map(ofItem => ({
+        description: ofItem.description,
+        quantity: ofItem.quantity,
+        procurementPrice: ofItem.procurementPrice as number, // Already checked it's defined and > 0
+      }));
+      
+      await Data.createPurchaseOrder({
+        poNumber,
+        vendorName,
+        orderFormId: savedOrderForm.id,
+        orderFormNumber: savedOrderForm.orderFormNumber,
+        issueDate: new Date(),
+        items: poItemsForVendor,
+        status: 'Draft',
+      });
+    }
+    revalidatePath('/purchase-orders');
   }
 
   return savedOrderForm;
@@ -639,5 +670,38 @@ export async function saveRepositoryItem(data: RepositoryItemFormData, id?: stri
 export async function removeRepositoryItem(id: string): Promise<boolean> {
   const success = await Data.deleteRepositoryItem(id);
   if (success) revalidatePath('/item-repository');
+  return success;
+}
+
+// --- Purchase Order Actions ---
+export async function getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
+  return Data.getPurchaseOrders();
+}
+
+export async function fetchPurchaseOrderById(id: string): Promise<PurchaseOrder | undefined> {
+  return Data.getPurchaseOrderById(id);
+}
+
+export async function savePurchaseOrder(data: Partial<Omit<PurchaseOrder, 'id' | 'createdAt' | 'items' | 'grandTotalVendorPayable'>> & { items?: Omit<PurchaseOrderItem, 'id' | 'totalVendorPayable'>[] }, id?: string): Promise<PurchaseOrder | null> {
+   if (id) {
+    const updated = await Data.updatePurchaseOrder(id, data);
+    if (updated) {
+      revalidatePath('/purchase-orders');
+      revalidatePath(`/purchase-orders/${id}`); // Assuming a detail page might exist
+    }
+    return updated;
+  } else {
+    // For creating, we expect more complete data, typically handled by PO generation from OrderForm
+    // This direct save might be for manual PO creation in the future
+    console.warn("Direct creation of Purchase Orders via savePurchaseOrder is not the primary flow yet.");
+    return null; 
+  }
+}
+
+export async function removePurchaseOrder(id: string): Promise<boolean> {
+  const success = await Data.deletePurchaseOrder(id);
+  if (success) {
+    revalidatePath('/purchase-orders');
+  }
   return success;
 }

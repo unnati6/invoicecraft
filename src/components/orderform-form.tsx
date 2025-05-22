@@ -23,7 +23,7 @@ import { orderFormSchema, type OrderFormFormData, type AdditionalChargeFormData 
 import type { OrderForm, Customer, TermsTemplate, MsaTemplate, RepositoryItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink, FileCheck2, Percent, Tag, Library } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink, FileCheck2, Percent, Tag, Library, CircleDollarSign } from 'lucide-react';
 import { getAllCustomers, fetchNextOrderFormNumber, getAllTermsTemplates, saveOrderFormTerms, getAllMsaTemplates, getAllRepositoryItems } from '@/lib/actions';
 import Link from 'next/link';
 import { getCurrencySymbol } from '@/lib/currency-utils';
@@ -551,7 +551,12 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
             <Card>
               <CardHeader><CardTitle>Order Form Items</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                {itemFields.map((field, index) => (
+                {itemFields.map((field, index) => {
+                  const itemQuantity = form.watch(`items.${index}.quantity`) || 0;
+                  const itemProcurementPrice = form.watch(`items.${index}.procurementPrice`);
+                  const vendorPayable = (itemProcurementPrice !== undefined && itemProcurementPrice !== null) ? itemQuantity * itemProcurementPrice : null;
+
+                  return (
                   <div key={field.id} className="space-y-3 p-3 border rounded-md relative">
                      <FormItem>
                       <FormLabel className="text-xs flex items-center"><Library className="mr-1 h-3 w-3 text-muted-foreground"/>Load from Repository</FormLabel>
@@ -622,55 +627,21 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                         </FormItem>
                       )}/>
                     </div>
+                    {vendorPayable !== null && (
+                      <div className="mt-1 p-2 text-xs bg-blue-50 dark:bg-blue-900/30 rounded-sm border border-blue-200 dark:border-blue-700">
+                        <p className="font-medium text-blue-700 dark:text-blue-300 flex items-center">
+                          <CircleDollarSign className="mr-1.5 h-3.5 w-3.5" />
+                          Vendor Payable: {currentCurrencySymbol}{vendorPayable.toFixed(2)}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                ))}
+                );
+              })}
                  {form.formState.errors.items && typeof form.formState.errors.items === 'string' && (<p className="text-sm font-medium text-destructive">{form.formState.errors.items.message}</p>)}
                 {Array.isArray(form.formState.errors.items) && form.formState.errors.items.length === 0 && form.formState.errors.items.message && (<p className="text-sm font-medium text-destructive">{form.formState.errors.items.message}</p>)}
                 <Button type="button" variant="outline" onClick={() => appendItem({ description: '', quantity: 1, rate: 0, procurementPrice: undefined, vendorName: '' })} className="mt-2">
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Item
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader><CardTitle>Additional Charges</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                {chargeFields.map((field, index) => (
-                  <div key={field.id} className="grid grid-cols-12 gap-x-4 gap-y-2 items-start p-3 border rounded-md relative">
-                    <FormField control={form.control} name={`additionalCharges.${index}.description`} render={({ field: descField }) => (
-                      <FormItem className="col-span-12 md:col-span-5">
-                        {index === 0 && <FormLabel className="text-xs">Description *</FormLabel>}
-                        <FormControl><Input placeholder="e.g. Expedited Shipping" {...descField} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}/>
-                    <FormField control={form.control} name={`additionalCharges.${index}.valueType`} render={({ field: typeField }) => (
-                      <FormItem className="col-span-6 md:col-span-3">
-                        {index === 0 && <FormLabel className="text-xs">Type *</FormLabel>}
-                        <Select onValueChange={typeField.onChange} value={typeField.value}>
-                          <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            <SelectItem value="fixed">Fixed ({currentCurrencySymbol})</SelectItem>
-                            <SelectItem value="percentage">Percentage (%)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}/>
-                    <FormField control={form.control} name={`additionalCharges.${index}.value`} render={({ field: valField }) => (
-                      <FormItem className="col-span-6 md:col-span-3">
-                        {index === 0 && <FormLabel className="text-xs">Value *</FormLabel>}
-                        <FormControl><Input type="number" placeholder="0.00" {...valField} onChange={e => valField.onChange(parseFloat(e.target.value) || 0)} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}/>
-                    <div className="col-span-12 md:col-span-1 flex items-end justify-end h-full pt-2 md:pt-0">
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeCharge(index)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" onClick={() => appendCharge({ description: '', valueType: 'fixed', value: 0 })} className="mt-2">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Charge
                 </Button>
               </CardContent>
             </Card>
@@ -878,4 +849,3 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
 }
 
 OrderFormForm.displayName = "OrderFormForm";
-

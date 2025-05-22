@@ -15,7 +15,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList, FileCheck2, BookCopy, Archive } from 'lucide-react';
+import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList, FileCheck2, BookCopy, Archive, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
@@ -49,6 +49,7 @@ export function AppSidebar() {
     { href: '/customers', label: 'Customers', icon: Users },
     { href: '/orderforms', label: 'Order Forms', icon: OrderFormIcon },
     { href: '/invoices', label: 'Invoices', icon: FileText },
+    { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
     { href: '/item-repository', label: 'Item Repository', icon: Archive },
   ];
 
@@ -63,7 +64,7 @@ export function AppSidebar() {
   ];
 
   const isActive = (href: string) => {
-    if (href === '/dashboard' || href.startsWith('/templates/') || href === '/item-repository') {
+    if (href === '/dashboard' || href.startsWith('/templates/') || href === '/item-repository' || href === '/purchase-orders') {
         return pathname === href || pathname.startsWith(href + '/');
     }
     return pathname.startsWith(href);

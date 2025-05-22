@@ -40,12 +40,12 @@ export interface AdditionalChargeItem {
 
 export interface CoverPageTemplate {
   id: string;
-  name: string; // Name of the cover page template itself
-  title?: string; // Title to display on the cover page (e.g., "Master Service Agreement")
+  name: string; 
+  title?: string; 
   companyLogoEnabled?: boolean;
-  companyLogoUrl?: string; // URL or placeholder for company logo
+  companyLogoUrl?: string; 
   clientLogoEnabled?: boolean;
-  clientLogoUrl?: string;   // URL or placeholder for client logo
+  clientLogoUrl?: string;   
   additionalImage1Enabled?: boolean;
   additionalImage1Url?: string;
   additionalImage2Enabled?: boolean;
@@ -65,8 +65,8 @@ export interface Invoice {
   id: string;
   invoiceNumber: string;
   customerId: string;
-  customerName?: string; // Denormalized for easy display
-  currencyCode?: string; // Denormalized from customer
+  customerName?: string; 
+  currencyCode?: string; 
   issueDate: Date;
   dueDate: Date;
   items: InvoiceItem[];
@@ -75,14 +75,14 @@ export interface Invoice {
   discountDescription?: string;
   discountType?: 'fixed' | 'percentage';
   discountValue?: number;
-  discountAmount?: number; // Calculated
-  subtotal: number; // Sum of item amounts
+  discountAmount?: number; 
+  subtotal: number; 
   taxRate: number;
-  taxAmount: number; // Calculated
-  total: number; // Calculated
+  taxAmount: number; 
+  total: number; 
   linkedMsaTemplateId?: string;
   msaContent?: string;
-  msaCoverPageTemplateId?: string; // ID of the CoverPageTemplate linked via the MSA
+  msaCoverPageTemplateId?: string;
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
   paymentTerms?: string;
@@ -106,8 +106,8 @@ export interface OrderForm {
   id: string;
   orderFormNumber: string;
   customerId: string;
-  customerName?: string; // Denormalized for easy display
-  currencyCode?: string; // Denormalized from customer
+  customerName?: string; 
+  currencyCode?: string; 
   issueDate: Date;
   validUntilDate: Date;
   items: OrderFormItem[];
@@ -116,14 +116,14 @@ export interface OrderForm {
   discountDescription?: string;
   discountType?: 'fixed' | 'percentage';
   discountValue?: number;
-  discountAmount?: number; // Calculated
-  subtotal: number; // Sum of item amounts
+  discountAmount?: number; 
+  subtotal: number; 
   taxRate: number;
-  taxAmount: number; // Calculated
-  total: number; // Calculated
+  taxAmount: number; 
+  total: number; 
   linkedMsaTemplateId?: string;
   msaContent?: string;
-  msaCoverPageTemplateId?: string; // ID of the CoverPageTemplate linked via the MSA
+  msaCoverPageTemplateId?: string;
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   paymentTerms?: string;
@@ -147,7 +147,28 @@ export interface RepositoryItem {
   defaultProcurementPrice?: number;
   defaultVendorName?: string;
   currencyCode?: string;
-  customerId?: string; // Link to customer if this is a client-specific item
-  customerName?: string; // Denormalized for easy display
+  customerId?: string; 
+  customerName?: string; 
+  createdAt: Date;
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  description: string;
+  quantity: number;
+  procurementPrice: number;
+  totalVendorPayable: number; // quantity * procurementPrice
+}
+
+export interface PurchaseOrder {
+  id: string;
+  poNumber: string;
+  vendorName: string;
+  orderFormId: string; // Link back to the source OrderForm
+  orderFormNumber: string; // For easy reference
+  issueDate: Date;
+  items: PurchaseOrderItem[];
+  grandTotalVendorPayable: number; // Sum of all item totalVendorPayable
+  status: 'Draft' | 'Issued' | 'Fulfilled' | 'Cancelled';
   createdAt: Date;
 }

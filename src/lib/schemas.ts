@@ -191,3 +191,24 @@ export const repositoryItemSchema = z.object({
   customerName: z.string().optional(),
 });
 export type RepositoryItemFormData = z.infer<typeof repositoryItemSchema>;
+
+export const purchaseOrderItemSchema = z.object({
+  id: z.string().optional(), // Not strictly needed from form, but good for type consistency
+  description: z.string(),
+  quantity: z.number(),
+  procurementPrice: z.number(),
+  // totalVendorPayable will be calculated
+});
+export type PurchaseOrderItemFormData = z.infer<typeof purchaseOrderItemSchema>;
+
+export const purchaseOrderSchema = z.object({
+  poNumber: z.string(),
+  vendorName: z.string().min(1, "Vendor name is required."),
+  orderFormId: z.string(),
+  orderFormNumber: z.string(),
+  issueDate: z.date(),
+  items: z.array(purchaseOrderItemSchema).min(1, "At least one item is required for a PO."),
+  status: z.enum(['Draft', 'Issued', 'Fulfilled', 'Cancelled']).default('Draft'),
+  // grandTotalVendorPayable will be calculated
+});
+export type PurchaseOrderFormData = z.infer<typeof purchaseOrderSchema>;

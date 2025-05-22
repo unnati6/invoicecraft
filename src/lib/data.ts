@@ -1,5 +1,5 @@
 
-import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem } from '@/types';
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, PurchaseOrderItem } from '@/types';
 import type { AdditionalChargeFormData, CoverPageTemplateFormData, MsaTemplateFormData, TermsTemplateFormData, RepositoryItemFormData } from './schemas';
 import { addDays } from 'date-fns';
 
@@ -194,6 +194,8 @@ let mockRepositoryItems: RepositoryItem[] = [
   { id: 'repo_item_7', name: 'Graphic Design Package', defaultRate: 760, currencyCode: 'USD', createdAt: new Date(), defaultProcurementPrice: 610, defaultVendorName: "Pixel Perfect Designs" },
   { id: 'repo_item_8', name: 'SEO Audit', defaultRate: 470, currencyCode: 'USD', createdAt: new Date(), defaultVendorName: "Search Boosters Pro", defaultProcurementPrice: 300, customerName: 'Bob The Builder', customerId: 'cust_2' },
 ];
+
+let mockPurchaseOrders: PurchaseOrder[] = [];
 
 // --- Helper Functions ---
 const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -733,10 +735,9 @@ export const updateMsaTemplate = async (id: string, data: Partial<Omit<MsaTempla
   if (index === -1) return null;
 
   const currentTemplate = mockMsaTemplates[index];
-  const updatedTemplate: MsaTemplate = { ...currentTemplate };
+  const updatedTemplate: MsaTemplate = { ...currentTemplate, ...data };
 
-  if (data.hasOwnProperty('name')) updatedTemplate.name = data.name!;
-  if (data.hasOwnProperty('content')) updatedTemplate.content = data.content!;
+  // Explicitly handle setting coverPageTemplateId to undefined if null is passed for unlinking
   if (data.hasOwnProperty('coverPageTemplateId')) {
     updatedTemplate.coverPageTemplateId = data.coverPageTemplateId === null ? undefined : data.coverPageTemplateId;
   }
@@ -793,7 +794,7 @@ export const getRepositoryItems = async (): Promise<RepositoryItem[]> => {
   return mockRepositoryItems.map(item => ({ ...item }));
 };
 
-export const getRepositoryItemById = async (id: string): Promise<RepositoryItem | undefined> => {
+export const getRepositoryItemById = async (id: string): Promise<RepositoryItem | undefined> => { 
   const item = mockRepositoryItems.find(i => i.id === id);
   return item ? { ...item } : undefined;
 };
@@ -811,6 +812,7 @@ export const createRepositoryItem = async (data: Omit<RepositoryItem, 'id' | 'cr
     createdAt: new Date(),
   };
   mockRepositoryItems.push(newItem);
+  console.log("[CREATE REPO ITEM]", newItem);
   return { ...newItem };
 };
 
@@ -818,6 +820,7 @@ export const updateRepositoryItem = async (id: string, data: Partial<Omit<Reposi
   const index = mockRepositoryItems.findIndex(item => item.id === id);
   if (index === -1) return null;
   mockRepositoryItems[index] = { ...mockRepositoryItems[index], ...data };
+  console.log("[UPDATE REPO ITEM]", mockRepositoryItems[index]);
   return { ...mockRepositoryItems[index] };
 };
 
@@ -829,7 +832,7 @@ export const deleteRepositoryItem = async (id: string): Promise<boolean> => {
 
 
 export const upsertRepositoryItemFromOrderForm = async (
-  itemFromDocument: OrderFormItem | InvoiceItem, // Can be from OrderForm or Invoice
+  itemFromDocument: OrderFormItem | InvoiceItem, 
   documentCustomerId: string,
   documentCustomerName: string,
   documentCurrencyCode: string
@@ -837,7 +840,7 @@ export const upsertRepositoryItemFromOrderForm = async (
   
   const isOrderFormItem = 'procurementPrice' in itemFromDocument || 'vendorName' in itemFromDocument;
 
-  console.log("[UPSERT REPO ITEM] Start. Item from Document:", itemFromDocument, "CustID:", documentCustomerId, "CustName:", documentCustomerName, "Currency:", documentCurrencyCode, "IsOrderFormItem:", isOrderFormItem);
+  console.log("[UPSERT REPO ITEM] Start. Item from Document:", itemFromDocument.description, "CustID:", documentCustomerId, "IsOrderFormItem:", isOrderFormItem);
 
   const itemIndex = mockRepositoryItems.findIndex(
     (repoItem) =>
@@ -846,24 +849,26 @@ export const upsertRepositoryItemFromOrderForm = async (
   );
 
   if (itemIndex !== -1) {
-    console.log("[UPSERT REPO ITEM] Found existing client-specific item. Index:", itemIndex, "Item:", mockRepositoryItems[itemIndex]);
     const repoItemToUpdate = { ...mockRepositoryItems[itemIndex] };
+    console.log("[UPSERT REPO ITEM] Found existing client-specific item. Repo Item Before:", JSON.parse(JSON.stringify(repoItemToUpdate)));
+    
     repoItemToUpdate.defaultRate = itemFromDocument.rate;
+    repoItemToUpdate.currencyCode = documentCurrencyCode;
+
     if (isOrderFormItem) {
         const orderItem = itemFromDocument as OrderFormItem;
         if (orderItem.procurementPrice !== undefined) {
             repoItemToUpdate.defaultProcurementPrice = orderItem.procurementPrice;
         }
-        if (orderItem.vendorName !== undefined) {
+        if (orderItem.vendorName !== undefined) { // Allow empty string to clear vendor name
             repoItemToUpdate.defaultVendorName = orderItem.vendorName;
         }
     }
-    repoItemToUpdate.currencyCode = documentCurrencyCode;
     mockRepositoryItems[itemIndex] = repoItemToUpdate;
-    console.log("[UPSERT REPO ITEM] Updated existing repository item:", { ...mockRepositoryItems[itemIndex] });
+    console.log("[UPSERT REPO ITEM] Updated existing repository item:", JSON.parse(JSON.stringify(repoItemToUpdate)));
     return { ...mockRepositoryItems[itemIndex] };
   } else {
-    console.log("[UPSERT REPO ITEM] No existing client-specific item found. Creating new.");
+    console.log("[UPSERT REPO ITEM] No existing client-specific item found for name:", itemFromDocument.description, "and customer:", documentCustomerName, ". Creating new.");
     const newItemData: Omit<RepositoryItem, 'id' | 'createdAt'> = {
       name: itemFromDocument.description,
       defaultRate: itemFromDocument.rate,
@@ -878,8 +883,96 @@ export const upsertRepositoryItemFromOrderForm = async (
     }
 
     const newItem = await createRepositoryItem(newItemData);
-    console.log("[UPSERT REPO ITEM] Created new repository item:", { ...newItem });
+    console.log("[UPSERT REPO ITEM] Created new repository item:", JSON.parse(JSON.stringify(newItem)));
     return { ...newItem };
   }
 };
 
+// --- Purchase Order Functions ---
+export const getPurchaseOrders = async (): Promise<PurchaseOrder[]> => {
+  return mockPurchaseOrders.map(po => ({...po, items: po.items.map(item => ({...item}))}));
+};
+
+export const getPurchaseOrderById = async (id: string): Promise<PurchaseOrder | undefined> => {
+  const po = mockPurchaseOrders.find(p => p.id === id);
+  return po ? {...po, items: po.items.map(item => ({...item}))} : undefined;
+};
+
+export const createPurchaseOrder = async (data: Omit<PurchaseOrder, 'id' | 'createdAt' | 'grandTotalVendorPayable' | 'items'> & { items: Omit<PurchaseOrderItem, 'id' | 'totalVendorPayable'>[] }): Promise<PurchaseOrder> => {
+  const processedItems = data.items.map(item => ({
+    ...item,
+    id: generateId('po_item'),
+    totalVendorPayable: (item.quantity || 0) * (item.procurementPrice || 0),
+  }));
+
+  const grandTotalVendorPayable = processedItems.reduce((sum, item) => sum + item.totalVendorPayable, 0);
+
+  const newPO: PurchaseOrder = {
+    ...data,
+    id: generateId('po'),
+    items: processedItems,
+    grandTotalVendorPayable,
+    createdAt: new Date(),
+  };
+  mockPurchaseOrders.push(newPO);
+  return {...newPO, items: newPO.items.map(item => ({...item}))};
+};
+
+export const updatePurchaseOrder = async (id: string, data: Partial<Omit<PurchaseOrder, 'id' | 'createdAt' | 'grandTotalVendorPayable' | 'items'>> & { items?: Omit<PurchaseOrderItem, 'id' | 'totalVendorPayable'>[] }): Promise<PurchaseOrder | null> => {
+  const index = mockPurchaseOrders.findIndex(po => po.id === id);
+  if (index === -1) return null;
+
+  const existingPO = mockPurchaseOrders[index];
+  let updatedItems = existingPO.items;
+  let grandTotalVendorPayable = existingPO.grandTotalVendorPayable;
+
+  if (data.items) {
+    updatedItems = data.items.map(item => ({
+      ...item,
+      id: (item as any).id || generateId('po_item'),
+      totalVendorPayable: (item.quantity || 0) * (item.procurementPrice || 0),
+    }));
+    grandTotalVendorPayable = updatedItems.reduce((sum, item) => sum + item.totalVendorPayable, 0);
+  }
+
+  mockPurchaseOrders[index] = {
+    ...existingPO,
+    ...data,
+    items: updatedItems,
+    grandTotalVendorPayable,
+  };
+  return {...mockPurchaseOrders[index], items: mockPurchaseOrders[index].items.map(item => ({...item}))};
+};
+
+export const deletePurchaseOrder = async (id: string): Promise<boolean> => {
+  const initialLength = mockPurchaseOrders.length;
+  mockPurchaseOrders = mockPurchaseOrders.filter(po => po.id !== id);
+  return mockPurchaseOrders.length < initialLength;
+};
+
+export const deletePurchaseOrdersByOrderFormId = async (orderFormId: string): Promise<boolean> => {
+  const initialLength = mockPurchaseOrders.length;
+  mockPurchaseOrders = mockPurchaseOrders.filter(po => po.orderFormId !== orderFormId);
+  return mockPurchaseOrders.length < initialLength;
+};
+
+
+export const getNextPoNumber = async (): Promise<string> => {
+    const prefix = "PO-"; // POs usually have a simple prefix
+    if (mockPurchaseOrders.length === 0) {
+        return `${prefix}001`;
+    }
+    const lastPO = mockPurchaseOrders.sort((a,b) => {
+        const numA = parseInt(a.poNumber.substring(prefix.length), 10) || 0;
+        const numB = parseInt(b.poNumber.substring(prefix.length), 10) || 0;
+        return numA - numB;
+    })[mockPurchaseOrders.length - 1];
+
+    try {
+        const num = parseInt(lastPO.poNumber.substring(prefix.length)) || 0;
+        return `${prefix}${(num + 1).toString().padStart(3, '0')}`;
+    } catch (e) {
+        // Fallback for safety, though should not happen if PO numbers are consistent
+        return `${prefix}${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
+    }
+};
