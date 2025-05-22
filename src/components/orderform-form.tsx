@@ -65,7 +65,7 @@ const commitmentPeriodOptions = [
 
 const NO_MSA_TEMPLATE_SELECTED = "none";
 
-export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: OrderFormFormProps) {
+export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmitting = false }: OrderFormFormProps) {
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = React.useState(true);
   const [isLoadingOFNumber, setIsLoadingOFNumber] = React.useState(!initialData);
@@ -75,6 +75,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: O
   const [isLoadingTemplates, setIsLoadingTemplates] = React.useState(true);
   const { toast } = useToast();
   const [isAutoSavingTerms, setIsAutoSavingTerms] = React.useState(false);
+  const lastSavedTermsRef = React.useRef<string | null>(null);
 
   const form = useForm<OrderFormFormData>({
     resolver: zodResolver(orderFormSchema),
@@ -123,6 +124,14 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: O
           serviceEndDate: null,
         },
   });
+
+  React.useEffect(() => {
+    if (initialData) {
+      lastSavedTermsRef.current = initialData.termsAndConditions || '<p></p>';
+    } else {
+      lastSavedTermsRef.current = '<p></p>';
+    }
+  }, [initialData]);
 
   const { fields: itemFields, append: appendItem, remove: removeItem } = useFieldArray({
     control: form.control,
@@ -240,10 +249,11 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: O
 
   const debouncedSaveTerms = React.useCallback(
     debounce(async (terms: string, docId: string) => {
-      if (!docId || isSubmitting) return;
+      if (!docId || formIsSubmitting || terms === lastSavedTermsRef.current) return;
       setIsAutoSavingTerms(true);
       try {
         await saveOrderFormTerms(docId, { termsAndConditions: terms });
+        lastSavedTermsRef.current = terms;
         toast({ title: "Terms Auto-Saved", description: "Your terms and conditions have been saved." });
       } catch (error) {
         console.error("Failed to auto-save terms:", error);
@@ -251,7 +261,8 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: O
       } finally {
         setIsAutoSavingTerms(false);
       }
-    }, 1500), [toast, isSubmitting] 
+    }, 1500),
+    [toast, formIsSubmitting] 
   );
 
   return (
@@ -640,11 +651,15 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: O
                         <FormControl>
                           <RichTextEditor
                             value={field.value || '<p></p>'}
-                            onChange={(newTerms) => {
+                             onChange={(newTerms) => {
                               field.onChange(newTerms);
-                              if (initialData?.id) debouncedSaveTerms(newTerms, initialData.id);
+                              if (initialData?.id) {
+                                 if (newTerms !== lastSavedTermsRef.current) {
+                                    debouncedSaveTerms(newTerms, initialData.id);
+                                 }
+                              }
                             }}
-                            disabled={isSubmitting || isAutoSavingTerms}
+                            disabled={formIsSubmitting || isAutoSavingTerms}
                           />
                         </FormControl>
                         <FormMessage />
@@ -676,9 +691,9 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting = false }: O
                 </div>
               </CardContent>
               <CardFooter className="flex-col items-stretch gap-2">
-                 <Button type="submit" disabled={isSubmitting || isAutoSavingTerms} className="w-full">
+                 <Button type="submit" disabled={formIsSubmitting || isAutoSavingTerms} className="w-full">
                    <Save className="mr-2 h-4 w-4" />
-                   {isSubmitting ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Order Form')}
+                   {formIsSubmitting ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Order Form')}
                  </Button>
               </CardFooter>
             </Card>

@@ -65,7 +65,7 @@ const commitmentPeriodOptions = [
 
 const NO_MSA_TEMPLATE_SELECTED = "none";
 
-export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: InvoiceFormProps) {
+export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitting = false }: InvoiceFormProps) {
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = React.useState(true);
   const [isLoadingInvNumber, setIsLoadingInvNumber] = React.useState(!initialData);
@@ -75,6 +75,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
   const [isLoadingTemplates, setIsLoadingTemplates] = React.useState(true);
   const { toast } = useToast();
   const [isAutoSavingTerms, setIsAutoSavingTerms] = React.useState(false);
+  const lastSavedTermsRef = React.useRef<string | null>(null);
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
@@ -123,6 +124,14 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
           serviceEndDate: null,
         },
   });
+
+  React.useEffect(() => {
+    if (initialData) {
+      lastSavedTermsRef.current = initialData.termsAndConditions || '<p></p>';
+    } else {
+      lastSavedTermsRef.current = '<p></p>';
+    }
+  }, [initialData]);
 
   const { fields: itemFields, append: appendItem, remove: removeItem } = useFieldArray({
     control: form.control,
@@ -240,10 +249,11 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
 
   const debouncedSaveTerms = React.useCallback(
     debounce(async (terms: string, docId: string) => {
-      if (!docId || isSubmitting) return;
+      if (!docId || formIsSubmitting || terms === lastSavedTermsRef.current) return;
       setIsAutoSavingTerms(true);
       try {
         await saveInvoiceTerms(docId, { termsAndConditions: terms });
+        lastSavedTermsRef.current = terms;
         toast({ title: "Terms Auto-Saved", description: "Your terms and conditions have been saved." });
       } catch (error) {
         console.error("Failed to auto-save terms:", error);
@@ -251,7 +261,8 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
       } finally {
         setIsAutoSavingTerms(false);
       }
-    }, 1500), [toast, isSubmitting] 
+    }, 1500),
+    [toast, formIsSubmitting] 
   );
 
   return (
@@ -274,7 +285,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                         <div className="flex items-center gap-2">
                         <Select 
                             onValueChange={field.onChange}
-                            value={field.value} // Use value for controlled component
+                            value={field.value} 
                             disabled={isLoadingCustomers}
                         >
                           <FormControl>
@@ -572,8 +583,8 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                                     <FormLabel>Apply MSA Template</FormLabel>
                                     <Select 
                                         onValueChange={(value) => {
-                                            field.onChange(value); // Update the linkedMsaTemplateId
-                                            handleMsaTemplateSelect(value); // Update msaContent and msaCoverPageTemplateId
+                                            field.onChange(value); 
+                                            handleMsaTemplateSelect(value);
                                         }}
                                         value={field.value || NO_MSA_TEMPLATE_SELECTED}
                                     >
@@ -642,9 +653,13 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                             value={field.value || '<p></p>'}
                             onChange={(newTerms) => {
                               field.onChange(newTerms);
-                              if (initialData?.id) debouncedSaveTerms(newTerms, initialData.id);
+                              if (initialData?.id) {
+                                if (newTerms !== lastSavedTermsRef.current) {
+                                    debouncedSaveTerms(newTerms, initialData.id);
+                                }
+                              }
                             }}
-                            disabled={isSubmitting || isAutoSavingTerms}
+                            disabled={formIsSubmitting || isAutoSavingTerms}
                           />
                         </FormControl>
                         <FormMessage />
@@ -676,9 +691,9 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting = false }: Inv
                 </div>
               </CardContent>
               <CardFooter className="flex-col items-stretch gap-2">
-                 <Button type="submit" disabled={isSubmitting || isAutoSavingTerms} className="w-full">
+                 <Button type="submit" disabled={formIsSubmitting || isAutoSavingTerms} className="w-full">
                    <Save className="mr-2 h-4 w-4" />
-                   {isSubmitting ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Invoice')}
+                   {formIsSubmitting ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Invoice')}
                  </Button>
               </CardFooter>
             </Card>
