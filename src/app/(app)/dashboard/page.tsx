@@ -11,6 +11,26 @@ import { getAllInvoices, getAllCustomers } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardChart, type ChartData } from '@/components/dashboard-chart';
 import { getCurrencySymbol } from '@/lib/currency-utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+interface CurrencySummary {
+  currencyCode: string;
+  totalInCurrency: number;
+  totalInUSD: number;
+  symbol: string;
+}
+
+// Mock conversion rates for prototype. In a real app, fetch this from an API.
+const MOCK_CONVERSION_RATES_TO_USD: Record<string, number> = {
+  USD: 1,
+  EUR: 1.08, // Example rate
+  GBP: 1.27, // Example rate
+  INR: 0.012, // Example rate
+  CAD: 0.73, // Example rate
+  AUD: 0.66, // Example rate
+  JPY: 0.0067, // Example rate
+};
+
 
 export default function DashboardPage() {
   const { toast } = useToast();
@@ -24,6 +44,7 @@ export default function DashboardPage() {
     pending: 0,
     currencySymbol: '$',
   });
+  const [currencyBreakdown, setCurrencyBreakdown] = React.useState<CurrencySummary[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -46,16 +67,16 @@ export default function DashboardPage() {
   }, [toast]);
 
   React.useEffect(() => {
-    if (invoices.length === 0 && !loading) { // Don't process if no invoices or still loading initial data
+    if (invoices.length === 0 && !loading) { 
         setChartData([]);
         setSummaryStats({ totalSales: 0, received: 0, pending: 0, currencySymbol: '$' });
+        setCurrencyBreakdown([]);
         return;
     }
 
     let filteredInvoices = invoices;
-    let currentCurrencySymbol = '$'; // Default
+    let currentCurrencySymbol = '$'; 
     let customerNameDisplay;
-
 
     if (selectedCustomerId !== 'all') {
       filteredInvoices = invoices.filter(inv => inv.customerId === selectedCustomerId);
@@ -65,12 +86,7 @@ export default function DashboardPage() {
         customerNameDisplay = selectedCustomer.name;
       }
     } else {
-      // For "All Customers", we might need a more sophisticated currency handling 
-      // if invoices can have different currencies. For simplicity, let's assume a primary currency (e.g., USD) 
-      // or if all customers use the same currency.
-      // This example will just use the default symbol if "All" is selected.
-      // A better approach would be to convert all amounts to a base currency for "All Customers" view.
-      currentCurrencySymbol = getCurrencySymbol('USD'); // Or your app's base currency
+      currentCurrencySymbol = getCurrencySymbol('USD'); 
       customerNameDisplay = "All Customers";
     }
 
@@ -96,6 +112,30 @@ export default function DashboardPage() {
         customerName: customerNameDisplay
     });
 
+    // Calculate currency breakdown
+    const salesByCurrency: Record<string, { total: number, symbol: string }> = {};
+    filteredInvoices.forEach(inv => {
+      const code = inv.currencyCode || 'USD'; // Default to USD if not specified
+      if (!salesByCurrency[code]) {
+        salesByCurrency[code] = { total: 0, symbol: getCurrencySymbol(code) };
+      }
+      salesByCurrency[code].total += inv.total;
+    });
+
+    const breakdownResult: CurrencySummary[] = Object.entries(salesByCurrency)
+      .map(([code, data]) => {
+        const rate = MOCK_CONVERSION_RATES_TO_USD[code] || 1; // Default to 1 if rate not found (for USD or unlisted)
+        return {
+          currencyCode: code,
+          totalInCurrency: data.total,
+          totalInUSD: data.total * rate,
+          symbol: data.symbol,
+        };
+      })
+      .sort((a, b) => b.totalInUSD - a.totalInUSD); // Sort by USD value descending
+
+    setCurrencyBreakdown(breakdownResult);
+
   }, [invoices, customers, selectedCustomerId, loading]);
 
   if (loading) {
@@ -104,12 +144,8 @@ export default function DashboardPage() {
         <AppHeader title="Dashboard" />
         <main className="flex-1 p-4 md:p-6 space-y-6">
           <Card className="w-full max-w-sm">
-            <CardHeader>
-              <Skeleton className="h-6 w-32" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-10 w-full" />
-            </CardContent>
+            <CardHeader><Skeleton className="h-6 w-32" /></CardHeader>
+            <CardContent><Skeleton className="h-10 w-full" /></CardContent>
           </Card>
           <div className="grid gap-6 md:grid-cols-3">
             {[1,2,3].map(i => (
@@ -122,11 +158,15 @@ export default function DashboardPage() {
             ))}
           </div>
           <Card>
-            <CardHeader>
-              <Skeleton className="h-8 w-48" />
-            </CardHeader>
-            <CardContent className="h-[350px]">
-              <Skeleton className="h-full w-full" />
+            <CardHeader><Skeleton className="h-8 w-48" /></CardHeader>
+            <CardContent className="h-[350px]"><Skeleton className="h-full w-full" /></CardContent>
+          </Card>
+          <Card>
+            <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
+            <CardContent>
+                <Skeleton className="h-8 w-full mb-2" />
+                <Skeleton className="h-8 w-full mb-2" />
+                <Skeleton className="h-8 w-full" />
             </CardContent>
           </Card>
         </main>
@@ -182,29 +222,64 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Metrics Overview</CardTitle>
-            <CardDescription>
-              Bar chart showing sales, received, and pending amounts.
-              {selectedCustomerId === 'all' && invoices.length > 0 && (
-                 <span className="text-xs block text-muted-foreground/80 mt-1">
-                    Note: "All Customers" view uses {getCurrencySymbol('USD')} as the default currency for aggregated totals. Individual customer views will use their specific currency.
-                 </span>
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="h-[350px] p-2 sm:p-6">
-            {chartData.length > 0 ? (
-              <DashboardChart data={chartData} currencySymbol={summaryStats.currencySymbol} />
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                No data to display for the current selection.
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Metrics Overview</CardTitle>
+                    <CardDescription>
+                    Bar chart showing sales, received, and pending amounts.
+                    {selectedCustomerId === 'all' && invoices.length > 0 && (
+                        <span className="text-xs block text-muted-foreground/80 mt-1">
+                            Note: "All Customers" view uses {getCurrencySymbol('USD')} as the default currency for aggregated totals. Individual customer views will use their specific currency.
+                        </span>
+                    )}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="h-[350px] p-2 sm:p-6">
+                    {chartData.length > 0 ? (
+                    <DashboardChart data={chartData} currencySymbol={summaryStats.currencySymbol} />
+                    ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                        No data to display for the current selection.
+                    </div>
+                    )}
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Sales by Currency</CardTitle>
+                    <CardDescription>Total sales broken down by currency and their USD equivalent (using mock rates).</CardDescription>
+                </CardHeader>
+                <CardContent>
+                {currencyBreakdown.length > 0 ? (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Currency</TableHead>
+                                <TableHead className="text-right">Total</TableHead>
+                                <TableHead className="text-right">USD Equivalent</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {currencyBreakdown.map(item => (
+                            <TableRow key={item.currencyCode}>
+                                <TableCell>{item.currencyCode}</TableCell>
+                                <TableCell className="text-right">{item.symbol}{item.totalInCurrency.toFixed(2)}</TableCell>
+                                <TableCell className="text-right">${item.totalInUSD.toFixed(2)}</TableCell>
+                            </TableRow>
+                        ))}
+                        </TableBody>
+                    </Table>
+                ) : (
+                    <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                    No sales data for currency breakdown.
+                    </div>
+                )}
+                </CardContent>
+            </Card>
+        </div>
       </main>
     </>
   );
 }
+
