@@ -4,15 +4,15 @@ export interface Customer {
   name: string;
   email: string;
   phone?: string;
-  currency?: string; 
-  billingAddress?: { 
+  currency?: string;
+  billingAddress?: {
     street: string;
     city: string;
     state: string;
     zip: string;
     country: string;
   };
-  shippingAddress?: { 
+  shippingAddress?: {
     street: string;
     city: string;
     state: string;
@@ -34,18 +34,18 @@ export interface AdditionalChargeItem {
   id: string;
   description: string;
   valueType: 'fixed' | 'percentage';
-  value: number; 
-  calculatedAmount: number; 
+  value: number;
+  calculatedAmount: number;
 }
 
 export interface CoverPageTemplate {
   id: string;
-  name: string; // Name of the cover page template itself
-  title?: string; // Title to display on the cover page (e.g., "Master Service Agreement")
+  name: string;
+  title?: string;
   companyLogoEnabled?: boolean;
-  companyLogoUrl?: string; // URL or placeholder for company logo
+  companyLogoUrl?: string;
   clientLogoEnabled?: boolean;
-  clientLogoUrl?: string;   // URL or placeholder for client logo
+  clientLogoUrl?: string;
   additionalImage1Enabled?: boolean;
   additionalImage1Url?: string;
   additionalImage2Enabled?: boolean;
@@ -56,17 +56,17 @@ export interface CoverPageTemplate {
 export interface MsaTemplate {
   id: string;
   name: string;
-  content: string; // HTML content from RichTextEditor
-  coverPageTemplateId?: string; 
+  content: string;
+  coverPageTemplateId?: string;
   createdAt: Date;
 }
 
 export interface Invoice {
   id: string;
   invoiceNumber: string;
-  customerId: string; 
-  customerName?: string; 
-  currencyCode?: string; 
+  customerId: string;
+  customerName?: string;
+  currencyCode?: string;
   issueDate: Date;
   dueDate: Date;
   items: InvoiceItem[];
@@ -76,13 +76,13 @@ export interface Invoice {
   discountType?: 'fixed' | 'percentage';
   discountValue?: number;
   discountAmount?: number;
-  subtotal: number; 
-  taxRate: number; 
-  taxAmount: number; 
-  total: number; 
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
   linkedMsaTemplateId?: string;
   msaContent?: string;
-  msaCoverPageTemplateId?: string; 
+  msaCoverPageTemplateId?: string;
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
   paymentTerms?: string;
@@ -92,14 +92,14 @@ export interface Invoice {
   createdAt: Date;
 }
 
-export interface OrderFormItem { 
+export interface OrderFormItem {
   id: string;
   description: string;
   quantity: number;
   rate: number;
   amount: number;
-  procurementPrice?: number; // New field
-  vendorName?: string;      // New field
+  procurementPrice?: number;
+  vendorName?: string;
 }
 
 export interface OrderForm {
@@ -107,9 +107,9 @@ export interface OrderForm {
   orderFormNumber: string;
   customerId: string;
   customerName?: string;
-  currencyCode?: string; 
+  currencyCode?: string;
   issueDate: Date;
-  validUntilDate: Date; 
+  validUntilDate: Date;
   items: OrderFormItem[];
   additionalCharges?: AdditionalChargeItem[];
   discountEnabled?: boolean;
@@ -117,13 +117,13 @@ export interface OrderForm {
   discountType?: 'fixed' | 'percentage';
   discountValue?: number;
   discountAmount?: number;
-  subtotal: number; 
+  subtotal: number;
   taxRate: number;
-  taxAmount: number; 
-  total: number; 
+  taxAmount: number;
+  total: number;
   linkedMsaTemplateId?: string;
   msaContent?: string;
-  msaCoverPageTemplateId?: string; 
+  msaCoverPageTemplateId?: string;
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   paymentTerms?: string;
@@ -136,14 +136,16 @@ export interface OrderForm {
 export interface TermsTemplate {
   id: string;
   name: string;
-  content: string; // HTML content from RichTextEditor
+  content: string;
   createdAt: Date;
 }
 
 export interface RepositoryItem {
   id: string;
-  name: string; // This will typically match the 'description' of an invoice/order form item
+  name: string;
   defaultRate?: number;
-  // Potentially add 'defaultUnit' or 'category' in the future
+  defaultProcurementPrice?: number;
+  defaultVendorName?: string;
+  currencyCode?: string; // Added currency code
   createdAt: Date;
 }

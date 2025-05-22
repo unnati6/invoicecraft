@@ -20,7 +20,7 @@ let mockCustomers: Customer[] = [
     name: 'Bob The Builder',
     email: 'bob@example.com',
     phone: '987-654-3210',
-    currency: 'USD',
+    currency: 'USD', // Changed from GBP
     billingAddress: { street: '456 Construction Way', city: 'BuildCity', state: 'NY', zip: '10001', country: 'USA' },
     createdAt: new Date()
   },
@@ -72,7 +72,7 @@ let mockInvoices: Invoice[] = [
     discountAmount: 50,
     subtotal: 1300,
     taxRate: 10,
-    taxAmount: (1300 + 50 - 50) * 0.10, // (subtotal + additionalCharges - discount) * taxRate
+    taxAmount: (1300 + 50 - 50) * 0.10,
     total: (1300 + 50 - 50) + ((1300 + 50 - 50) * 0.10),
     termsAndConditions: 'Payment due within 30 days. Late fees apply.',
     status: 'Sent',
@@ -124,9 +124,9 @@ let mockOrderForms: OrderForm[] = [
       { id: 'of_ac_1', description: 'Rush Fee', valueType: 'percentage', value: 5, calculatedAmount: 150 }
     ],
     discountEnabled: false,
-    subtotal: 3000, // Sum of item amounts
+    subtotal: 3000,
     taxRate: 10,
-    taxAmount: (3000 + 150) * 0.10, // (subtotal + additionalCharges) * taxRate
+    taxAmount: (3000 + 150) * 0.10,
     total: (3000 + 150) + ((3000 + 150) * 0.10),
     termsAndConditions: 'This order form is valid for 30 days. Prices subject to change thereafter.',
     status: 'Sent',
@@ -155,13 +155,13 @@ let mockCoverPageTemplates: CoverPageTemplate[] = [
     name: 'Standard Cover Page',
     title: 'Master Service Agreement',
     companyLogoEnabled: true,
-    companyLogoUrl: '',
+    companyLogoUrl: '', // Will use branding logo
     clientLogoEnabled: true,
     clientLogoUrl: 'https://placehold.co/150x50.png',
     additionalImage1Enabled: false,
-    additionalImage1Url: '',
+    additionalImage1Url: 'https://placehold.co/300x200.png',
     additionalImage2Enabled: false,
-    additionalImage2Url: '',
+    additionalImage2Url: 'https://placehold.co/300x200.png',
     createdAt: new Date(),
   },
   {
@@ -175,11 +175,13 @@ let mockCoverPageTemplates: CoverPageTemplate[] = [
 ];
 
 let mockRepositoryItems: RepositoryItem[] = [
-  { id: 'repo_item_1', name: 'Web Design Service', defaultRate: 1200, createdAt: new Date() },
-  { id: 'repo_item_2', name: 'Hosting (1 year)', defaultRate: 100, createdAt: new Date() },
-  { id: 'repo_item_3', name: 'Consultation', defaultRate: 80, createdAt: new Date() },
-  { id: 'repo_item_4', name: 'Initial Project Scoping', defaultRate: 500, createdAt: new Date() },
-  { id: 'repo_item_5', name: 'Phase 1 Development Estimate', defaultRate: 2500, createdAt: new Date() },
+  { id: 'repo_item_1', name: 'Web Design Service', defaultRate: 1200, currencyCode: 'INR', createdAt: new Date(), defaultProcurementPrice: 900, defaultVendorName: "Creative Designs Co." },
+  { id: 'repo_item_2', name: 'Hosting (1 year)', defaultRate: 100, currencyCode: 'USD', createdAt: new Date(), defaultProcurementPrice: 70, defaultVendorName: "CloudNine Hosting" },
+  { id: 'repo_item_3', name: 'Consultation', defaultRate: 80, currencyCode: 'USD', createdAt: new Date() },
+  { id: 'repo_item_4', name: 'Initial Project Scoping', defaultRate: 500, currencyCode: 'INR', createdAt: new Date(), defaultVendorName: "Strategy Solutions", defaultProcurementPrice: 450 },
+  { id: 'repo_item_5', name: 'Phase 1 Development Estimate', defaultRate: 2500, currencyCode: 'INR', createdAt: new Date(), defaultProcurementPrice: 2200, defaultVendorName: "Dev House" },
+  { id: 'repo_item_6', name: 'Monthly Maintenance Retainer', defaultRate: 300, currencyCode: 'USD', createdAt: new Date() },
+  { id: 'repo_item_7', name: 'Graphic Design Package', defaultRate: 750, currencyCode: 'USD', createdAt: new Date(), defaultProcurementPrice: 600, defaultVendorName: "Pixel Perfect Ltd." },
 ];
 
 // --- Helper Functions ---
@@ -256,7 +258,7 @@ function calculateDocumentTotals(
 } {
   const processedItems = itemsData.map(item => ({
     ...item,
-    id: (item as any).id || generateId('item'), 
+    id: (item as any).id || generateId('item'),
     amount: (item.quantity || 0) * (item.rate || 0),
   }));
 
@@ -271,7 +273,7 @@ function calculateDocumentTotals(
       calculatedAmount = mainItemsSubtotal * (chargeValue / 100);
     }
     return {
-      id: charge.id || generateId('ac'), 
+      id: charge.id || generateId('ac'),
       description: charge.description,
       valueType: charge.valueType,
       value: chargeValue,
@@ -290,7 +292,7 @@ function calculateDocumentTotals(
       actualDiscountAmount = subtotalBeforeDiscount * (discountData.value / 100);
     }
   }
-  
+
   const taxableAmount = subtotalBeforeDiscount - actualDiscountAmount;
   const taxAmount = taxableAmount * ((taxRateInput || 0) / 100);
   const grandTotal = taxableAmount + taxAmount;
@@ -383,7 +385,7 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
   if (index === -1) return null;
 
   let existingInvoice = mockInvoices[index];
-  
+
   const itemsForCalc = data.items || existingInvoice.items.map(item => ({description: item.description, quantity: item.quantity, rate: item.rate }));
   const additionalChargesForCalc = data.additionalCharges || existingInvoice.additionalCharges?.map(ac => ({ id: ac.id, description: ac.description, valueType: ac.valueType, value: ac.value })) || [];
   const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingInvoice.taxRate;
@@ -512,9 +514,9 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
     customerName: customer?.name || 'Unknown Customer',
     currencyCode: customer?.currency || 'USD',
     items: processedItems.map(item => ({
-        ...item, 
+        ...item,
         id: generateId('of_item'),
-        procurementPrice: (item as OrderFormItem).procurementPrice, // Retain procurement fields
+        procurementPrice: (item as OrderFormItem).procurementPrice,
         vendorName: (item as OrderFormItem).vendorName,
     })) as OrderFormItem[],
     additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: generateId('of_ac')})),
@@ -539,8 +541,8 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
   let existingOrderForm = mockOrderForms[index];
 
   const itemsForCalc = data.items || existingOrderForm.items.map(item => ({
-    description: item.description, 
-    quantity: item.quantity, 
+    description: item.description,
+    quantity: item.quantity,
     rate: item.rate,
     procurementPrice: item.procurementPrice,
     vendorName: item.vendorName,
@@ -574,7 +576,7 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
      linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId,
      termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
      items: processedItems.map((item, idx) => ({
-        ...item, 
+        ...item,
         id: (itemsForCalc[idx] as any).id || item.id || generateId('of_item'),
         procurementPrice: (item as OrderFormItem).procurementPrice,
         vendorName: (item as OrderFormItem).vendorName,
@@ -691,8 +693,12 @@ export const updateMsaTemplate = async (id: string, data: Partial<Omit<MsaTempla
   const updatedTemplate: MsaTemplate = {
     ...currentTemplate,
     ...data,
-    coverPageTemplateId: 'coverPageTemplateId' in data ? data.coverPageTemplateId : currentTemplate.coverPageTemplateId,
   };
+  // Explicitly handle coverPageTemplateId if it's being unset
+  if (data.hasOwnProperty('coverPageTemplateId')) {
+    updatedTemplate.coverPageTemplateId = data.coverPageTemplateId;
+  }
+
 
   mockMsaTemplates[index] = updatedTemplate;
   return { ...updatedTemplate };
@@ -751,6 +757,9 @@ export const createRepositoryItem = async (data: Omit<RepositoryItem, 'id' | 'cr
     id: generateId('repo_item'),
     name: data.name,
     defaultRate: data.defaultRate,
+    defaultProcurementPrice: data.defaultProcurementPrice,
+    defaultVendorName: data.defaultVendorName,
+    currencyCode: data.currencyCode || 'USD',
     createdAt: new Date(),
   };
   mockRepositoryItems.push(newItem);

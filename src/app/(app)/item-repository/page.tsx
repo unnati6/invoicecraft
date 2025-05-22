@@ -16,14 +16,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 // Placeholder: Form for adding/editing items will be a separate component
-// import { RepositoryItemForm } from '@/components/repository-item-form'; 
+// import { RepositoryItemForm } from '@/components/repository-item-form';
 
 export default function ItemRepositoryPage() {
   const { toast } = useToast();
   const [items, setItems] = React.useState<RepositoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [editingItem, setEditingItem] = React.useState<RepositoryItem | null>(null);
-  const [isFormOpen, setIsFormOpen] = React.useState(false);
+  // const [editingItem, setEditingItem] = React.useState<RepositoryItem | null>(null); // For future form
+  // const [isFormOpen, setIsFormOpen] = React.useState(false); // For future form
 
   React.useEffect(() => {
     async function fetchData() {
@@ -51,16 +51,25 @@ export default function ItemRepositoryPage() {
   };
 
   const handleEditItem = (item: RepositoryItem) => {
-    // For now, we'll just log. A modal or separate edit page would be needed.
-    console.log("Editing item (UI not implemented yet):", item);
-    toast({ title: "Note", description: "Edit functionality for repository items is not fully implemented in this view." });
+    console.log("Attempting to edit item:", item);
+    toast({
+      title: "Feature Not Implemented",
+      description: "Editing repository items directly from this page is not yet available. This requires a dedicated form.",
+      variant: "warning",
+      duration: 5000,
+    });
     // setEditingItem(item);
     // setIsFormOpen(true);
   };
 
   const handleAddNewItem = () => {
-     console.log("Adding new item (UI not implemented yet)");
-     toast({ title: "Note", description: "Form for adding new repository items is not yet implemented." });
+     console.log("Attempting to add new item");
+     toast({
+      title: "Feature Not Implemented",
+      description: "Adding new repository items requires a dedicated form which is not yet built.",
+      variant: "warning",
+      duration: 5000,
+     });
     // setEditingItem(null);
     // setIsFormOpen(true);
   }
@@ -77,28 +86,37 @@ export default function ItemRepositoryPage() {
 
   const columns = [
     { accessorKey: 'name', header: 'Item Name / Description', cell: (row: RepositoryItem) => row.name },
-    { 
-      accessorKey: 'defaultRate', 
-      header: 'Default Rate', 
-      cell: (row: RepositoryItem) => row.defaultRate !== undefined ? `${getCurrencySymbol()}${row.defaultRate.toFixed(2)}` : 'N/A' 
-      // Assuming a global default currency symbol for now, or adapt to store currency with item
+    {
+      accessorKey: 'defaultRate',
+      header: 'Default Selling Rate',
+      cell: (row: RepositoryItem) => row.defaultRate !== undefined ? `${getCurrencySymbol(row.currencyCode)}${row.defaultRate.toFixed(2)}` : 'N/A'
     },
-    { 
-      accessorKey: 'createdAt', 
-      header: 'Created At', 
-      cell: (row: RepositoryItem) => format(new Date(row.createdAt), 'PP') 
+    {
+      accessorKey: 'defaultProcurementPrice',
+      header: 'Default Procurement Price',
+      cell: (row: RepositoryItem) => row.defaultProcurementPrice !== undefined ? `${getCurrencySymbol(row.currencyCode)}${row.defaultProcurementPrice.toFixed(2)}` : 'N/A'
+    },
+    {
+      accessorKey: 'defaultVendorName',
+      header: 'Default Vendor Name',
+      cell: (row: RepositoryItem) => row.defaultVendorName || 'N/A'
+    },
+    {
+      accessorKey: 'createdAt',
+      header: 'Created At',
+      cell: (row: RepositoryItem) => format(new Date(row.createdAt), 'PP')
     },
     {
       accessorKey: 'actions',
       header: 'Actions',
       cell: (row: RepositoryItem) => (
         <div className="flex space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => handleEditItem(row)} title="Edit Item">
+          <Button variant="ghost" size="icon" onClick={() => handleEditItem(row)} title="Edit Item (Not Implemented)">
             <Edit className="h-4 w-4" />
           </Button>
-          <DeleteConfirmationDialog 
-            onConfirm={() => handleDeleteItem(row.id)} 
-            itemName={`item "${row.name}"`}
+          <DeleteConfirmationDialog
+            onConfirm={() => handleDeleteItem(row.id)}
+            itemName={`repository item "${row.name}"`}
             trigger={
               <Button variant="ghost" size="icon" title="Delete Item">
                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -109,7 +127,7 @@ export default function ItemRepositoryPage() {
       ),
     },
   ];
-  
+
   if (loading) {
     return (
       <>
@@ -120,7 +138,7 @@ export default function ItemRepositoryPage() {
           <Card>
             <CardHeader>
               <CardTitle>All Repository Items</CardTitle>
-              <CardDescription>Manage your predefined items and services.</CardDescription>
+              <CardDescription>Manage your predefined items, services, and their default values. Changes made here do not automatically update existing order forms or invoices.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -138,8 +156,7 @@ export default function ItemRepositoryPage() {
   return (
     <>
       <AppHeader title="Item Repository">
-        {/* For now, a simple button. Later, this could open a modal form. */}
-        <Button onClick={handleAddNewItem}> 
+        <Button onClick={handleAddNewItem} title="Add New Item (Not Implemented)">
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
         </Button>
       </AppHeader>
@@ -147,7 +164,11 @@ export default function ItemRepositoryPage() {
         <Card>
           <CardHeader>
             <CardTitle>All Repository Items</CardTitle>
-            <CardDescription>Manage your predefined items, services, and their default rates.</CardDescription>
+            <CardDescription>
+              This repository stores default values for your items and services (e.g., name, default selling rate, default procurement price, default vendor, default currency).
+              These are templates for when you add items to new documents.
+              <strong className="block mt-1">Note: Values shown here are the defaults stored in the repository. They do not reflect customizations made on individual order forms or invoices. Editing items here requires a dedicated form (not yet implemented).</strong>
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {items.length === 0 ? (
@@ -155,7 +176,7 @@ export default function ItemRepositoryPage() {
                 <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
                 <h2 className="text-xl font-semibold mb-2">No Items in Repository</h2>
                 <p className="text-muted-foreground mb-4">Add items to quickly use them in your invoices and order forms.</p>
-                <Button onClick={handleAddNewItem}>
+                <Button onClick={handleAddNewItem} title="Add New Item (Not Implemented)">
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Your First Item
                 </Button>
               </div>
@@ -176,9 +197,9 @@ export default function ItemRepositoryPage() {
               <DialogHeader>
                 <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
               </DialogHeader>
-              <RepositoryItemForm 
-                initialData={editingItem} 
-                onSubmit={handleFormSubmit} 
+              <RepositoryItemForm
+                initialData={editingItem}
+                onSubmit={handleFormSubmit}
                 onCancel={() => { setIsFormOpen(false); setEditingItem(null); }}
               />
             </DialogContent>
