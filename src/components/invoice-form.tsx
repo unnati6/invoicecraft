@@ -22,13 +22,15 @@ import { invoiceSchema, type InvoiceFormData, type AdditionalChargeFormData } fr
 import type { Invoice, Customer, TermsTemplate, MsaTemplate } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink, FileCheck2 } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink, FileCheck2, Percent, CheckSquare } from 'lucide-react';
 import { getAllCustomers, fetchNextInvoiceNumber, getAllTermsTemplates, saveInvoiceTerms, getAllMsaTemplates } from '@/lib/actions';
 import Link from 'next/link';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 import { RichTextEditor } from '@/components/rich-text-editor';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 interface InvoiceFormProps {
   onSubmit: (data: InvoiceFormData) => Promise<void>;
@@ -59,7 +61,10 @@ const commitmentPeriodOptions = [
   { value: "3 Months", label: "3 Months" },
   { value: "6 Months", label: "6 Months" },
   { value: "12 Months", label: "12 Months" },
+  { value: "18 Months", label: "18 Months" },
   { value: "24 Months", label: "24 Months" },
+  { value: "30 Months", label: "30 Months" },
+  { value: "36 Months", label: "36 Months" },
   { value: "Custom", label: "Custom" },
 ];
 
@@ -96,6 +101,10 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
             valueType: ac.valueType,
             value: ac.value,
           })) || [],
+          discountEnabled: initialData.discountEnabled ?? false,
+          discountDescription: initialData.discountDescription || '',
+          discountType: initialData.discountType || 'fixed',
+          discountValue: initialData.discountValue || 0,
           linkedMsaTemplateId: initialData.linkedMsaTemplateId || NO_MSA_TEMPLATE_SELECTED,
           msaContent: initialData.msaContent || '',
           msaCoverPageTemplateId: initialData.msaCoverPageTemplateId || '',
@@ -112,6 +121,10 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
           items: [{ description: '', quantity: 1, rate: 0 }],
           additionalCharges: [],
           taxRate: 0,
+          discountEnabled: false,
+          discountDescription: '',
+          discountType: 'fixed',
+          discountValue: 0,
           linkedMsaTemplateId: NO_MSA_TEMPLATE_SELECTED,
           msaContent: '',
           msaCoverPageTemplateId: '',
@@ -206,23 +219,55 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
   const watchedItems = form.watch('items');
   const watchedAdditionalCharges = form.watch('additionalCharges');
   const watchedTaxRate = form.watch('taxRate');
+  const watchDiscountEnabled = form.watch('discountEnabled');
+  const watchDiscountType = form.watch('discountType');
+  const watchDiscountValue = form.watch('discountValue');
 
-  const mainItemsSubtotal = React.useMemo(() => {
-    return watchedItems.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.rate) || 0), 0);
-  }, [watchedItems]);
 
-  const totalCalculatedAdditionalCharges = React.useMemo(() => {
-    return watchedAdditionalCharges?.reduce((sum, charge) => {
+  const {
+    subtotal: mainItemsSubtotal,
+    totalAdditionalCharges,
+    preDiscountSubtotal,
+    discountAmount,
+    taxableAmount,
+    taxAmount,
+    total,
+  } = React.useMemo(() => {
+    const itemsSub = watchedItems.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.rate) || 0), 0);
+    const addChargesTotal = watchedAdditionalCharges?.reduce((sum, charge) => {
       const value = Number(charge.value) || 0;
       if (charge.valueType === 'fixed') return sum + value;
-      if (charge.valueType === 'percentage') return sum + (mainItemsSubtotal * (value / 100));
+      if (charge.valueType === 'percentage') return sum + (itemsSub * (value / 100));
       return sum;
     }, 0) || 0;
-  }, [watchedAdditionalCharges, mainItemsSubtotal]);
 
-  const taxableAmount = React.useMemo(() => mainItemsSubtotal + totalCalculatedAdditionalCharges, [mainItemsSubtotal, totalCalculatedAdditionalCharges]);
-  const taxAmount = React.useMemo(() => taxableAmount * ((Number(watchedTaxRate) || 0) / 100), [taxableAmount, watchedTaxRate]);
-  const total = React.useMemo(() => taxableAmount + taxAmount, [taxableAmount, taxAmount]);
+    const preDiscount = itemsSub + addChargesTotal;
+
+    let currentDiscountAmount = 0;
+    if (watchDiscountEnabled) {
+      const discVal = Number(watchDiscountValue) || 0;
+      if (watchDiscountType === 'fixed') {
+        currentDiscountAmount = discVal;
+      } else if (watchDiscountType === 'percentage') {
+        currentDiscountAmount = preDiscount * (discVal / 100);
+      }
+    }
+    
+    const taxable = preDiscount - currentDiscountAmount;
+    const tax = taxable * ((Number(watchedTaxRate) || 0) / 100);
+    const grandTotal = taxable + tax;
+
+    return {
+      subtotal: itemsSub,
+      totalAdditionalCharges: addChargesTotal,
+      preDiscountSubtotal: preDiscount,
+      discountAmount: currentDiscountAmount,
+      taxableAmount: taxable,
+      taxAmount: tax,
+      total: grandTotal,
+    };
+  }, [watchedItems, watchedAdditionalCharges, watchedTaxRate, watchDiscountEnabled, watchDiscountType, watchDiscountValue]);
+
 
   const handleTermsTemplateSelect = (templateId: string) => {
     if (templateId === "none" || !templateId) {
@@ -567,6 +612,70 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
               </CardContent>
             </Card>
 
+             <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center"><Percent className="mr-2 h-5 w-5" /> Discount</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="discountEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <FormLabel className="font-normal">Enable Discount</FormLabel>
+                    </FormItem>
+                  )}
+                />
+                {watchDiscountEnabled && (
+                  <div className="space-y-4 pt-2 pl-7 border-l ml-2">
+                    <FormField
+                      control={form.control}
+                      name="discountDescription"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Discount Description</FormLabel>
+                          <FormControl><Input placeholder="e.g. Early Bird Discount" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="discountType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Discount Type</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                <SelectItem value="fixed">Fixed Amount ({currentCurrencySymbol})</SelectItem>
+                                <SelectItem value="percentage">Percentage (%)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="discountValue"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Discount Value</FormLabel>
+                            <FormControl><Input type="number" placeholder="0.00" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+
             <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
@@ -675,8 +784,10 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
               <CardContent className="space-y-4">
                  <div className="space-y-2 pt-2">
                   <div className="flex justify-between"><span>Subtotal (Items):</span><span>{currentCurrencySymbol}{mainItemsSubtotal.toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span>Additional Charges:</span><span>{currentCurrencySymbol}{totalCalculatedAdditionalCharges.toFixed(2)}</span></div>
-                   <div className="flex justify-between font-medium border-t pt-1 mt-1"><span>Taxable Amount:</span><span>{currentCurrencySymbol}{taxableAmount.toFixed(2)}</span></div>
+                  {totalAdditionalCharges > 0 && <div className="flex justify-between"><span>Additional Charges:</span><span>{currentCurrencySymbol}{totalAdditionalCharges.toFixed(2)}</span></div>}
+                  <div className="flex justify-between font-medium border-t pt-1 mt-1"><span>Subtotal:</span><span>{currentCurrencySymbol}{preDiscountSubtotal.toFixed(2)}</span></div>
+                  {watchDiscountEnabled && discountAmount > 0 && <div className="flex justify-between text-destructive"><span>Discount:</span><span>-{currentCurrencySymbol}{discountAmount.toFixed(2)}</span></div>}
+                  <div className="flex justify-between font-medium border-t pt-1 mt-1"><span>Taxable Amount:</span><span>{currentCurrencySymbol}{taxableAmount.toFixed(2)}</span></div>
                 </div>
                 <FormField control={form.control} name="taxRate" render={({ field }) => (
                   <FormItem>
@@ -705,3 +816,4 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
 }
 
 InvoiceForm.displayName = "InvoiceForm";
+

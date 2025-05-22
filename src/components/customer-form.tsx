@@ -28,12 +28,41 @@ interface CustomerFormProps {
 const currencies = [
   { value: 'USD', label: 'USD - United States Dollar' },
   { value: 'EUR', label: 'EUR - Euro' },
-  { value: 'GBP', label: 'GBP - British Pound Sterling' },
-  { value: 'INR', label: 'INR - Indian Rupee' },
-  { value: 'CAD', label: 'CAD - Canadian Dollar' },
-  { value: 'AUD', label: 'AUD - Australian Dollar' },
   { value: 'JPY', label: 'JPY - Japanese Yen' },
+  { value: 'GBP', label: 'GBP - British Pound Sterling' },
+  { value: 'AUD', label: 'AUD - Australian Dollar' },
+  { value: 'CAD', label: 'CAD - Canadian Dollar' },
+  { value: 'CHF', label: 'CHF - Swiss Franc' },
+  { value: 'CNY', label: 'CNY - Chinese Yuan Renminbi' },
+  { value: 'SEK', label: 'SEK - Swedish Krona' },
+  { value: 'NZD', label: 'NZD - New Zealand Dollar' },
+  { value: 'MXN', label: 'MXN - Mexican Peso' },
+  { value: 'SGD', label: 'SGD - Singapore Dollar' },
+  { value: 'HKD', label: 'HKD - Hong Kong Dollar' },
+  { value: 'NOK', label: 'NOK - Norwegian Krone' },
+  { value: 'KRW', label: 'KRW - South Korean Won' },
+  { value: 'TRY', label: 'TRY - Turkish Lira' },
+  { value: 'RUB', label: 'RUB - Russian Ruble' },
+  { value: 'INR', label: 'INR - Indian Rupee' },
+  { value: 'BRL', label: 'BRL - Brazilian Real' },
+  { value: 'ZAR', label: 'ZAR - South African Rand' },
+  { value: 'AED', label: 'AED - UAE Dirham' },
+  { value: 'ARS', label: 'ARS - Argentine Peso' },
+  { value: 'CLP', label: 'CLP - Chilean Peso' },
+  { value: 'COP', label: 'COP - Colombian Peso' },
+  { value: 'CZK', label: 'CZK - Czech Koruna' },
+  { value: 'DKK', label: 'DKK - Danish Krone' },
+  { value: 'HUF', label: 'HUF - Hungarian Forint' },
+  { value: 'IDR', label: 'IDR - Indonesian Rupiah' },
+  { value: 'ILS', label: 'ILS - Israeli New Shekel' },
+  { value: 'MYR', label: 'MYR - Malaysian Ringgit' },
+  { value: 'PHP', label: 'PHP - Philippine Peso' },
+  { value: 'PLN', label: 'PLN - Polish Złoty' },
+  { value: 'SAR', label: 'SAR - Saudi Riyal' },
+  { value: 'THB', label: 'THB - Thai Baht' },
+  { value: 'TWD', label: 'TWD - New Taiwan Dollar' },
 ];
+
 
 export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: CustomerFormProps) {
   const form = useForm<CustomerFormData>({
@@ -291,3 +320,4 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
 }
 
 CustomerForm.displayName = "CustomerForm";
+
