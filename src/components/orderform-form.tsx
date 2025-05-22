@@ -283,12 +283,12 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
 
   const handleMsaTemplateSelect = (selectedMsaTemplateId: string) => {
     form.setValue('linkedMsaTemplateId', selectedMsaTemplateId, {shouldDirty: true});
-    if (selectedMsaTemplateId === NO_MSA_TEMPLATE_SELECTED || !selectedMsaTemplateId) {
+    const selectedTemplate = msaTemplates.find(t => t.id === selectedMsaTemplateId);
+    if (selectedMsaTemplateId === NO_MSA_TEMPLATE_SELECTED || !selectedMsaTemplateId || !selectedTemplate) {
       form.setValue('msaContent', '', { shouldDirty: true });
       form.setValue('msaCoverPageTemplateId', '', { shouldDirty: true });
       return;
     }
-    const selectedTemplate = msaTemplates.find(t => t.id === selectedMsaTemplateId);
     if (selectedTemplate) {
       form.setValue('msaContent', selectedTemplate.content, { shouldDirty: true });
       form.setValue('msaCoverPageTemplateId', selectedTemplate.coverPageTemplateId || '', { shouldDirty: true });
@@ -564,7 +564,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                         {itemFields.length > 1 && (<Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>)}
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-dashed">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-2 mt-1 rounded-md bg-muted/30 border border-dashed border-border">
                       <FormField control={form.control} name={`items.${index}.procurementPrice`} render={({ field: procPriceField }) => (
                         <FormItem>
                           <FormLabel className="text-xs flex items-center"><Tag className="mr-1 h-3 w-3 text-muted-foreground"/>Procurement Price ({currentCurrencySymbol})</FormLabel>
@@ -836,3 +836,4 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
 }
 
 OrderFormForm.displayName = "OrderFormForm";
+
