@@ -17,8 +17,8 @@ export default function LoginPage() {
     event.preventDefault();
     // For a real app, you would handle authentication here
     console.log('Login submitted');
-    // On successful login, redirect to the app's main page
-    router.push('/invoices'); 
+    // On successful login, redirect to the app's dashboard page
+    router.push('/dashboard'); 
   };
 
   return (
@@ -33,7 +33,7 @@ export default function LoginPage() {
             className="dark:invert"
           />
         </div>
-        <Card className="w-full shadow-xl bg-card/90 backdrop-blur-sm"> {/* Added some transparency to card */}
+        <Card className="w-full shadow-xl bg-card/90 backdrop-blur-sm">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl text-card-foreground">Welcome Back!</CardTitle>
             <CardDescription className="text-card-foreground/80">Enter your credentials to access your account</CardDescription>
