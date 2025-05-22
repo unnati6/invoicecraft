@@ -2,14 +2,13 @@
 'use client';
 
 import * as _React from 'react';
-import type { OrderForm, Customer, CoverPageTemplate } from '@/types'; // Added CoverPageTemplate
+import type { OrderForm, Customer, CoverPageTemplate } from '@/types'; 
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
-import { CoverPageContent } from '@/components/cover-page-content'; // Import CoverPageContent
-import { fetchCoverPageTemplateById } from '@/lib/actions'; // Import the action
+import { CoverPageContent } from '@/components/cover-page-content'; 
 
 const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
 const SIGNATURE_STORAGE_KEY = 'branding_company_signature_data_url';
@@ -28,6 +27,7 @@ const COMPANY_INFO_KEYS = {
 interface OrderFormPreviewContentProps {
   document: OrderForm;
   customer?: Customer;
+  coverPageTemplate?: CoverPageTemplate; // Added prop
 }
 
 function replacePlaceholders(
@@ -109,7 +109,7 @@ function replacePlaceholders(
 }
 
 
-export function OrderFormPreviewContent({ document: orderForm, customer }: OrderFormPreviewContentProps) {
+export function OrderFormPreviewContent({ document: orderForm, customer, coverPageTemplate }: OrderFormPreviewContentProps) {
   const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
   const [companySignatureUrl, setCompanySignatureUrl] = _React.useState<string | null>(null);
   const [yourCompany, setYourCompany] = _React.useState({
@@ -119,9 +119,6 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
     email: 'sales@yourcompany.com',
     phone: '(555) 123-7890'
   });
-  const [coverPageTemplate, setCoverPageTemplate] = _React.useState<CoverPageTemplate | undefined>(undefined);
-  const [isLoadingCoverPage, setIsLoadingCoverPage] = _React.useState(false);
-
 
   _React.useEffect(() => {
     const isClient = typeof window !== 'undefined';
@@ -157,38 +154,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
             email,
         });
     }
-  }, [yourCompany.name, yourCompany.email, yourCompany.phone]); // Dependencies to re-run if these specific default values change
-
-  _React.useEffect(() => {
-    const msaCoverId = orderForm?.msaCoverPageTemplateId;
-
-    async function loadCoverPage() {
-      if (msaCoverId && msaCoverId !== '') {
-        setIsLoadingCoverPage(true);
-        console.log(`[OrderFormPreviewContent ${orderForm?.id}] Fetching cover page template ID: ${msaCoverId}`);
-        try {
-          const cpt = await fetchCoverPageTemplateById(msaCoverId);
-           if (cpt) {
-            console.log(`[OrderFormPreviewContent ${orderForm?.id}] Successfully fetched cover page template: ${cpt.name}`);
-            setCoverPageTemplate(cpt);
-          } else {
-            console.warn(`[OrderFormPreviewContent ${orderForm?.id}] Cover page template ID ${msaCoverId} not found.`);
-            setCoverPageTemplate(undefined);
-          }
-        } catch (error) {
-          console.error(`[OrderFormPreviewContent ${orderForm?.id}] Error fetching cover page template ID ${msaCoverId}:`, error);
-          setCoverPageTemplate(undefined);
-        } finally {
-          setIsLoadingCoverPage(false);
-        }
-      } else {
-        console.log(`[OrderFormPreviewContent ${orderForm?.id}] No msaCoverPageTemplateId, clearing cover page template.`);
-        setCoverPageTemplate(undefined);
-        setIsLoadingCoverPage(false);
-      }
-    }
-    loadCoverPage();
-  }, [orderForm?.id, orderForm?.msaCoverPageTemplateId]);
+  }, [yourCompany.name, yourCompany.email, yourCompany.phone]);
 
    const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
     name: orderForm.customerName || customer?.name || 'N/A',
@@ -207,10 +173,6 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
   
   const processedMsaContent = orderForm.msaContent ? replacePlaceholders(orderForm.msaContent, orderForm, customer) : undefined;
   const processedTermsAndConditions = replacePlaceholders(orderForm.termsAndConditions, orderForm, customer);
-
-  if (isLoadingCoverPage && orderForm?.msaCoverPageTemplateId) {
-    return <div className="p-6 text-center">Loading cover page...</div>;
-  }
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
@@ -384,5 +346,3 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
 }
 
 OrderFormPreviewContent.displayName = "OrderFormPreviewContent";
-
-    

@@ -15,40 +15,42 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { OrderForm, Customer } from '@/types';
+import type { OrderForm, Customer, CoverPageTemplate } from '@/types';
 import { Download, Printer, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { downloadOrderFormAsExcel, fetchCustomerById } from '@/lib/actions';
+import { downloadOrderFormAsExcel, fetchCustomerById, fetchCoverPageTemplateById } from '@/lib/actions';
 import { useState, useEffect } from 'react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import { OrderFormPreviewContent } from './orderform-preview-content'; // Changed
+import { downloadPdfForDocument } from '@/lib/pdf-utils'; // Updated import for consistency
+import { OrderFormPreviewContent } from './orderform-preview-content'; 
 
 interface OrderFormPreviewDialogProps {
-  orderForm: OrderForm; // Changed
+  orderForm: OrderForm; 
   customer?: Customer;
   trigger: ReactNode;
 }
 
-export function OrderFormPreviewDialog({ orderForm: initialOrderForm, customer: initialCustomer, trigger }: OrderFormPreviewDialogProps) { // Changed
+export function OrderFormPreviewDialog({ orderForm: initialOrderForm, customer: initialCustomer, trigger }: OrderFormPreviewDialogProps) { 
   const { toast } = useToast();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
-  const [orderForm, setOrderForm] = useState<OrderForm>(initialOrderForm); // Changed
+  const [orderForm, setOrderForm] = useState<OrderForm>(initialOrderForm); 
   const [customer, setCustomer] = useState<Customer | undefined>(initialCustomer);
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+  const [coverPageTemplate, setCoverPageTemplate] = useState<CoverPageTemplate | undefined>(undefined);
+  const [isLoadingCoverPage, setIsLoadingCoverPage] = useState(false);
+
 
   useEffect(() => {
-    setOrderForm(initialOrderForm); // Changed
+    setOrderForm(initialOrderForm); 
     setCustomer(initialCustomer);
-  }, [initialOrderForm, initialCustomer]); // Changed
+  }, [initialOrderForm, initialCustomer]); 
 
   useEffect(() => {
     const loadCustomerDetails = async () => {
-      if (orderForm.customerId && !customer) { // Changed
+      if (orderForm.customerId && !customer) { 
         setIsLoadingCustomer(true);
         try {
-          const fetchedCustomer = await fetchCustomerById(orderForm.customerId); // Changed
+          const fetchedCustomer = await fetchCustomerById(orderForm.customerId); 
           setCustomer(fetchedCustomer);
         } catch (error) {
           console.error("Failed to fetch customer for preview dialog:", error);
@@ -58,46 +60,48 @@ export function OrderFormPreviewDialog({ orderForm: initialOrderForm, customer: 
         }
       }
     };
-    if (orderForm.customerId && !customer) { // Changed
+    if (orderForm.customerId && (!customer || customer.id !== orderForm.customerId)) { 
         loadCustomerDetails();
     }
-  }, [orderForm.customerId, customer, toast]); // Changed
+  }, [orderForm.customerId, customer, toast]); 
+
+  useEffect(() => {
+    const loadCoverPageTemplate = async () => {
+      if (orderForm.msaCoverPageTemplateId) {
+        setIsLoadingCoverPage(true);
+        console.log(`[OrderFormPreviewDialog] Attempting to fetch cover page template ID: ${orderForm.msaCoverPageTemplateId}`);
+        try {
+          const cpt = await fetchCoverPageTemplateById(orderForm.msaCoverPageTemplateId);
+          setCoverPageTemplate(cpt);
+           console.log(`[OrderFormPreviewDialog] Fetched cover page template: ${cpt ? cpt.name : 'Not found'}`);
+        } catch (error) {
+          console.error("Failed to fetch cover page template for dialog:", error);
+          setCoverPageTemplate(undefined);
+        } finally {
+          setIsLoadingCoverPage(false);
+        }
+      } else {
+        setCoverPageTemplate(undefined);
+        setIsLoadingCoverPage(false);
+        console.log(`[OrderFormPreviewDialog] No msaCoverPageTemplateId for order form ${orderForm.id}`);
+      }
+    };
+
+    loadCoverPageTemplate();
+  }, [orderForm.id, orderForm.msaCoverPageTemplateId]);
 
   const handleDownload = async (type: 'pdf' | 'excel') => {
     const setLoading = type === 'pdf' ? setIsDownloadingPdf : setIsDownloadingExcel;
-    const fileNameBase = `OrderForm_${orderForm.orderFormNumber}`; // Changed
+    const fileNameBase = `OrderForm_${orderForm.orderFormNumber}`; 
 
     setLoading(true);
     toast({ title: 'Processing...', description: `Generating ${type === 'pdf' ? 'PDF' : 'CSV (Excel Content)'}...` });
     
     try {
       if (type === 'pdf') {
-        const input = document.getElementById('orderFormPrintAreaDialog');  // Changed
-        if (!input) {
-          toast({ title: 'Error', description: 'Preview content not found for PDF generation.', variant: 'destructive' });
-          setLoading(false);
-          return;
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        const canvas = await html2canvas(input, { scale: 2, useCORS: true, logging: false });
-        const imgData = canvas.toDataURL('image/png');
-        
-        const pdfWidth = canvas.width;
-        const pdfHeight = canvas.height;
-        
-        const pdf = new jsPDF({
-          orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
-          unit: 'pt',
-          format: [pdfWidth, pdfHeight]
-        });
-        
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`${fileNameBase}.pdf`);
-        toast({ title: 'Success!', description: `${fileNameBase}.pdf downloaded.` });
-
+        await downloadPdfForDocument(orderForm, customer); // Use the utility
       } else if (type === 'excel') {
-        const result = await downloadOrderFormAsExcel(orderForm.id); // Changed
+        const result = await downloadOrderFormAsExcel(orderForm.id); 
         if (result.success && result.fileData && result.mimeType && result.fileName) {
           const dataUri = `data:${result.mimeType};base64,${result.fileData}`;
           const link = document.createElement('a');
@@ -124,32 +128,32 @@ export function OrderFormPreviewDialog({ orderForm: initialOrderForm, customer: 
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-w-4xl w-full">
         <DialogHeader>
-          <DialogTitle>Order Form Preview: {orderForm.orderFormNumber}</DialogTitle> {/* Changed */}
-          <DialogDescription>Review the order form details below. PDF download will generate a PDF from this preview. Excel download provides a CSV file.</DialogDescription> {/* Changed */}
+          <DialogTitle>Order Form Preview: {orderForm.orderFormNumber}</DialogTitle> 
+          <DialogDescription>Review the order form details below. PDF download will generate a PDF from this preview. Excel download provides a CSV file.</DialogDescription> 
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] p-1 pr-6">
-           {isLoadingCustomer ? (
+           {(isLoadingCustomer || isLoadingCoverPage) ? (
             <div className="flex justify-center items-center h-64">
-              <p>Loading customer details...</p>
+              <p>Loading preview data...</p>
             </div>
            ) : (
-           <div id="orderFormPrintAreaDialog">  {/* Changed */}
-            <OrderFormPreviewContent document={orderForm} customer={customer} /> {/* Changed */}
+           <div id={`orderFormPrintAreaDialog-${orderForm.id}`}>  
+            <OrderFormPreviewContent document={orderForm} customer={customer} coverPageTemplate={coverPageTemplate} /> 
           </div>
           )}
         </ScrollArea>
         <DialogFooter className="sm:justify-start gap-2 pt-4">
-          <Button onClick={() => handleDownload('pdf')} disabled={isDownloadingPdf || isLoadingCustomer}>
+          <Button onClick={() => handleDownload('pdf')} disabled={isDownloadingPdf || isLoadingCustomer || isLoadingCoverPage}>
             <Download className="mr-2 h-4 w-4" /> {isDownloadingPdf ? 'Downloading...' : 'Download PDF'}
           </Button>
-          <Button onClick={() => handleDownload('excel')} variant="outline" disabled={isDownloadingExcel || isLoadingCustomer}>
+          <Button onClick={() => handleDownload('excel')} variant="outline" disabled={isDownloadingExcel || isLoadingCustomer || isLoadingCoverPage}>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> {isDownloadingExcel ? 'Downloading...' : 'Download Excel'}
           </Button>
           <Button variant="outline" onClick={() => {
-             const printArea = document.getElementById('orderFormPrintAreaDialog'); // Changed
+             const printArea = document.getElementById(`orderFormPrintAreaDialog-${orderForm.id}`); 
              if (printArea) {
                 const printWindow = window.open('', '_blank');
-                printWindow?.document.write('<html><head><title>Print Order Form</title>'); // Changed
+                printWindow?.document.write('<html><head><title>Print Order Form</title>'); 
                 const styles = Array.from(document.styleSheets)
                     .map(styleSheet => {
                         try {
@@ -169,7 +173,7 @@ export function OrderFormPreviewDialog({ orderForm: initialOrderForm, customer: 
                 printWindow?.print();
              }
           }}
-          disabled={isLoadingCustomer}
+          disabled={isLoadingCustomer || isLoadingCoverPage}
           >
             <Printer className="mr-2 h-4 w-4" /> Print
           </Button>

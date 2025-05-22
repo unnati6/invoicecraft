@@ -15,18 +15,17 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { Invoice, Customer } from '@/types';
+import type { Invoice, Customer, CoverPageTemplate } from '@/types';
 import { Download, Printer, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { downloadInvoiceAsExcel, fetchCustomerById } from '@/lib/actions'; // Added fetchCustomerById
+import { downloadInvoiceAsExcel, fetchCustomerById, fetchCoverPageTemplateById } from '@/lib/actions';
 import { useState, useEffect } from 'react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { downloadPdfForDocument } from '@/lib/pdf-utils'; // Updated import for consistency
 import { InvoicePreviewContent } from './invoice-preview-content';
 
 interface InvoicePreviewDialogProps {
   invoice: Invoice;
-  customer?: Customer; 
+  customer?: Customer;
   trigger: ReactNode;
 }
 
@@ -37,6 +36,8 @@ export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initia
   const [invoice, setInvoice] = useState<Invoice>(initialInvoice);
   const [customer, setCustomer] = useState<Customer | undefined>(initialCustomer);
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+  const [coverPageTemplate, setCoverPageTemplate] = useState<CoverPageTemplate | undefined>(undefined);
+  const [isLoadingCoverPage, setIsLoadingCoverPage] = useState(false);
 
   useEffect(() => {
     setInvoice(initialInvoice);
@@ -59,10 +60,35 @@ export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initia
       }
     };
 
-    if (invoice.customerId && !customer) {
+    if (invoice.customerId && (!customer || customer.id !== invoice.customerId)) {
         loadCustomerDetails();
     }
   }, [invoice.customerId, customer, toast]);
+
+  useEffect(() => {
+    const loadCoverPageTemplate = async () => {
+      if (invoice.msaCoverPageTemplateId) {
+        setIsLoadingCoverPage(true);
+        console.log(`[InvoicePreviewDialog] Attempting to fetch cover page template ID: ${invoice.msaCoverPageTemplateId}`);
+        try {
+          const cpt = await fetchCoverPageTemplateById(invoice.msaCoverPageTemplateId);
+          setCoverPageTemplate(cpt);
+          console.log(`[InvoicePreviewDialog] Fetched cover page template: ${cpt ? cpt.name : 'Not found'}`);
+        } catch (error) {
+          console.error("Failed to fetch cover page template for dialog:", error);
+          setCoverPageTemplate(undefined);
+        } finally {
+          setIsLoadingCoverPage(false);
+        }
+      } else {
+        setCoverPageTemplate(undefined);
+        setIsLoadingCoverPage(false);
+         console.log(`[InvoicePreviewDialog] No msaCoverPageTemplateId for invoice ${invoice.id}`);
+      }
+    };
+
+    loadCoverPageTemplate();
+  }, [invoice.id, invoice.msaCoverPageTemplateId]);
 
 
   const handleDownload = async (type: 'pdf' | 'excel') => {
@@ -74,30 +100,7 @@ export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initia
     
     try {
       if (type === 'pdf') {
-        const input = document.getElementById('invoicePrintAreaDialog'); 
-        if (!input) {
-          toast({ title: 'Error', description: 'Preview content not found for PDF generation.', variant: 'destructive' });
-          setLoading(false);
-          return;
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        const canvas = await html2canvas(input, { scale: 2, useCORS: true, logging: false }); 
-        const imgData = canvas.toDataURL('image/png');
-        
-        const pdfWidth = canvas.width;
-        const pdfHeight = canvas.height;
-
-        const pdf = new jsPDF({
-          orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
-          unit: 'pt', 
-          format: [pdfWidth, pdfHeight],
-        });
-        
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`${fileNameBase}.pdf`);
-        toast({ title: 'Success!', description: `${fileNameBase}.pdf downloaded.` });
-
+        await downloadPdfForDocument(invoice, customer); // Use the utility
       } else if (type === 'excel') {
         const result = await downloadInvoiceAsExcel(invoice.id);
         if (result.success && result.fileData && result.mimeType && result.fileName) {
@@ -130,25 +133,25 @@ export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initia
           <DialogDescription>Review the invoice details below. PDF download will generate a PDF from this preview. Excel download provides a CSV file.</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] p-1 pr-6">
-          {isLoadingCustomer ? (
+          {(isLoadingCustomer || isLoadingCoverPage) ? (
             <div className="flex justify-center items-center h-64">
-              <p>Loading customer details...</p>
+              <p>Loading preview data...</p>
             </div>
           ) : (
-            <div id="invoicePrintAreaDialog">
-              <InvoicePreviewContent document={invoice} customer={customer} />
+            <div id={`invoicePrintAreaDialog-${invoice.id}`}> {/* Unique ID for PDF generation target */}
+              <InvoicePreviewContent document={invoice} customer={customer} coverPageTemplate={coverPageTemplate} />
             </div>
           )}
         </ScrollArea>
         <DialogFooter className="sm:justify-start gap-2 pt-4">
-          <Button onClick={() => handleDownload('pdf')} disabled={isDownloadingPdf || isLoadingCustomer}>
+          <Button onClick={() => handleDownload('pdf')} disabled={isDownloadingPdf || isLoadingCustomer || isLoadingCoverPage}>
             <Download className="mr-2 h-4 w-4" /> {isDownloadingPdf ? 'Downloading...' : 'Download PDF'}
           </Button>
-          <Button onClick={() => handleDownload('excel')} variant="outline" disabled={isDownloadingExcel || isLoadingCustomer}>
+          <Button onClick={() => handleDownload('excel')} variant="outline" disabled={isDownloadingExcel || isLoadingCustomer || isLoadingCoverPage}>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> {isDownloadingExcel ? 'Downloading...' : 'Download Excel'}
           </Button>
           <Button variant="outline" onClick={() => {
-             const printArea = document.getElementById('invoicePrintAreaDialog');
+             const printArea = document.getElementById(`invoicePrintAreaDialog-${invoice.id}`);
              if (printArea) {
                 const printWindow = window.open('', '_blank');
                 printWindow?.document.write('<html><head><title>Print Invoice</title>');
@@ -171,7 +174,7 @@ export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initia
                 printWindow?.print();
              }
           }}
-          disabled={isLoadingCustomer}
+          disabled={isLoadingCustomer || isLoadingCoverPage}
           >
             <Printer className="mr-2 h-4 w-4" /> Print
           </Button>

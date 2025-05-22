@@ -9,7 +9,6 @@ import { getCurrencySymbol } from '@/lib/currency-utils';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import { CoverPageContent } from '@/components/cover-page-content';
-import { fetchCoverPageTemplateById } from '@/lib/actions'; // Import the action
 
 const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
 const SIGNATURE_STORAGE_KEY = 'branding_company_signature_data_url';
@@ -28,6 +27,7 @@ const COMPANY_INFO_KEYS = {
 interface InvoicePreviewContentProps {
   document: Invoice;
   customer?: Customer;
+  coverPageTemplate?: CoverPageTemplate; // Added prop
 }
 
 function replacePlaceholders(
@@ -109,7 +109,7 @@ function replacePlaceholders(
 }
 
 
-export function InvoicePreviewContent({ document: invoice, customer }: InvoicePreviewContentProps) {
+export function InvoicePreviewContent({ document: invoice, customer, coverPageTemplate }: InvoicePreviewContentProps) {
   const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
   const [companySignatureUrl, setCompanySignatureUrl] = _React.useState<string | null>(null);
   const [yourCompany, setYourCompany] = _React.useState({
@@ -119,8 +119,6 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
     email: 'billing@yourcompany.com',
     phone: '(555) 123-4567'
   });
-  const [coverPageTemplate, setCoverPageTemplate] = _React.useState<CoverPageTemplate | undefined>(undefined);
-  const [isLoadingCoverPage, setIsLoadingCoverPage] = _React.useState(false);
 
    _React.useEffect(() => {
     const isClient = typeof window !== 'undefined';
@@ -156,39 +154,7 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         email,
       });
     }
-  }, [yourCompany.name, yourCompany.email, yourCompany.phone]); // Dependencies to re-run if these specific default values change
-
-  _React.useEffect(() => {
-    const msaCoverId = invoice?.msaCoverPageTemplateId;
-
-    async function loadCoverPage() {
-      if (msaCoverId && msaCoverId !== '') {
-        setIsLoadingCoverPage(true);
-        console.log(`[InvoicePreviewContent ${invoice?.id}] Fetching cover page template ID: ${msaCoverId}`);
-        try {
-          const cpt = await fetchCoverPageTemplateById(msaCoverId);
-          if (cpt) {
-            console.log(`[InvoicePreviewContent ${invoice?.id}] Successfully fetched cover page template: ${cpt.name}`);
-            setCoverPageTemplate(cpt);
-          } else {
-            console.warn(`[InvoicePreviewContent ${invoice?.id}] Cover page template ID ${msaCoverId} not found.`);
-            setCoverPageTemplate(undefined);
-          }
-        } catch (error) {
-          console.error(`[InvoicePreviewContent ${invoice?.id}] Error fetching cover page template ID ${msaCoverId}:`, error);
-          setCoverPageTemplate(undefined);
-        } finally {
-          setIsLoadingCoverPage(false);
-        }
-      } else {
-        console.log(`[InvoicePreviewContent ${invoice?.id}] No msaCoverPageTemplateId, clearing cover page template.`);
-        setCoverPageTemplate(undefined);
-        setIsLoadingCoverPage(false);
-      }
-    }
-
-    loadCoverPage();
-  }, [invoice?.id, invoice?.msaCoverPageTemplateId]);
+  }, [yourCompany.name, yourCompany.email, yourCompany.phone]);
 
 
   const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
@@ -209,10 +175,6 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
   
   const processedMsaContent = invoice.msaContent ? replacePlaceholders(invoice.msaContent, invoice, customer) : undefined;
   const processedTermsAndConditions = replacePlaceholders(invoice.termsAndConditions, invoice, customer);
-
-  if (isLoadingCoverPage && invoice?.msaCoverPageTemplateId) {
-    return <div className="p-6 text-center">Loading cover page...</div>;
-  }
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
@@ -385,5 +347,3 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 }
 
 InvoicePreviewContent.displayName = "InvoicePreviewContent";
-
-    
