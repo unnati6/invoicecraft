@@ -60,13 +60,13 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     invoiceNumber: data.invoiceNumber,
     issueDate: data.issueDate,
     dueDate: data.dueDate,
-    taxRate: data.taxRate || 0,
     items: data.items, 
     additionalCharges: data.additionalCharges,
     discountEnabled: data.discountEnabled,
     discountDescription: data.discountDescription,
     discountType: data.discountType,
     discountValue: data.discountValue,
+    taxRate: data.taxRate || 0,
     linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId,
     msaContent: data.msaContent,
     msaCoverPageTemplateId: data.msaCoverPageTemplateId,
@@ -117,7 +117,9 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
         {
           defaultRate: item.rate,
           currencyCode: invoiceCurrency,
-        }
+        },
+        undefined, // customerId not relevant for invoice updates to repository
+        undefined  // customerName not relevant for invoice updates to repository
       );
     }
     revalidatePath('/item-repository');
@@ -216,16 +218,14 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
   if (savedOrderForm) {
     const customer = await fetchCustomerById(savedOrderForm.customerId);
     const orderFormCurrency = customer?.currency || savedOrderForm.currencyCode || 'USD';
+    const customerNameForRepo = customer?.name || 'Unknown Customer';
 
     for (const item of savedOrderForm.items) {
-      await Data.findRepositoryItemByNameAndUpdate(
-        item.description, // This is used as the 'name' for matching
-        {
-          defaultRate: item.rate,
-          defaultProcurementPrice: item.procurementPrice,
-          defaultVendorName: item.vendorName,
-          currencyCode: orderFormCurrency, 
-        }
+      await Data.upsertRepositoryItemFromOrderForm(
+        item,
+        savedOrderForm.customerId,
+        customerNameForRepo,
+        orderFormCurrency
       );
     }
     revalidatePath('/item-repository'); 
@@ -500,7 +500,7 @@ export async function saveMsaTemplate(data: MsaTemplateFormData, id?: string): P
   const payload: Partial<Omit<MsaTemplate, 'id' | 'createdAt'>> = {
     name: data.name,
     content: data.content,
-    coverPageTemplateId: data.coverPageTemplateId === "_no_cover_page_" ? undefined : data.coverPageTemplateId,
+    coverPageTemplateId: data.coverPageTemplateId === "_no_cover_page_" || data.coverPageTemplateId === "" ? undefined : data.coverPageTemplateId,
   };
 
   if (id) {
@@ -585,13 +585,34 @@ export async function getAllRepositoryItems(): Promise<RepositoryItem[]> {
   return Data.getRepositoryItems();
 }
 
+export async function fetchRepositoryItemById(id: string): Promise<RepositoryItem | undefined> { // New function
+  return Data.getRepositoryItemById(id);
+}
+
 export async function saveRepositoryItem(data: RepositoryItemFormData, id?: string): Promise<RepositoryItem | null> {
+  const itemDataToSave: Partial<Omit<RepositoryItem, 'id' | 'createdAt'>> = {
+    name: data.name,
+    defaultRate: data.defaultRate,
+    defaultProcurementPrice: data.defaultProcurementPrice,
+    defaultVendorName: data.defaultVendorName,
+    currencyCode: data.currencyCode,
+    // customerId and customerName are part of the RepositoryItem type,
+    // but they are not directly editable via the main repository item form.
+    // They are set when an item becomes customer-specific via an OrderForm.
+    // However, if editing an existing client-specific item, we preserve them.
+    customerId: data.customerId, 
+    customerName: data.customerName,
+  };
+
   if (id) {
-    const updated = await Data.updateRepositoryItem(id, data);
+    const updated = await Data.updateRepositoryItem(id, itemDataToSave);
     if (updated) revalidatePath('/item-repository');
     return updated;
   } else {
-    const newItem = await Data.createRepositoryItem(data);
+    // Creating new global repository items via this form is not fully fleshed out
+    // as it lacks customerId/customerName context by default.
+    // For now, this path is less likely to be hit by current UI.
+    const newItem = await Data.createRepositoryItem(itemDataToSave as Omit<RepositoryItem, 'id' | 'createdAt'>);
     if (newItem) revalidatePath('/item-repository');
     return newItem;
   }
@@ -602,4 +623,3 @@ export async function removeRepositoryItem(id: string): Promise<boolean> {
   if (success) revalidatePath('/item-repository');
   return success;
 }
-
