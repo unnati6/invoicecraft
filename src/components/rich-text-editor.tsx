@@ -4,11 +4,16 @@
 import * as React from 'react';
 import { useEditor, EditorContent, type Editor, Mark } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline'; // Import Underline
+import Underline from '@tiptap/extension-underline';
+import LinkExtension from '@tiptap/extension-link';
+import { Color as TiptapColor } from '@tiptap/extension-color';
+import TextStyle from '@tiptap/extension-text-style';
+import { Image as TiptapImage } from '@tiptap/extension-image';
+
 import {
   Bold,
   Italic,
-  Underline as UnderlineIcon, // Import UnderlineIcon
+  Underline as UnderlineIcon,
   Heading1,
   Heading2,
   Heading3,
@@ -17,6 +22,10 @@ import {
   Pilcrow,
   Type as FontIcon,
   Tags,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  Palette,
+  Paintbrush, // Icon for default color
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -109,7 +118,7 @@ const dataTags = [
   { label: 'Shipping: Country', value: '{{customerShippingAddress.country}}' },
   { label: 'Document Number', value: '{{documentNumber}}' },
   { label: 'Issue Date', value: '{{issueDate}}' },
-  { label: 'Due Date / Valid Until / Expiry Date', value: '{{dueDate}}' }, // Using a generic name for due/expiry/valid until
+  { label: 'Due Date / Valid Until / Expiry Date', value: '{{dueDate}}' },
   { label: 'Total Amount', value: '{{totalAmount}}' },
   { label: 'Payment Terms', value: '{{paymentTerms}}' },
   { label: 'Commitment Period', value: '{{commitmentPeriod}}' },
@@ -138,7 +147,7 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
       label: 'Italic',
       disabled: disabled || !editor.can().chain().focus().toggleItalic().run(),
     },
-    { // Added Underline button
+    {
       action: () => editor.chain().focus().toggleUnderline().run(),
       icon: UnderlineIcon,
       isActive: editor.isActive('underline'),
@@ -194,10 +203,30 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
 
   const fontSizes = ["8pt", "10pt", "12pt", "14pt", "16pt", "18pt", "20pt", "22pt", "24pt"];
 
+  const setLink = React.useCallback(() => {
+    const previousUrl = editor.getAttributes('link').href;
+    const url = window.prompt('URL', previousUrl);
+
+    if (url === null) return;
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  }, [editor]);
+
+  const addImage = React.useCallback(() => {
+    const url = window.prompt('Image URL');
+    if (url) {
+      editor.chain().focus().setImage({ src: url }).run();
+    }
+  }, [editor]);
+
+
   return (
     <div className={cn(
       "flex flex-wrap items-center gap-1 border-b border-input p-2 bg-background rounded-t-md",
-      "sticky top-16 z-10" 
+      "sticky top-16 z-10"
     )}>
       {basicFormattingItems.map((item) => (
         <Button
@@ -214,6 +243,33 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
           <item.icon className="h-4 w-4" />
         </Button>
       ))}
+
+      <Button // Link Button
+        type="button"
+        variant="outline"
+        size="icon"
+        onClick={setLink}
+        className={cn('h-8 w-8', { 'bg-accent text-accent-foreground': editor.isActive('link') })}
+        aria-label="Link"
+        title="Link"
+        disabled={disabled || !editor.can().chain().focus().toggleLink({ href: '' }).run()}
+      >
+        <LinkIcon className="h-4 w-4" />
+      </Button>
+
+      <Button // Image Button
+        type="button"
+        variant="outline"
+        size="icon"
+        onClick={addImage}
+        className={cn('h-8 w-8', { 'bg-accent text-accent-foreground': editor.isActive('image') })}
+        aria-label="Image"
+        title="Image"
+        disabled={disabled || !editor.can().chain().focus().setImage({ src: '' }).run()}
+      >
+        <ImageIcon className="h-4 w-4" />
+      </Button>
+
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -241,7 +297,33 @@ const MenuBar: React.FC<{ editor: Editor | null, disabled?: boolean }> = ({ edit
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      
+
+      <div className="flex items-center gap-1" title="Text Color">
+         <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => editor.chain().focus().unsetColor().run()}
+            className={cn('h-8 w-8', { 'bg-accent text-accent-foreground': !editor.getAttributes('textStyle').color })}
+            aria-label="Default Color"
+            title="Default Color"
+            disabled={disabled || !editor.can().chain().focus().unsetColor().run()}
+          >
+            <Paintbrush className="h-4 w-4" />
+        </Button>
+        <div className="relative h-8 w-8">
+          <Palette className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" />
+          <input
+            type="color"
+            onInput={(event) => editor.chain().focus().setColor((event.target as HTMLInputElement).value).run()}
+            value={editor.getAttributes('textStyle').color || '#000000'} // Fallback to black if no color is set
+            className="h-full w-full cursor-pointer appearance-none rounded-md border border-input bg-transparent p-0 opacity-0"
+            disabled={disabled}
+            title="Choose text color"
+          />
+        </div>
+      </div>
+
       {blockFormattingItems.map((item) => (
         <Button
           key={item.label}
@@ -289,7 +371,18 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
         },
       }),
       FontSizeMark,
-      Underline, // Added Underline extension
+      Underline,
+      LinkExtension.configure({
+        openOnClick: false, // Recommended to prevent accidental navigation
+        autolink: true,
+      }),
+      TiptapImage.configure({ // Basic image via URL
+        inline: false, // Can be true if you want inline images
+      }),
+      TextStyle.name, // Needs to be registered for TiptapColor to work
+      TiptapColor.configure({
+        types: ['textStyle'], // Apply color to textStyle marks
+      }),
     ],
     content: value,
     editable: !disabled,
@@ -340,3 +433,5 @@ declare module '@tiptap/core' {
     };
   }
 }
+
+    
