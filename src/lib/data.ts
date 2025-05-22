@@ -195,7 +195,36 @@ let mockRepositoryItems: RepositoryItem[] = [
   { id: 'repo_item_8', name: 'SEO Audit', defaultRate: 470, currencyCode: 'USD', createdAt: new Date(), defaultVendorName: "Search Boosters Pro", defaultProcurementPrice: 300, customerName: 'Bob The Builder', customerId: 'cust_2' },
 ];
 
-let mockPurchaseOrders: PurchaseOrder[] = [];
+let mockPurchaseOrders: PurchaseOrder[] = [
+  {
+    id: 'po_1',
+    poNumber: 'PO-001',
+    vendorName: 'Scope Masters',
+    orderFormId: 'of_1',
+    orderFormNumber: 'OF-001',
+    issueDate: new Date(2024, 0, 10),
+    items: [
+      { id: 'po_item_1', description: 'Initial Project Scoping', quantity: 1, procurementPrice: 400, totalVendorPayable: 400 }
+    ],
+    grandTotalVendorPayable: 400,
+    status: 'Issued',
+    createdAt: new Date(2024, 0, 10)
+  },
+  {
+    id: 'po_2',
+    poNumber: 'PO-002',
+    vendorName: 'Dev Experts Inc.',
+    orderFormId: 'of_1',
+    orderFormNumber: 'OF-001',
+    issueDate: new Date(2024, 0, 10),
+    items: [
+      { id: 'po_item_2', description: 'Phase 1 Development Estimate', quantity: 1, procurementPrice: 2000, totalVendorPayable: 2000 }
+    ],
+    grandTotalVendorPayable: 2000,
+    status: 'Draft',
+    createdAt: new Date(2024, 0, 10)
+  }
+];
 
 // --- Helper Functions ---
 const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -735,16 +764,18 @@ export const updateMsaTemplate = async (id: string, data: Partial<Omit<MsaTempla
   if (index === -1) return null;
 
   const currentTemplate = mockMsaTemplates[index];
+  // Create a new object with existing properties, then spread new data over it
   const updatedTemplate: MsaTemplate = { ...currentTemplate, ...data };
 
-  // Explicitly handle setting coverPageTemplateId to undefined if null is passed for unlinking
+  // If coverPageTemplateId is explicitly passed in data (even as undefined), use that value
   if (data.hasOwnProperty('coverPageTemplateId')) {
-    updatedTemplate.coverPageTemplateId = data.coverPageTemplateId === null ? undefined : data.coverPageTemplateId;
+    updatedTemplate.coverPageTemplateId = data.coverPageTemplateId;
   }
 
   mockMsaTemplates[index] = updatedTemplate;
   return { ...updatedTemplate };
 };
+
 
 export const deleteMsaTemplate = async (id: string): Promise<boolean> => {
   const initialLength = mockMsaTemplates.length;
@@ -830,7 +861,6 @@ export const deleteRepositoryItem = async (id: string): Promise<boolean> => {
   return mockRepositoryItems.length < initialLength;
 };
 
-
 export const upsertRepositoryItemFromOrderForm = async (
   itemFromDocument: OrderFormItem | InvoiceItem, 
   documentCustomerId: string,
@@ -839,8 +869,10 @@ export const upsertRepositoryItemFromOrderForm = async (
 ): Promise<RepositoryItem | null> => {
   
   const isOrderFormItem = 'procurementPrice' in itemFromDocument || 'vendorName' in itemFromDocument;
-
-  console.log("[UPSERT REPO ITEM] Start. Item from Document:", itemFromDocument.description, "CustID:", documentCustomerId, "IsOrderFormItem:", isOrderFormItem);
+  
+  console.log(
+    `[UPSERT REPO ITEM] Processing item: "${itemFromDocument.description}" for customer: "${documentCustomerName}" (ID: ${documentCustomerId}). Is OrderForm Item: ${isOrderFormItem}`
+  );
 
   const itemIndex = mockRepositoryItems.findIndex(
     (repoItem) =>
@@ -849,8 +881,8 @@ export const upsertRepositoryItemFromOrderForm = async (
   );
 
   if (itemIndex !== -1) {
+    console.log(`[UPSERT REPO ITEM] Found existing client-specific item to update. ID: ${mockRepositoryItems[itemIndex].id}`);
     const repoItemToUpdate = { ...mockRepositoryItems[itemIndex] };
-    console.log("[UPSERT REPO ITEM] Found existing client-specific item. Repo Item Before:", JSON.parse(JSON.stringify(repoItemToUpdate)));
     
     repoItemToUpdate.defaultRate = itemFromDocument.rate;
     repoItemToUpdate.currencyCode = documentCurrencyCode;
@@ -860,15 +892,15 @@ export const upsertRepositoryItemFromOrderForm = async (
         if (orderItem.procurementPrice !== undefined) {
             repoItemToUpdate.defaultProcurementPrice = orderItem.procurementPrice;
         }
-        if (orderItem.vendorName !== undefined) { // Allow empty string to clear vendor name
+        if (orderItem.vendorName !== undefined) {
             repoItemToUpdate.defaultVendorName = orderItem.vendorName;
         }
     }
     mockRepositoryItems[itemIndex] = repoItemToUpdate;
-    console.log("[UPSERT REPO ITEM] Updated existing repository item:", JSON.parse(JSON.stringify(repoItemToUpdate)));
+    console.log(`[UPSERT REPO ITEM] Updated to:`, JSON.parse(JSON.stringify(repoItemToUpdate)));
     return { ...mockRepositoryItems[itemIndex] };
   } else {
-    console.log("[UPSERT REPO ITEM] No existing client-specific item found for name:", itemFromDocument.description, "and customer:", documentCustomerName, ". Creating new.");
+    console.log(`[UPSERT REPO ITEM] No existing client-specific item found for name: "${itemFromDocument.description}" and customer: "${documentCustomerName}". Creating new.`);
     const newItemData: Omit<RepositoryItem, 'id' | 'createdAt'> = {
       name: itemFromDocument.description,
       defaultRate: itemFromDocument.rate,
@@ -882,11 +914,11 @@ export const upsertRepositoryItemFromOrderForm = async (
         newItemData.defaultVendorName = orderItem.vendorName;
     }
 
-    const newItem = await createRepositoryItem(newItemData);
-    console.log("[UPSERT REPO ITEM] Created new repository item:", JSON.parse(JSON.stringify(newItem)));
+    const newItem = await createRepositoryItem(newItemData); // createRepositoryItem already logs creation
     return { ...newItem };
   }
 };
+
 
 // --- Purchase Order Functions ---
 export const getPurchaseOrders = async (): Promise<PurchaseOrder[]> => {
