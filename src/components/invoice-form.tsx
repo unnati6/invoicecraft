@@ -68,7 +68,7 @@ const commitmentPeriodOptions = [
   { value: "Custom", label: "Custom" },
 ];
 
-const NO_MSA_TEMPLATE_SELECTED = "none";
+const NO_MSA_TEMPLATE_SELECTED = "_no_msa_template_"; // Changed from "none"
 
 export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitting = false }: InvoiceFormProps) {
   const [customers, setCustomers] = React.useState<Customer[]>([]);
@@ -299,7 +299,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
       try {
         await saveInvoiceTerms(docId, { termsAndConditions: terms });
         lastSavedTermsRef.current = terms;
-        toast({ title: "Terms Auto-Saved", description: "Your terms and conditions have been saved." });
+        toast({ title: "Terms Auto-Saved", description: "Your terms and conditions have been saved.", variant: "warning" });
       } catch (error) {
         console.error("Failed to auto-save terms:", error);
         toast({ title: "Auto-Save Failed", description: "Could not auto-save terms and conditions.", variant: "destructive" });
@@ -786,7 +786,7 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
                   <div className="flex justify-between"><span>Subtotal (Items):</span><span>{currentCurrencySymbol}{mainItemsSubtotal.toFixed(2)}</span></div>
                   {totalAdditionalCharges > 0 && <div className="flex justify-between"><span>Additional Charges:</span><span>{currentCurrencySymbol}{totalAdditionalCharges.toFixed(2)}</span></div>}
                   <div className="flex justify-between font-medium border-t pt-1 mt-1"><span>Subtotal:</span><span>{currentCurrencySymbol}{preDiscountSubtotal.toFixed(2)}</span></div>
-                  {watchDiscountEnabled && discountAmount > 0 && <div className="flex justify-between text-destructive"><span>Discount:</span><span>-{currentCurrencySymbol}{discountAmount.toFixed(2)}</span></div>}
+                  {watchDiscountEnabled && discountAmount > 0 && <div className="flex justify-between text-destructive"><span>Discount {watchDiscountDescription ? `(${watchDiscountDescription})` : ''}:</span><span>-{currentCurrencySymbol}{discountAmount.toFixed(2)}</span></div>}
                   <div className="flex justify-between font-medium border-t pt-1 mt-1"><span>Taxable Amount:</span><span>{currentCurrencySymbol}{taxableAmount.toFixed(2)}</span></div>
                 </div>
                 <FormField control={form.control} name="taxRate" render={({ field }) => (
@@ -816,4 +816,3 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
 }
 
 InvoiceForm.displayName = "InvoiceForm";
-
