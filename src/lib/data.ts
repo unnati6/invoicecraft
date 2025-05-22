@@ -234,8 +234,7 @@ export const updateCustomer = async (id: string, data: Partial<Omit<Customer, 'i
   if (index === -1) return null;
 
   const updatedCustomerData = { ...mockCustomers[index], ...data };
-  mockCustomers[index] = updatedCustomerData; // Replace the old object with the new one
-  // Return a clone of the updated object
+  mockCustomers[index] = updatedCustomerData; 
   return { ...updatedCustomerData, billingAddress: updatedCustomerData.billingAddress ? { ...updatedCustomerData.billingAddress} : undefined, shippingAddress: updatedCustomerData.shippingAddress ? { ...updatedCustomerData.shippingAddress} : undefined };
 };
 
@@ -828,80 +827,57 @@ export const deleteRepositoryItem = async (id: string): Promise<boolean> => {
   return mockRepositoryItems.length < initialLength;
 };
 
-export async function findRepositoryItemByNameAndUpdate (
-  itemName: string,
-  updateData: {
-    defaultRate?: number;
-    defaultProcurementPrice?: number;
-    defaultVendorName?: string;
-    currencyCode?: string;
-  }
-): Promise<RepositoryItem | null> {
-  // This function now only updates GLOBAL repository items (no customerId)
-  // Client-specific items are handled by upsertRepositoryItemFromOrderForm
-  const itemIndex = mockRepositoryItems.findIndex(
-    (repoItem) =>
-      repoItem.name.toLowerCase() === itemName.toLowerCase() &&
-      !repoItem.customerId // Only match global items
-  );
-
-  if (itemIndex !== -1) {
-    mockRepositoryItems[itemIndex] = {
-      ...mockRepositoryItems[itemIndex],
-      defaultRate: updateData.defaultRate !== undefined ? updateData.defaultRate : mockRepositoryItems[itemIndex].defaultRate,
-      defaultProcurementPrice: updateData.defaultProcurementPrice !== undefined ? updateData.defaultProcurementPrice : mockRepositoryItems[itemIndex].defaultProcurementPrice,
-      defaultVendorName: updateData.defaultVendorName !== undefined ? updateData.defaultVendorName : mockRepositoryItems[itemIndex].defaultVendorName,
-      currencyCode: updateData.currencyCode || mockRepositoryItems[itemIndex].currencyCode,
-    };
-    console.log("[REPO UPDATE (Global)] Updated global repository item:", { ...mockRepositoryItems[itemIndex] });
-    return { ...mockRepositoryItems[itemIndex] };
-  }
-  console.log("[REPO UPDATE (Global)] No matching global repository item found to update for name:", itemName);
-  return null;
-};
 
 export const upsertRepositoryItemFromOrderForm = async (
-  itemFromOrderForm: OrderFormItem,
-  orderFormCustomerId: string,
-  orderFormCustomerName: string,
-  orderFormCurrencyCode: string
+  itemFromDocument: OrderFormItem | InvoiceItem, // Can be from OrderForm or Invoice
+  documentCustomerId: string,
+  documentCustomerName: string,
+  documentCurrencyCode: string
 ): Promise<RepositoryItem | null> => {
-  console.log("[UPSERT REPO ITEM] Start. Item from OF:", itemFromOrderForm, "CustID:", orderFormCustomerId, "CustName:", orderFormCustomerName, "Currency:", orderFormCurrencyCode);
+  
+  const isOrderFormItem = 'procurementPrice' in itemFromDocument || 'vendorName' in itemFromDocument;
+
+  console.log("[UPSERT REPO ITEM] Start. Item from Document:", itemFromDocument, "CustID:", documentCustomerId, "CustName:", documentCustomerName, "Currency:", documentCurrencyCode, "IsOrderFormItem:", isOrderFormItem);
 
   const itemIndex = mockRepositoryItems.findIndex(
     (repoItem) =>
-      repoItem.name.toLowerCase() === itemFromOrderForm.description.toLowerCase() &&
-      repoItem.customerId === orderFormCustomerId
+      repoItem.name.toLowerCase() === itemFromDocument.description.toLowerCase() &&
+      repoItem.customerId === documentCustomerId 
   );
 
   if (itemIndex !== -1) {
     console.log("[UPSERT REPO ITEM] Found existing client-specific item. Index:", itemIndex, "Item:", mockRepositoryItems[itemIndex]);
     const repoItemToUpdate = { ...mockRepositoryItems[itemIndex] };
-    repoItemToUpdate.defaultRate = itemFromOrderForm.rate;
-    if (itemFromOrderForm.procurementPrice !== undefined) {
-      repoItemToUpdate.defaultProcurementPrice = itemFromOrderForm.procurementPrice;
+    repoItemToUpdate.defaultRate = itemFromDocument.rate;
+    if (isOrderFormItem) {
+        const orderItem = itemFromDocument as OrderFormItem;
+        if (orderItem.procurementPrice !== undefined) {
+            repoItemToUpdate.defaultProcurementPrice = orderItem.procurementPrice;
+        }
+        if (orderItem.vendorName !== undefined) {
+            repoItemToUpdate.defaultVendorName = orderItem.vendorName;
+        }
     }
-    if (itemFromOrderForm.vendorName !== undefined) {
-      repoItemToUpdate.defaultVendorName = itemFromOrderForm.vendorName;
-    }
-    repoItemToUpdate.currencyCode = orderFormCurrencyCode;
-    mockRepositoryItems[index] = repoItemToUpdate; // CRITICAL FIX: Should be itemIndex, not 'index'
+    repoItemToUpdate.currencyCode = documentCurrencyCode;
+    mockRepositoryItems[itemIndex] = repoItemToUpdate;
     console.log("[UPSERT REPO ITEM] Updated existing repository item:", { ...mockRepositoryItems[itemIndex] });
     return { ...mockRepositoryItems[itemIndex] };
   } else {
     console.log("[UPSERT REPO ITEM] No existing client-specific item found. Creating new.");
-    const newItem: RepositoryItem = {
-      id: generateId('repo_item_client'),
-      name: itemFromOrderForm.description,
-      defaultRate: itemFromOrderForm.rate,
-      defaultProcurementPrice: itemFromOrderForm.procurementPrice,
-      defaultVendorName: itemFromOrderForm.vendorName,
-      currencyCode: orderFormCurrencyCode,
-      customerId: orderFormCustomerId,
-      customerName: orderFormCustomerName,
-      createdAt: new Date(),
+    const newItemData: Omit<RepositoryItem, 'id' | 'createdAt'> = {
+      name: itemFromDocument.description,
+      defaultRate: itemFromDocument.rate,
+      currencyCode: documentCurrencyCode,
+      customerId: documentCustomerId,
+      customerName: documentCustomerName,
     };
-    mockRepositoryItems.push(newItem);
+    if (isOrderFormItem) {
+        const orderItem = itemFromDocument as OrderFormItem;
+        newItemData.defaultProcurementPrice = orderItem.procurementPrice;
+        newItemData.defaultVendorName = orderItem.vendorName;
+    }
+
+    const newItem = await createRepositoryItem(newItemData);
     console.log("[UPSERT REPO ITEM] Created new repository item:", { ...newItem });
     return { ...newItem };
   }

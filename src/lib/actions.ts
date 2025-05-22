@@ -112,14 +112,18 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     const customer = await fetchCustomerById(savedInvoice.customerId);
     const invoiceCurrency = customer?.currency || savedInvoice.currencyCode || 'USD';
     for (const item of savedInvoice.items) {
-      await Data.findRepositoryItemByNameAndUpdate(
-        item.description,
-        {
-          defaultRate: item.rate,
-          currencyCode: invoiceCurrency,
-        },
-        undefined, // customerId not relevant for invoice updates to repository
-        undefined  // customerName not relevant for invoice updates to repository
+      // For invoices, we'll use the same client-specific upsert logic as order forms
+      // No procurementPrice or vendorName from invoice items to pass
+      await Data.upsertRepositoryItemFromOrderForm(
+        { 
+          description: item.description, 
+          rate: item.rate,
+          quantity: item.quantity, // quantity is not directly used by upsert but good to pass for context
+          // procurementPrice and vendorName are undefined here
+        } as OrderFormItem, // Cast to satisfy the function, knowing it handles missing fields
+        savedInvoice.customerId,
+        customer?.name || 'Unknown Customer',
+        invoiceCurrency
       );
     }
     revalidatePath('/item-repository');
@@ -596,10 +600,6 @@ export async function saveRepositoryItem(data: RepositoryItemFormData, id?: stri
     defaultProcurementPrice: data.defaultProcurementPrice,
     defaultVendorName: data.defaultVendorName,
     currencyCode: data.currencyCode,
-    // customerId and customerName are part of the RepositoryItem type,
-    // but they are not directly editable via the main repository item form.
-    // They are set when an item becomes customer-specific via an OrderForm.
-    // However, if editing an existing client-specific item, we preserve them.
     customerId: data.customerId, 
     customerName: data.customerName,
   };
@@ -609,9 +609,6 @@ export async function saveRepositoryItem(data: RepositoryItemFormData, id?: stri
     if (updated) revalidatePath('/item-repository');
     return updated;
   } else {
-    // Creating new global repository items via this form is not fully fleshed out
-    // as it lacks customerId/customerName context by default.
-    // For now, this path is less likely to be hit by current UI.
     const newItem = await Data.createRepositoryItem(itemDataToSave as Omit<RepositoryItem, 'id' | 'createdAt'>);
     if (newItem) revalidatePath('/item-repository');
     return newItem;
@@ -623,3 +620,4 @@ export async function removeRepositoryItem(id: string): Promise<boolean> {
   if (success) revalidatePath('/item-repository');
   return success;
 }
+

@@ -322,7 +322,9 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
     if (selectedRepoItem) {
       form.setValue(`items.${itemIndex}.description`, selectedRepoItem.name, { shouldDirty: true });
       form.setValue(`items.${itemIndex}.rate`, selectedRepoItem.defaultRate ?? 0, { shouldDirty: true });
-      // Invoices don't have procurementPrice or vendorName at the item level
+    } else if (itemId === '--none--') {
+        form.setValue(`items.${itemIndex}.description`, '', { shouldDirty: true });
+        form.setValue(`items.${itemIndex}.rate`, 0, { shouldDirty: true });
     }
   };
 
@@ -855,3 +857,4 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
 }
 
 InvoiceForm.displayName = "InvoiceForm";
+

@@ -327,7 +327,6 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
       form.setValue(`items.${itemIndex}.procurementPrice`, selectedRepoItem.defaultProcurementPrice ?? undefined, { shouldDirty: true });
       form.setValue(`items.${itemIndex}.vendorName`, selectedRepoItem.defaultVendorName ?? '', { shouldDirty: true });
     } else if (itemId === '--none--') {
-        // Optionally clear fields or set to defaults if user selects "Clear"
         form.setValue(`items.${itemIndex}.description`, '', { shouldDirty: true });
         form.setValue(`items.${itemIndex}.rate`, 0, { shouldDirty: true });
         form.setValue(`items.${itemIndex}.procurementPrice`, undefined, { shouldDirty: true });
@@ -570,7 +569,6 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                           {repositoryItems.map((repoItem) => (
                             <SelectItem key={repoItem.id} value={repoItem.id}>
                               {repoItem.name} ({getCurrencySymbol(repoItem.currencyCode)}{repoItem.defaultRate?.toFixed(2)})
-                              {repoItem.customerName && ` (Client: ${repoItem.customerName})`}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -880,3 +878,4 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
 }
 
 OrderFormForm.displayName = "OrderFormForm";
+
