@@ -20,11 +20,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription as ShadCNCardDesc } from '@/components/ui/card';
 import { orderFormSchema, type OrderFormFormData, type AdditionalChargeFormData } from '@/lib/schemas';
-import type { OrderForm, Customer, TermsTemplate, MsaTemplate } from '@/types';
+import type { OrderForm, Customer, TermsTemplate, MsaTemplate, RepositoryItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink, FileCheck2, Percent, Tag } from 'lucide-react';
-import { getAllCustomers, fetchNextOrderFormNumber, getAllTermsTemplates, saveOrderFormTerms, getAllMsaTemplates } from '@/lib/actions';
+import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink, FileCheck2, Percent, Tag, Library } from 'lucide-react';
+import { getAllCustomers, fetchNextOrderFormNumber, getAllTermsTemplates, saveOrderFormTerms, getAllMsaTemplates, getAllRepositoryItems } from '@/lib/actions';
 import Link from 'next/link';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 import { RichTextEditor } from '@/components/rich-text-editor';
@@ -81,6 +81,8 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
   const { toast } = useToast();
   const [isAutoSavingTerms, setIsAutoSavingTerms] = React.useState(false);
   const lastSavedTermsRef = React.useRef<string | null>(null);
+  const [repositoryItems, setRepositoryItems] = React.useState<RepositoryItem[]>([]);
+  const [isLoadingRepositoryItems, setIsLoadingRepositoryItems] = React.useState(true);
 
   const form = useForm<OrderFormFormData>({
     resolver: zodResolver(orderFormSchema),
@@ -162,21 +164,25 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
     async function loadInitialData() {
       setIsLoadingCustomers(true);
       setIsLoadingTemplates(true);
+      setIsLoadingRepositoryItems(true);
       try {
-        const [fetchedCustomers, fetchedTermsTemplates, fetchedMsaTemplates] = await Promise.all([
+        const [fetchedCustomers, fetchedTermsTemplates, fetchedMsaTemplates, fetchedRepoItems] = await Promise.all([
           getAllCustomers(),
           getAllTermsTemplates(),
-          getAllMsaTemplates()
+          getAllMsaTemplates(),
+          getAllRepositoryItems(),
         ]);
         setCustomers(fetchedCustomers);
         setTermsTemplates(fetchedTermsTemplates);
         setMsaTemplates(fetchedMsaTemplates);
+        setRepositoryItems(fetchedRepoItems);
       } catch (error) {
         console.error("Failed to fetch initial data for form", error);
         toast({ title: "Error", description: "Failed to load supporting data.", variant: "destructive" });
       } finally {
         setIsLoadingCustomers(false);
         setIsLoadingTemplates(false);
+        setIsLoadingRepositoryItems(false);
       }
     }
     loadInitialData();
@@ -312,6 +318,22 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
     }, 1500),
     [toast, formIsSubmitting] 
   );
+
+  const handleRepositoryItemSelect = (itemId: string, itemIndex: number) => {
+    const selectedRepoItem = repositoryItems.find(item => item.id === itemId);
+    if (selectedRepoItem) {
+      form.setValue(`items.${itemIndex}.description`, selectedRepoItem.name, { shouldDirty: true });
+      form.setValue(`items.${itemIndex}.rate`, selectedRepoItem.defaultRate ?? 0, { shouldDirty: true });
+      form.setValue(`items.${itemIndex}.procurementPrice`, selectedRepoItem.defaultProcurementPrice ?? undefined, { shouldDirty: true });
+      form.setValue(`items.${itemIndex}.vendorName`, selectedRepoItem.defaultVendorName ?? '', { shouldDirty: true });
+    } else if (itemId === '--none--') {
+        // Optionally clear fields or set to defaults if user selects "Clear"
+        form.setValue(`items.${itemIndex}.description`, '', { shouldDirty: true });
+        form.setValue(`items.${itemIndex}.rate`, 0, { shouldDirty: true });
+        form.setValue(`items.${itemIndex}.procurementPrice`, undefined, { shouldDirty: true });
+        form.setValue(`items.${itemIndex}.vendorName`, '', { shouldDirty: true });
+    }
+  };
 
   return (
     <Form {...form}>
@@ -532,6 +554,28 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
               <CardContent className="space-y-4">
                 {itemFields.map((field, index) => (
                   <div key={field.id} className="space-y-3 p-3 border rounded-md relative">
+                     <FormItem>
+                      <FormLabel className="text-xs flex items-center"><Library className="mr-1 h-3 w-3 text-muted-foreground"/>Load from Repository</FormLabel>
+                      <Select
+                        onValueChange={(itemId) => handleRepositoryItemSelect(itemId, index)}
+                        disabled={isLoadingRepositoryItems}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={isLoadingRepositoryItems ? "Loading presets..." : "-- Select Preset Item (Optional) --"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                           <SelectItem value="--none--">-- Clear / Manual Entry --</SelectItem>
+                          {repositoryItems.map((repoItem) => (
+                            <SelectItem key={repoItem.id} value={repoItem.id}>
+                              {repoItem.name} ({getCurrencySymbol(repoItem.currencyCode)}{repoItem.defaultRate?.toFixed(2)})
+                              {repoItem.customerName && ` (Client: ${repoItem.customerName})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
                     <div className="grid grid-cols-12 gap-x-4 gap-y-2 items-start">
                       <FormField control={form.control} name={`items.${index}.description`} render={({ field: descField }) => (
                         <FormItem className="col-span-12 md:col-span-5">
@@ -836,4 +880,3 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
 }
 
 OrderFormForm.displayName = "OrderFormForm";
-
