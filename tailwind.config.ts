@@ -46,6 +46,11 @@ export default {
           foreground: 'hsl(var(--warning-foreground))',
           border: 'hsl(var(--warning-border))',
         },
+        'status-overdue': {
+            DEFAULT: 'hsl(var(--status-overdue-background))',
+            foreground: 'hsl(var(--status-overdue-foreground))',
+            border: 'hsl(var(--status-overdue-border))',
+        },
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',

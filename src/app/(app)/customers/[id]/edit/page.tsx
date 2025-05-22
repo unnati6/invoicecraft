@@ -6,16 +6,18 @@ import { useRouter, useParams } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { CustomerForm } from '@/components/customer-form';
 import type { CustomerFormData } from '@/lib/schemas';
-import { fetchCustomerById, saveCustomer, getAllInvoices, markInvoiceAsPaid } from '@/lib/actions'; // Added getAllInvoices, markInvoiceAsPaid
+import { fetchCustomerById, saveCustomer, getAllInvoices, markInvoiceAsPaid } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import type { Customer, Invoice } from '@/types'; // Added Invoice type
+import type { Customer, Invoice } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Added Card components
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Added Table components
-import { CheckSquare, FileText } from 'lucide-react'; // Added CheckSquare, FileText
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { CheckSquare, FileText, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { getCurrencySymbol } from '@/lib/currency-utils';
+import Link from 'next/link';
 
 export default function EditCustomerPage() {
   const router = useRouter();
@@ -30,6 +32,7 @@ export default function EditCustomerPage() {
   const [customerInvoices, setCustomerInvoices] = React.useState<Invoice[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = React.useState(true);
   const [isMarkingPaid, setIsMarkingPaid] = React.useState<string | null>(null);
+  const [totalPaidByCustomer, setTotalPaidByCustomer] = React.useState(0);
 
   React.useEffect(() => {
     if (customerId) {
@@ -55,13 +58,18 @@ export default function EditCustomerPage() {
 
   React.useEffect(() => {
     async function loadCustomerInvoices() {
-        if (customerId && customer) { // Ensure customer is loaded before fetching their invoices
+        if (customerId && customer) {
             setIsLoadingInvoices(true);
             try {
-                // In a real app, you'd query invoices by customerId directly from the DB
                 const allInvoices = await getAllInvoices(); 
                 const filteredInvoices = allInvoices.filter(inv => inv.customerId === customerId);
                 setCustomerInvoices(filteredInvoices);
+
+                const paidTotal = filteredInvoices
+                    .filter(inv => inv.status === 'Paid')
+                    .reduce((sum, inv) => sum + inv.total, 0);
+                setTotalPaidByCustomer(paidTotal);
+
             } catch (error) {
                 toast({ title: "Error", description: "Failed to fetch customer invoices.", variant: "destructive" });
             } finally {
@@ -69,17 +77,18 @@ export default function EditCustomerPage() {
             }
         }
     }
-    loadCustomerInvoices();
-  }, [customerId, customer, toast]); // Depend on customer being loaded
+    if (customer) { // Ensure customer data is available before fetching invoices
+        loadCustomerInvoices();
+    }
+  }, [customerId, customer, toast]);
 
   const handleSubmit = async (data: CustomerFormData) => {
     setIsSubmitting(true);
     try {
       const updatedCustomer = await saveCustomer(data, customerId);
       if (updatedCustomer) {
-        setCustomer(updatedCustomer); // Update local state with returned data
+        setCustomer(updatedCustomer);
         toast({ title: "Success", description: "Customer updated successfully." });
-        // router.push('/customers'); // Option: or stay on page
       } else {
         toast({ title: "Error", description: "Failed to update customer.", variant: "destructive" });
       }
@@ -96,11 +105,16 @@ export default function EditCustomerPage() {
     try {
         const updatedInvoice = await markInvoiceAsPaid(invoiceId);
         if (updatedInvoice) {
-            setCustomerInvoices(prevInvoices =>
-                prevInvoices.map(inv =>
-                    inv.id === invoiceId ? { ...inv, status: 'Paid' } : inv
-                )
+            const newInvoices = customerInvoices.map(inv =>
+                inv.id === invoiceId ? { ...inv, status: 'Paid' } : inv
             );
+            setCustomerInvoices(newInvoices);
+            
+            const paidTotal = newInvoices
+                .filter(inv => inv.status === 'Paid')
+                .reduce((sum, inv) => sum + inv.total, 0);
+            setTotalPaidByCustomer(paidTotal);
+
             toast({ title: "Success", description: `Invoice ${updatedInvoice.invoiceNumber} marked as paid.`});
         } else {
             toast({ title: "Error", description: "Failed to mark invoice as paid.", variant: "destructive" });
@@ -112,9 +126,15 @@ export default function EditCustomerPage() {
     }
   };
 
-  const pendingInvoices = customerInvoices.filter(
-    (inv) => inv.status === 'Sent' || inv.status === 'Overdue'
-  );
+  const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" | "status-overdue" => {
+    switch (status) {
+      case 'Paid': return 'default'; // Green (primary)
+      case 'Sent': return 'destructive'; // Red
+      case 'Overdue': return 'status-overdue'; // Orange
+      case 'Draft': return 'outline'; // Default outline
+      default: return 'outline';
+    }
+  };
 
 
   if (loading) {
@@ -126,6 +146,7 @@ export default function EditCustomerPage() {
           <Card>
             <CardHeader><Skeleton className="h-6 w-1/3" /></CardHeader>
             <CardContent><Skeleton className="h-20 w-full" /></CardContent>
+             <CardFooter><Skeleton className="h-8 w-1/4" /></CardFooter>
           </Card>
         </main>
       </>
@@ -149,15 +170,15 @@ export default function EditCustomerPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle className="flex items-center"><FileText className="mr-2 h-5 w-5 text-muted-foreground"/> Pending Invoices</CardTitle>
-                <CardDescription>Invoices for {customer.name} that are Sent or Overdue.</CardDescription>
+                <CardTitle className="flex items-center"><FileText className="mr-2 h-5 w-5 text-muted-foreground"/> Invoices for {customer.name}</CardTitle>
+                <CardDescription>All invoices associated with this customer.</CardDescription>
             </CardHeader>
             <CardContent>
                 {isLoadingInvoices ? (
                     <div className="space-y-2">
                         {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
                     </div>
-                ) : pendingInvoices.length > 0 ? (
+                ) : customerInvoices.length > 0 ? (
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -169,30 +190,43 @@ export default function EditCustomerPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {pendingInvoices.map(invoice => (
+                            {customerInvoices.map(invoice => (
                                 <TableRow key={invoice.id}>
-                                    <TableCell>{invoice.invoiceNumber}</TableCell>
+                                    <TableCell>
+                                        <Link href={`/invoices/${invoice.id}`} className="text-primary hover:underline flex items-center">
+                                            {invoice.invoiceNumber} <ExternalLink className="ml-1 h-3 w-3" />
+                                        </Link>
+                                    </TableCell>
                                     <TableCell>{format(new Date(invoice.dueDate), 'PP')}</TableCell>
                                     <TableCell>{getCurrencySymbol(invoice.currencyCode)}{invoice.total.toFixed(2)}</TableCell>
-                                    <TableCell>{invoice.status}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={getStatusVariant(invoice.status)} className={invoice.status === 'Paid' ? 'bg-primary text-primary-foreground hover:bg-primary/80' : ''}>
+                                            {invoice.status}
+                                        </Badge>
+                                    </TableCell>
                                     <TableCell className="text-right">
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm"
-                                            onClick={() => handleMarkInvoicePaidOnCustomerPage(invoice.id)}
-                                            disabled={isMarkingPaid === invoice.id}
-                                        >
-                                            <CheckSquare className="mr-2 h-4 w-4"/> {isMarkingPaid === invoice.id ? "Processing..." : "Mark as Paid"}
-                                        </Button>
+                                        {invoice.status !== 'Paid' && (
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={() => handleMarkInvoicePaidOnCustomerPage(invoice.id)}
+                                                disabled={isMarkingPaid === invoice.id}
+                                            >
+                                                <CheckSquare className="mr-2 h-4 w-4"/> {isMarkingPaid === invoice.id ? "Processing..." : "Mark as Paid"}
+                                            </Button>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
                 ) : (
-                    <p className="text-sm text-muted-foreground">No pending invoices for this customer.</p>
+                    <p className="text-sm text-muted-foreground">No invoices found for this customer.</p>
                 )}
             </CardContent>
+            <CardFooter className="justify-end font-medium text-lg">
+                Total Amount Paid by Customer: {getCurrencySymbol(customer.currency)}{totalPaidByCustomer.toFixed(2)}
+            </CardFooter>
         </Card>
       </main>
     </>

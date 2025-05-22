@@ -28,9 +28,13 @@ body {
     
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --warning: 45 93% 90%; /* Light Yellow for warning background */
-    --warning-foreground: 45 90% 25%; /* Dark Yellow for warning text */
-    --warning-border: 45 93% 80%; /* Slightly darker yellow for border */
+    --warning: 38 92% 50%; /* Yellow for warning background */
+    --warning-foreground: 38 92% 25%; /* Dark Yellow for warning text */
+    --warning-border: 38 92% 45%; /* Slightly darker yellow for border */
+
+    --status-overdue-background: 28 100% 95%; /* Light Orange for overdue status background */
+    --status-overdue-foreground: 28 100% 30%; /* Dark Orange for overdue status text */
+    --status-overdue-border: 28 100% 85%;    /* Slightly darker orange for overdue status border */
 
     --border: 210 20% 88%; /* Border color */
     --input: 210 20% 92%; /* Input background */
@@ -72,9 +76,13 @@ body {
     
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 98%;
-    --warning: 45 100% 15%; /* Dark Yellow for warning background in dark mode */
-    --warning-foreground: 45 90% 85%; /* Light Yellow for warning text in dark mode */
-    --warning-border: 45 100% 25%; /* Slightly lighter yellow for border in dark mode */
+    --warning: 38 95% 30%; /* Darker Yellow for warning background in dark mode */
+    --warning-foreground: 38 90% 85%; /* Light Yellow for warning text in dark mode */
+    --warning-border: 38 95% 25%; /* Slightly lighter yellow for border in dark mode */
+    
+    --status-overdue-background: 28 100% 20%; /* Dark Orange for overdue status background in dark mode */
+    --status-overdue-foreground: 28 100% 80%; /* Light Orange for overdue status text in dark mode */
+    --status-overdue-border: 28 100% 30%;    /* Slightly lighter orange for overdue status border in dark mode */
 
     --border: 215 20% 30%;
     --input: 215 20% 30%;
@@ -125,7 +133,7 @@ body {
   .ProseMirror li { @apply my-1; }
   .ProseMirror strong { @apply font-bold; }
   .ProseMirror em { @apply italic; }
-  .ProseMirror u { @apply underline; } /* Added for underline */
+  .ProseMirror u { @apply underline; }
 }
 
 @layer utilities {

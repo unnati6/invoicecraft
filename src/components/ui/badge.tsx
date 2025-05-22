@@ -15,6 +15,7 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
+        "status-overdue": "border-transparent bg-status-overdue text-status-overdue-foreground hover:bg-status-overdue/80",
       },
     },
     defaultVariants: {
