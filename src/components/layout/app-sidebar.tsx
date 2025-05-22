@@ -53,21 +53,20 @@ export function AppSidebar() {
     { href: '/item-repository', label: 'Item Repository', icon: Archive },
   ];
 
-  const templateMenuItems = [
+  const brandingAndTemplatesMenuItems = [
+    { href: '/branding', label: 'Branding & Numbering', icon: ImageIconLucide },
     { href: '/templates/terms', label: 'T&C Templates', icon: ClipboardList },
     { href: '/templates/msa', label: 'MSA Templates', icon: FileCheck2 },
     { href: '/templates/coverpages', label: 'Cover Pages', icon: BookCopy },
   ];
 
   const settingsMenuItems = [
-     { href: '/branding', label: 'Branding', icon: ImageIconLucide },
+     // General settings can be added here if needed in the future
   ];
 
   const isActive = (href: string) => {
-    if (href === '/dashboard' || href.startsWith('/templates/') || href === '/item-repository' || href === '/purchase-orders') {
-        return pathname === href || pathname.startsWith(href + '/');
-    }
-    return pathname.startsWith(href);
+    // For exact matches or when the current path starts with the href followed by a '/' (for detail pages)
+    return pathname === href || pathname.startsWith(href + '/');
   };
 
   return (
@@ -103,13 +102,14 @@ export function AppSidebar() {
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
+
         <SidebarGroup>
             <SidebarGroupLabel className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-                <span className="group-data-[collapsible=icon]:hidden">Templates</span>
-                <ClipboardList className="hidden group-data-[collapsible=icon]:block h-5 w-5"/>
+                <span className="group-data-[collapsible=icon]:hidden">Branding & Templates</span>
+                <ImageIconLucide className="hidden group-data-[collapsible=icon]:block h-5 w-5"/>
             </SidebarGroupLabel>
             <SidebarMenu>
-                {templateMenuItems.map((item) => (
+                {brandingAndTemplatesMenuItems.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                         asChild
@@ -133,30 +133,15 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="border-t p-2">
         <SidebarMenu>
-          {settingsMenuItems.map((item) => (
-             <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton
-                asChild
-                isActive={isActive(item.href)}
-                tooltip={item.label}
-                className={cn(
-                  "justify-start",
-                  {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': isActive(item.href)}
-                )}
-              >
-                <Link href={item.href}>
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {/* General Settings can be added here if needed */}
+          {/* Example:
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Settings (General)" className="justify-start">
+            <SidebarMenuButton tooltip="General Settings" className="justify-start">
               <Settings className="h-5 w-5" />
               <span>Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          */}
           <SidebarMenuItem>
             <Link href="/login">
               <SidebarMenuButton tooltip="Logout" className="justify-start w-full">
