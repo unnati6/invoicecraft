@@ -13,17 +13,15 @@ import type { RepositoryItem } from '@/types';
 import { getAllRepositoryItems, removeRepositoryItem } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input'; // Added Input import
 import { format } from 'date-fns';
 import { getCurrencySymbol } from '@/lib/currency-utils';
-// Placeholder: Form for adding/editing items will be a separate component
-// import { RepositoryItemForm } from '@/components/repository-item-form';
 
 export default function ItemRepositoryPage() {
   const { toast } = useToast();
   const [items, setItems] = React.useState<RepositoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
-  // const [editingItem, setEditingItem] = React.useState<RepositoryItem | null>(null); // For future form
-  // const [isFormOpen, setIsFormOpen] = React.useState(false); // For future form
+  const [searchTerm, setSearchTerm] = React.useState(''); // Added state for search term
 
   React.useEffect(() => {
     async function fetchData() {
@@ -58,8 +56,6 @@ export default function ItemRepositoryPage() {
       variant: "warning",
       duration: 5000,
     });
-    // setEditingItem(item);
-    // setIsFormOpen(true);
   };
 
   const handleAddNewItem = () => {
@@ -70,19 +66,18 @@ export default function ItemRepositoryPage() {
       variant: "warning",
       duration: 5000,
      });
-    // setEditingItem(null);
-    // setIsFormOpen(true);
   }
 
-  // const handleFormSubmit = async (data: RepositoryItemFormData) => {
-  //   // Logic for saving/updating item via saveRepositoryItem action
-  //   // Then refetch or update local state
-  //   setIsFormOpen(false);
-  //   setEditingItem(null);
-  //   // Re-fetch items list
-  //   const updatedItems = await getAllRepositoryItems();
-  //   setItems(updatedItems);
-  // };
+  const filteredItems = React.useMemo(() => {
+    if (!searchTerm.trim()) {
+      return items;
+    }
+    const lowercasedFilter = searchTerm.toLowerCase();
+    return items.filter(item =>
+      item.name.toLowerCase().includes(lowercasedFilter) ||
+      (item.defaultVendorName && item.defaultVendorName.toLowerCase().includes(lowercasedFilter))
+    );
+  }, [items, searchTerm]);
 
   const columns = [
     { accessorKey: 'name', header: 'Item Name / Description', cell: (row: RepositoryItem) => row.name },
@@ -132,7 +127,10 @@ export default function ItemRepositoryPage() {
     return (
       <>
         <AppHeader title="Item Repository">
-          <Skeleton className="h-10 w-36" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-10 w-64" /> {/* Skeleton for filter input */}
+            <Skeleton className="h-10 w-36" /> {/* Skeleton for Add button */}
+          </div>
         </AppHeader>
         <main className="flex-1 p-6 space-y-6">
           <Card>
@@ -156,9 +154,18 @@ export default function ItemRepositoryPage() {
   return (
     <>
       <AppHeader title="Item Repository">
-        <Button onClick={handleAddNewItem} title="Add New Item (Not Implemented)">
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
-        </Button>
+        <div className="flex items-center gap-2">
+          <Input
+            type="text"
+            placeholder="Filter by item name or vendor..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-10 w-64"
+          />
+          <Button onClick={handleAddNewItem} title="Add New Item (Not Implemented)">
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
+          </Button>
+        </div>
       </AppHeader>
       <main className="flex-1 p-4 md:p-6 space-y-6">
         <Card>
@@ -171,11 +178,13 @@ export default function ItemRepositoryPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {items.length === 0 ? (
+            {filteredItems.length === 0 && !loading ? (
               <div className="flex flex-col items-center justify-center h-[30vh] text-center">
                 <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
-                <h2 className="text-xl font-semibold mb-2">No Items in Repository</h2>
-                <p className="text-muted-foreground mb-4">Add items to quickly use them in your invoices and order forms.</p>
+                <h2 className="text-xl font-semibold mb-2">{searchTerm ? "No Matching Items Found" : "No Items in Repository"}</h2>
+                <p className="text-muted-foreground mb-4">
+                  {searchTerm ? `Your search for "${searchTerm}" did not match any items.` : "Add items to quickly use them in your invoices and order forms."}
+                </p>
                 <Button onClick={handleAddNewItem} title="Add New Item (Not Implemented)">
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Your First Item
                 </Button>
@@ -183,30 +192,15 @@ export default function ItemRepositoryPage() {
             ) : (
               <DataTable
                 columns={columns}
-                data={items}
-                // onRowClick={(row) => handleEditItem(row)} // Optional: click row to edit
-                noResultsMessage="No items found. Add your first item to the repository!"
+                data={filteredItems}
+                noResultsMessage={searchTerm ? `No items match your filter "${searchTerm}".` : "No items found. Add your first item to the repository!"}
               />
             )}
           </CardContent>
         </Card>
-        {/* Placeholder for Form Modal/Drawer - To be implemented later
-        {isFormOpen && (
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
-              </DialogHeader>
-              <RepositoryItemForm
-                initialData={editingItem}
-                onSubmit={handleFormSubmit}
-                onCancel={() => { setIsFormOpen(false); setEditingItem(null); }}
-              />
-            </DialogContent>
-          </Dialog>
-        )}
-        */}
       </main>
     </>
   );
 }
+
+    
