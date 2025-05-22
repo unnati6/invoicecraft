@@ -15,7 +15,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList, FileCheck2, BookCopy } from 'lucide-react';
+import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList, FileCheck2, BookCopy, Archive } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
@@ -49,6 +49,7 @@ export function AppSidebar() {
     { href: '/customers', label: 'Customers', icon: Users },
     { href: '/orderforms', label: 'Order Forms', icon: OrderFormIcon },
     { href: '/invoices', label: 'Invoices', icon: FileText },
+    { href: '/item-repository', label: 'Item Repository', icon: Archive },
   ];
 
   const templateMenuItems = [
@@ -62,11 +63,9 @@ export function AppSidebar() {
   ];
 
   const isActive = (href: string) => {
-    // Exact match for dashboard or specific template pages to avoid highlighting parent "Templates" group
-    if (href === '/dashboard' || href === '/templates/terms' || href === '/templates/msa' || href === '/templates/coverpages') {
+    if (href === '/dashboard' || href.startsWith('/templates/') || href === '/item-repository') {
         return pathname === href || pathname.startsWith(href + '/');
     }
-    // StartsWith for other main sections like /invoices, /customers
     return pathname.startsWith(href);
   };
 

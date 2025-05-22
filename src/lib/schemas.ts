@@ -59,6 +59,13 @@ export const msaTemplateSchema = z.object({
 });
 export type MsaTemplateFormData = z.infer<typeof msaTemplateSchema>;
 
+const discountSchemaFields = {
+  discountEnabled: z.boolean().optional().default(false),
+  discountDescription: z.string().optional(),
+  discountType: z.enum(['fixed', 'percentage']).optional().default('fixed'),
+  discountValue: z.number().optional().default(0),
+};
+
 export const invoiceSchema = z.object({
   customerId: z.string().min(1, { message: "Customer is required." }),
   invoiceNumber: z.string().min(1, { message: "Invoice number is required." }),
@@ -66,6 +73,7 @@ export const invoiceSchema = z.object({
   dueDate: z.date({ required_error: "Due date is required." }),
   items: z.array(invoiceItemSchema).min(1, { message: "At least one item is required." }),
   additionalCharges: z.array(additionalChargeFormSchema).optional(), 
+  ...discountSchemaFields,
   taxRate: z.number().min(0).max(100).optional().default(0),
   linkedMsaTemplateId: z.string().optional(),
   msaContent: z.string().optional(),
@@ -84,6 +92,22 @@ export const invoiceSchema = z.object({
 }, {
   message: "End date cannot be before start date",
   path: ["serviceEndDate"],
+}).refine(data => {
+  if (data.discountEnabled) {
+    return data.discountValue !== undefined && data.discountValue > 0;
+  }
+  return true;
+}, {
+  message: "Discount value must be greater than 0 if discount is enabled.",
+  path: ["discountValue"],
+}).refine(data => {
+  if (data.discountEnabled && data.discountType === 'percentage') {
+    return data.discountValue !== undefined && data.discountValue <= 100;
+  }
+  return true;
+}, {
+  message: "Percentage discount cannot exceed 100%.",
+  path: ["discountValue"],
 });
 
 export type InvoiceFormData = z.infer<typeof invoiceSchema>;
@@ -93,7 +117,10 @@ export const termsSchema = z.object({
 });
 export type TermsFormData = z.infer<typeof termsSchema>;
 
-export const orderFormItemSchema = baseItemSchema; 
+export const orderFormItemSchema = baseItemSchema.extend({
+  procurementPrice: z.number().optional(),
+  vendorName: z.string().optional(),
+}); 
 export type OrderFormItemFormData = z.infer<typeof orderFormItemSchema>;
 
 export const orderFormSchema = z.object({
@@ -103,6 +130,7 @@ export const orderFormSchema = z.object({
   validUntilDate: z.date({ required_error: "Valid until date is required." }),
   items: z.array(orderFormItemSchema).min(1, { message: "At least one item is required." }),
   additionalCharges: z.array(additionalChargeFormSchema).optional(), 
+  ...discountSchemaFields,
   taxRate: z.number().min(0).max(100).optional().default(0),
   linkedMsaTemplateId: z.string().optional(),
   msaContent: z.string().optional(),
@@ -121,6 +149,22 @@ export const orderFormSchema = z.object({
 }, {
   message: "End date cannot be before start date",
   path: ["serviceEndDate"],
+}).refine(data => {
+  if (data.discountEnabled) {
+    return data.discountValue !== undefined && data.discountValue > 0;
+  }
+  return true;
+}, {
+  message: "Discount value must be greater than 0 if discount is enabled.",
+  path: ["discountValue"],
+}).refine(data => {
+  if (data.discountEnabled && data.discountType === 'percentage') {
+    return data.discountValue !== undefined && data.discountValue <= 100;
+  }
+  return true;
+}, {
+  message: "Percentage discount cannot exceed 100%.",
+  path: ["discountValue"],
 });
 export type OrderFormFormData = z.infer<typeof orderFormSchema>;
 
@@ -135,3 +179,10 @@ export const brandingSettingsSchema = z.object({
   orderFormPrefix: z.string().optional().default("OF-"),
 });
 export type BrandingSettingsFormData = z.infer<typeof brandingSettingsSchema>;
+
+export const repositoryItemSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, { message: "Item name cannot be empty." }),
+  defaultRate: z.number().min(0, {message: "Default rate must be non-negative."}).optional(),
+});
+export type RepositoryItemFormData = z.infer<typeof repositoryItemSchema>;

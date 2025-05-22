@@ -3,8 +3,8 @@
 
 import { revalidatePath } from 'next/cache';
 import * as Data from './data';
-import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate } from '@/types';
-import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData, BrandingSettingsFormData } from './schemas';
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem } from '@/types';
+import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData, BrandingSettingsFormData, RepositoryItemFormData } from './schemas';
 import { format, addDays } from 'date-fns';
 import { Buffer } from 'buffer';
 
@@ -61,13 +61,17 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     issueDate: data.issueDate,
     dueDate: data.dueDate,
     taxRate: data.taxRate || 0,
+    items: data.items, // Items include description, quantity, rate
+    additionalCharges: data.additionalCharges,
+    discountEnabled: data.discountEnabled,
+    discountDescription: data.discountDescription,
+    discountType: data.discountType,
+    discountValue: data.discountValue,
     linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId,
     msaContent: data.msaContent,
-    msaCoverPageTemplateId: data.msaCoverPageTemplateId, // Ensure this is passed from form data
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     termsAndConditions: data.termsAndConditions,
     status: data.status,
-    items: data.items,
-    additionalCharges: data.additionalCharges,
     paymentTerms: data.paymentTerms,
     commitmentPeriod: data.commitmentPeriod,
     serviceStartDate: data.serviceStartDate,
@@ -146,14 +150,18 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     orderFormNumber: data.orderFormNumber,
     issueDate: data.issueDate,
     validUntilDate: data.validUntilDate,
+    items: data.items, // Items include desc, qty, rate, and new procurement fields
+    additionalCharges: data.additionalCharges,
+    discountEnabled: data.discountEnabled,
+    discountDescription: data.discountDescription,
+    discountType: data.discountType,
+    discountValue: data.discountValue,
     taxRate: data.taxRate || 0,
     linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId,
     msaContent: data.msaContent,
-    msaCoverPageTemplateId: data.msaCoverPageTemplateId, // Ensure this is passed from form data
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     termsAndConditions: data.termsAndConditions,
     status: data.status,
-    items: data.items,
-    additionalCharges: data.additionalCharges,
     paymentTerms: data.paymentTerms,
     commitmentPeriod: data.commitmentPeriod,
     serviceStartDate: data.serviceStartDate,
@@ -221,11 +229,11 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
 
   const nextInvoiceNumber = await Data.getNextInvoiceNumber();
 
-  const newInvoiceData: Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'> & { items: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: any[] } = {
+  const newInvoiceData: Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode' | 'discountAmount'> & { items: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: any[] } = {
     customerId: orderForm.customerId,
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
-    dueDate: addDays(new Date(), 30),
+    dueDate: addDays(new Date(), 30), // Default due date
     items: orderForm.items.map(item => ({
       description: item.description,
       quantity: item.quantity,
@@ -236,6 +244,10 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
       valueType: ac.valueType,
       value: ac.value,
     })) : [],
+    discountEnabled: orderForm.discountEnabled,
+    discountDescription: orderForm.discountDescription,
+    discountType: orderForm.discountType,
+    discountValue: orderForm.discountValue,
     taxRate: orderForm.taxRate,
     linkedMsaTemplateId: orderForm.linkedMsaTemplateId,
     msaContent: orderForm.msaContent,
@@ -286,6 +298,7 @@ export async function convertMultipleOrderFormsToInvoices(orderFormIds: string[]
   return { successCount, errorCount, newInvoiceIds };
 }
 
+// --- CSV Export Helpers ---
 const escapeCsvField = (field: string | number | undefined | null): string => {
   if (field === undefined || field === null) return '';
   const str = String(field);
@@ -305,7 +318,8 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
     'Invoice Number', 'Customer Name', 'Issue Date', 'Due Date', 'Status',
     'Payment Terms', 'Commitment Period', 'Service Start Date', 'Service End Date',
     'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
-    'Invoice Subtotal', 'Invoice Tax Rate (%)', 'Invoice Tax Amount', 'Invoice Total'
+    'Invoice Subtotal', 'Discount Description', 'Discount Type', 'Discount Value', 'Discount Amount', 
+    'Invoice Tax Rate (%)', 'Invoice Tax Amount', 'Invoice Total'
   ];
 
   let csvContent = headers.map(escapeCsvField).join(',') + '\n';
@@ -326,6 +340,10 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
       item.rate,
       item.amount,
       invoice.subtotal,
+      invoice.discountDescription,
+      invoice.discountType,
+      invoice.discountValue,
+      invoice.discountAmount,
       invoice.taxRate,
       invoice.taxAmount,
       invoice.total
@@ -352,8 +370,9 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
   const headers = [
     'OrderForm Number', 'Customer Name', 'Issue Date', 'Valid Until Date', 'Status',
     'Payment Terms', 'Commitment Period', 'Service Start Date', 'Service End Date',
-    'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
-    'OrderForm Subtotal', 'OrderForm Tax Rate (%)', 'OrderForm Tax Amount', 'OrderForm Total'
+    'Item Description', 'Item Quantity', 'Item Rate', 'Item Procurement Price', 'Item Vendor Name', 'Item Amount',
+    'OrderForm Subtotal', 'Discount Description', 'Discount Type', 'Discount Value', 'Discount Amount', 
+    'OrderForm Tax Rate (%)', 'OrderForm Tax Amount', 'OrderForm Total'
   ];
 
   let csvContent = headers.map(escapeCsvField).join(',') + '\n';
@@ -372,8 +391,14 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
       item.description,
       item.quantity,
       item.rate,
+      item.procurementPrice,
+      item.vendorName,
       item.amount,
       orderForm.subtotal,
+      orderForm.discountDescription,
+      orderForm.discountType,
+      orderForm.discountValue,
+      orderForm.discountAmount,
       orderForm.taxRate,
       orderForm.taxAmount,
       orderForm.total
@@ -391,7 +416,7 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
   };
 }
 
-// TermsTemplate Actions
+// --- TermsTemplate Actions ---
 export async function getAllTermsTemplates(): Promise<TermsTemplate[]> {
   return Data.getTermsTemplates();
 }
@@ -425,7 +450,7 @@ export async function removeTermsTemplate(id: string): Promise<boolean> {
   return success;
 }
 
-// MSA Template Actions
+// --- MSA Template Actions ---
 export async function getAllMsaTemplates(): Promise<MsaTemplate[]> {
   return Data.getMsaTemplates();
 }
@@ -477,7 +502,7 @@ export async function linkCoverPageToMsa(msaTemplateId: string, coverPageTemplat
 }
 
 
-// Cover Page Template Actions
+// --- Cover Page Template Actions ---
 export async function getAllCoverPageTemplates(): Promise<CoverPageTemplate[]> {
   return Data.getCoverPageTemplates();
 }
@@ -511,15 +536,32 @@ export async function removeCoverPageTemplate(id: string): Promise<boolean> {
   return success;
 }
 
-// Branding/Settings Actions
+// --- Branding/Settings Actions ---
 export async function saveBrandingSettings(data: BrandingSettingsFormData): Promise<boolean> {
-  // In a real app, this would save to a database or a persistent store.
-  // For this prototype, we are using localStorage directly on the client in BrandingPage.
-  // This server action could be used if settings were stored server-side.
   console.log("Branding settings to save (server action):", data);
-  // Example: await db.saveSettings(data);
   revalidatePath('/(app)/branding', 'page');
   return true;
 }
 
-    
+// --- Repository Item Actions ---
+export async function getAllRepositoryItems(): Promise<RepositoryItem[]> {
+  return Data.getRepositoryItems();
+}
+
+export async function saveRepositoryItem(data: RepositoryItemFormData, id?: string): Promise<RepositoryItem | null> {
+  if (id) {
+    const updated = await Data.updateRepositoryItem(id, data);
+    if (updated) revalidatePath('/item-repository');
+    return updated;
+  } else {
+    const newItem = await Data.createRepositoryItem(data);
+    if (newItem) revalidatePath('/item-repository');
+    return newItem;
+  }
+}
+
+export async function removeRepositoryItem(id: string): Promise<boolean> {
+  const success = await Data.deleteRepositoryItem(id);
+  if (success) revalidatePath('/item-repository');
+  return success;
+}

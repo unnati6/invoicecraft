@@ -12,17 +12,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription as ShadCNCardDesc } from '@/components/ui/card';
 import { orderFormSchema, type OrderFormFormData, type AdditionalChargeFormData } from '@/lib/schemas';
 import type { OrderForm, Customer, TermsTemplate, MsaTemplate } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink, FileCheck2, Percent } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink, FileCheck2, Percent, Tag } from 'lucide-react';
 import { getAllCustomers, fetchNextOrderFormNumber, getAllTermsTemplates, saveOrderFormTerms, getAllMsaTemplates } from '@/lib/actions';
 import Link from 'next/link';
 import { getCurrencySymbol } from '@/lib/currency-utils';
@@ -67,7 +68,7 @@ const commitmentPeriodOptions = [
   { value: "Custom", label: "Custom" },
 ];
 
-const NO_MSA_TEMPLATE_SELECTED = "_no_msa_template_"; // Changed from "none"
+const NO_MSA_TEMPLATE_SELECTED = "_no_msa_template_"; 
 
 export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmitting = false }: OrderFormFormProps) {
   const [customers, setCustomers] = React.useState<Customer[]>([]);
@@ -93,6 +94,8 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
             description: item.description,
             quantity: item.quantity,
             rate: item.rate,
+            procurementPrice: item.procurementPrice,
+            vendorName: item.vendorName,
           })),
           additionalCharges: initialData.additionalCharges?.map(ac => ({
             id: ac.id,
@@ -117,13 +120,13 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
           orderFormNumber: '',
           issueDate: new Date(),
           validUntilDate: new Date(new Date().setDate(new Date().getDate() + 30)), 
-          items: [{ description: '', quantity: 1, rate: 0 }],
+          items: [{ description: '', quantity: 1, rate: 0, procurementPrice: undefined, vendorName: '' }],
           additionalCharges: [],
-          taxRate: 0,
           discountEnabled: false,
           discountDescription: '',
           discountType: 'fixed',
           discountValue: 0,
+          taxRate: 0,
           linkedMsaTemplateId: NO_MSA_TEMPLATE_SELECTED,
           msaContent: '',
           msaCoverPageTemplateId: '',
@@ -221,6 +224,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
   const watchDiscountEnabled = form.watch('discountEnabled');
   const watchDiscountType = form.watch('discountType');
   const watchDiscountValue = form.watch('discountValue');
+  const watchDiscountDescription = form.watch('discountDescription');
 
 
   const {
@@ -240,7 +244,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
       return sum;
     }, 0) || 0;
 
-    const preDiscount = itemsSub + addChargesTotal;
+    const preDiscSubtotal = itemsSub + addChargesTotal;
 
     let currentDiscountAmount = 0;
     if (watchDiscountEnabled) {
@@ -248,21 +252,21 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
       if (watchDiscountType === 'fixed') {
         currentDiscountAmount = discVal;
       } else if (watchDiscountType === 'percentage') {
-        currentDiscountAmount = preDiscount * (discVal / 100);
+        currentDiscountAmount = preDiscSubtotal * (discVal / 100);
       }
     }
     
-    const taxable = preDiscount - currentDiscountAmount;
-    const tax = taxable * ((Number(watchedTaxRate) || 0) / 100);
-    const grandTotal = taxable + tax;
+    const finalTaxableAmount = preDiscSubtotal - currentDiscountAmount;
+    const finalTaxAmount = finalTaxableAmount * ((Number(watchedTaxRate) || 0) / 100);
+    const grandTotal = finalTaxableAmount + finalTaxAmount;
 
     return {
       subtotal: itemsSub,
       totalAdditionalCharges: addChargesTotal,
-      preDiscountSubtotal: preDiscount,
+      preDiscountSubtotal: preDiscSubtotal,
       discountAmount: currentDiscountAmount,
-      taxableAmount: taxable,
-      taxAmount: tax,
+      taxableAmount: finalTaxableAmount,
+      taxAmount: finalTaxAmount,
       total: grandTotal,
     };
   }, [watchedItems, watchedAdditionalCharges, watchedTaxRate, watchDiscountEnabled, watchDiscountType, watchDiscountValue]);
@@ -527,42 +531,60 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
               <CardHeader><CardTitle>Order Form Items</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 {itemFields.map((field, index) => (
-                  <div key={field.id} className="grid grid-cols-12 gap-x-4 gap-y-2 items-start p-3 border rounded-md relative">
-                    <FormField control={form.control} name={`items.${index}.description`} render={({ field: descField }) => (
-                      <FormItem className="col-span-12 md:col-span-5">
-                        {index === 0 && <FormLabel className="text-xs">Description *</FormLabel>}
-                        <FormControl><Input placeholder="Item or service description" {...descField} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}/>
-                    <FormField control={form.control} name={`items.${index}.quantity`} render={({ field: qtyField }) => (
-                      <FormItem className="col-span-4 md:col-span-2">
-                        {index === 0 && <FormLabel className="text-xs">Quantity *</FormLabel>}
-                        <FormControl><Input type="number" placeholder="1" {...qtyField} onChange={e => qtyField.onChange(parseFloat(e.target.value) || 0)}/></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}/>
-                    <FormField control={form.control} name={`items.${index}.rate`} render={({ field: rateField }) => (
-                      <FormItem className="col-span-4 md:col-span-2">
-                        {index === 0 && <FormLabel className="text-xs">Rate ({currentCurrencySymbol}) *</FormLabel>}
-                        <FormControl><Input type="number" placeholder="0.00" {...rateField} onChange={e => rateField.onChange(parseFloat(e.target.value) || 0)} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}/>
-                     <div className="col-span-4 md:col-span-2 flex items-end h-full">
-                        {index === 0 && <FormLabel className="text-xs md:invisible md:block">Amount</FormLabel>}
-                         <p className="py-2 text-sm font-medium min-w-[60px] text-right">
-                           {currentCurrencySymbol}{((Number(watchedItems[index]?.quantity) || 0) * (Number(watchedItems[index]?.rate) || 0)).toFixed(2)}
-                         </p>
-                     </div>
-                    <div className="col-span-12 md:col-span-1 flex items-end justify-end h-full pt-2 md:pt-0">
-                      {itemFields.length > 1 && (<Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>)}
+                  <div key={field.id} className="space-y-3 p-3 border rounded-md relative">
+                    <div className="grid grid-cols-12 gap-x-4 gap-y-2 items-start">
+                      <FormField control={form.control} name={`items.${index}.description`} render={({ field: descField }) => (
+                        <FormItem className="col-span-12 md:col-span-5">
+                          {index === 0 && <FormLabel className="text-xs">Description *</FormLabel>}
+                          <FormControl><Input placeholder="Item or service description" {...descField} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}/>
+                      <FormField control={form.control} name={`items.${index}.quantity`} render={({ field: qtyField }) => (
+                        <FormItem className="col-span-4 md:col-span-2">
+                          {index === 0 && <FormLabel className="text-xs">Quantity *</FormLabel>}
+                          <FormControl><Input type="number" placeholder="1" {...qtyField} onChange={e => qtyField.onChange(parseFloat(e.target.value) || 0)}/></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}/>
+                      <FormField control={form.control} name={`items.${index}.rate`} render={({ field: rateField }) => (
+                        <FormItem className="col-span-4 md:col-span-2">
+                          {index === 0 && <FormLabel className="text-xs">Rate ({currentCurrencySymbol}) *</FormLabel>}
+                          <FormControl><Input type="number" placeholder="0.00" {...rateField} onChange={e => rateField.onChange(parseFloat(e.target.value) || 0)} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}/>
+                       <div className="col-span-4 md:col-span-2 flex items-end h-full">
+                          {index === 0 && <FormLabel className="text-xs md:invisible md:block">Amount</FormLabel>}
+                           <p className="py-2 text-sm font-medium min-w-[60px] text-right">
+                             {currentCurrencySymbol}{((Number(watchedItems[index]?.quantity) || 0) * (Number(watchedItems[index]?.rate) || 0)).toFixed(2)}
+                           </p>
+                       </div>
+                      <div className="col-span-12 md:col-span-1 flex items-end justify-end h-full pt-2 md:pt-0">
+                        {itemFields.length > 1 && (<Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>)}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-dashed">
+                      <FormField control={form.control} name={`items.${index}.procurementPrice`} render={({ field: procPriceField }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs flex items-center"><Tag className="mr-1 h-3 w-3 text-muted-foreground"/>Procurement Price ({currentCurrencySymbol})</FormLabel>
+                          <FormControl><Input type="number" placeholder="0.00 (Optional)" {...procPriceField} onChange={e => procPriceField.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value) || 0)} className="text-xs h-8"/></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}/>
+                      <FormField control={form.control} name={`items.${index}.vendorName`} render={({ field: vendorField }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs flex items-center"><Tag className="mr-1 h-3 w-3 text-muted-foreground"/>Vendor Name</FormLabel>
+                          <FormControl><Input placeholder="Vendor Name (Optional)" {...vendorField} className="text-xs h-8"/></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}/>
                     </div>
                   </div>
                 ))}
                  {form.formState.errors.items && typeof form.formState.errors.items === 'string' && (<p className="text-sm font-medium text-destructive">{form.formState.errors.items.message}</p>)}
                 {Array.isArray(form.formState.errors.items) && form.formState.errors.items.length === 0 && form.formState.errors.items.message && (<p className="text-sm font-medium text-destructive">{form.formState.errors.items.message}</p>)}
-                <Button type="button" variant="outline" onClick={() => appendItem({ description: '', quantity: 1, rate: 0 })} className="mt-2">
+                <Button type="button" variant="outline" onClick={() => appendItem({ description: '', quantity: 1, rate: 0, procurementPrice: undefined, vendorName: '' })} className="mt-2">
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Item
                 </Button>
               </CardContent>
@@ -781,11 +803,11 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
               <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                  <div className="space-y-2 pt-2">
-                  <div className="flex justify-between"><span>Subtotal (Items):</span><span>{currentCurrencySymbol}{mainItemsSubtotal.toFixed(2)}</span></div>
-                  {totalAdditionalCharges > 0 && <div className="flex justify-between"><span>Additional Charges:</span><span>{currentCurrencySymbol}{totalAdditionalCharges.toFixed(2)}</span></div>}
-                  <div className="flex justify-between font-medium border-t pt-1 mt-1"><span>Subtotal:</span><span>{currentCurrencySymbol}{preDiscountSubtotal.toFixed(2)}</span></div>
-                  {watchDiscountEnabled && discountAmount > 0 && <div className="flex justify-between text-destructive"><span>Discount {watchDiscountDescription ? `(${watchDiscountDescription})` : ''}:</span><span>-{currentCurrencySymbol}{discountAmount.toFixed(2)}</span></div>}
-                  <div className="flex justify-between font-medium border-t pt-1 mt-1"><span>Taxable Amount:</span><span>{currentCurrencySymbol}{taxableAmount.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span>Subtotal (Items):</span><span>{currentCurrencySymbol}{(isFinite(mainItemsSubtotal) ? mainItemsSubtotal:0).toFixed(2)}</span></div>
+                  {totalAdditionalCharges > 0 && <div className="flex justify-between"><span>Additional Charges:</span><span>{currentCurrencySymbol}{(isFinite(totalAdditionalCharges) ? totalAdditionalCharges:0).toFixed(2)}</span></div>}
+                  <div className="flex justify-between font-medium border-t pt-1 mt-1"><span>Subtotal (Before Discount):</span><span>{currentCurrencySymbol}{(isFinite(preDiscountSubtotal) ? preDiscountSubtotal:0).toFixed(2)}</span></div>
+                  {watchDiscountEnabled && discountAmount > 0 && <div className="flex justify-between text-destructive"><span>Discount {watchDiscountDescription ? `(${watchDiscountDescription})` : ''}:</span><span>-{currentCurrencySymbol}{(isFinite(discountAmount) ? discountAmount:0).toFixed(2)}</span></div>}
+                  <div className="flex justify-between font-medium border-t pt-1 mt-1"><span>Taxable Amount:</span><span>{currentCurrencySymbol}{(isFinite(taxableAmount) ? taxableAmount:0).toFixed(2)}</span></div>
                 </div>
                 <FormField control={form.control} name="taxRate" render={({ field }) => (
                   <FormItem>
@@ -795,8 +817,8 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                   </FormItem>
                 )}/>
                 <div className="space-y-2 pt-2 border-t">
-                  <div className="flex justify-between"><span>Tax Amount:</span><span>{currentCurrencySymbol}{taxAmount.toFixed(2)}</span></div>
-                  <div className="flex justify-between text-lg font-semibold border-t pt-2 mt-2"><span>Total:</span><span>{currentCurrencySymbol}{total.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span>Tax Amount:</span><span>{currentCurrencySymbol}{(isFinite(taxAmount) ? taxAmount:0).toFixed(2)}</span></div>
+                  <div className="flex justify-between text-lg font-semibold border-t pt-2 mt-2"><span>Total:</span><span>{currentCurrencySymbol}{(isFinite(total) ? total:0).toFixed(2)}</span></div>
                 </div>
               </CardContent>
               <CardFooter className="flex-col items-stretch gap-2">

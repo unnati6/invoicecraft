@@ -1,8 +1,9 @@
 
-import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate, MsaTemplate, CoverPageTemplate } from '@/types';
-import type { AdditionalChargeFormData, CoverPageTemplateFormData, MsaTemplateFormData, TermsTemplateFormData } from './schemas';
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem } from '@/types';
+import type { AdditionalChargeFormData, CoverPageTemplateFormData, MsaTemplateFormData, TermsTemplateFormData, RepositoryItemFormData } from './schemas';
 import { addDays } from 'date-fns';
 
+// --- Mock Data Store ---
 let mockCustomers: Customer[] = [
   {
     id: 'cust_1',
@@ -64,10 +65,15 @@ let mockInvoices: Invoice[] = [
     additionalCharges: [
         { id: 'ac_1', description: 'Service Fee', valueType: 'fixed', value: 50, calculatedAmount: 50 }
     ],
+    discountEnabled: true,
+    discountDescription: "Early Bird Discount",
+    discountType: "fixed",
+    discountValue: 50,
+    discountAmount: 50,
     subtotal: 1300,
     taxRate: 10,
-    taxAmount: 135,
-    total: 1485,
+    taxAmount: (1300 + 50 - 50) * 0.10, // (subtotal + additionalCharges - discount) * taxRate
+    total: (1300 + 50 - 50) + ((1300 + 50 - 50) * 0.10),
     termsAndConditions: 'Payment due within 30 days. Late fees apply.',
     status: 'Sent',
     createdAt: new Date(2023, 10, 15)
@@ -79,7 +85,7 @@ let mockInvoices: Invoice[] = [
     customerName: 'Bob The Builder',
     currencyCode: 'USD',
     issueDate: new Date(2023, 11, 1),
-    dueDate: new Date(2024, 0, 1), // Corrected month index for December
+    dueDate: new Date(2024, 0, 1),
     paymentTerms: "Due on Receipt",
     items: [
       { id: 'item_3', description: 'Consultation', quantity: 5, rate: 80, amount: 400 },
@@ -111,16 +117,17 @@ let mockOrderForms: OrderForm[] = [
     msaContent: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.content,
     msaCoverPageTemplateId: mockMsaTemplates.find(m => m.id === 'msa_tpl_1')?.coverPageTemplateId,
     items: [
-      { id: 'of_item_1', description: 'Initial Project Scoping', quantity: 1, rate: 500, amount: 500 },
-      { id: 'of_item_2', description: 'Phase 1 Development Estimate', quantity: 1, rate: 2500, amount: 2500 },
+      { id: 'of_item_1', description: 'Initial Project Scoping', quantity: 1, rate: 500, amount: 500, procurementPrice: 400, vendorName: "Scope Masters" },
+      { id: 'of_item_2', description: 'Phase 1 Development Estimate', quantity: 1, rate: 2500, amount: 2500, procurementPrice: 2000, vendorName: "Dev Experts Inc." },
     ],
     additionalCharges: [
       { id: 'of_ac_1', description: 'Rush Fee', valueType: 'percentage', value: 5, calculatedAmount: 150 }
     ],
-    subtotal: 3000,
+    discountEnabled: false,
+    subtotal: 3000, // Sum of item amounts
     taxRate: 10,
-    taxAmount: 315,
-    total: 3465,
+    taxAmount: (3000 + 150) * 0.10, // (subtotal + additionalCharges) * taxRate
+    total: (3000 + 150) + ((3000 + 150) * 0.10),
     termsAndConditions: 'This order form is valid for 30 days. Prices subject to change thereafter.',
     status: 'Sent',
     createdAt: new Date(2024, 0, 10),
@@ -167,10 +174,18 @@ let mockCoverPageTemplates: CoverPageTemplate[] = [
   },
 ];
 
+let mockRepositoryItems: RepositoryItem[] = [
+  { id: 'repo_item_1', name: 'Web Design Service', defaultRate: 1200, createdAt: new Date() },
+  { id: 'repo_item_2', name: 'Hosting (1 year)', defaultRate: 100, createdAt: new Date() },
+  { id: 'repo_item_3', name: 'Consultation', defaultRate: 80, createdAt: new Date() },
+  { id: 'repo_item_4', name: 'Initial Project Scoping', defaultRate: 500, createdAt: new Date() },
+  { id: 'repo_item_5', name: 'Phase 1 Development Estimate', defaultRate: 2500, createdAt: new Date() },
+];
 
+// --- Helper Functions ---
 const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-// Customer Functions
+// --- Customer Functions ---
 export const getCustomers = async (): Promise<Customer[]> => {
   return mockCustomers.map(c => ({
     ...c,
@@ -223,58 +238,77 @@ export const deleteCustomer = async (id: string): Promise<boolean> => {
   return mockCustomers.length < initialLength;
 };
 
-function calculateTotalsAndCharges(
-    itemsData: Omit<InvoiceItem, 'id' | 'amount'>[] | Omit<OrderFormItem, 'id' | 'amount'>[],
-    additionalChargesData: AdditionalChargeFormData[] | undefined,
-    taxRateInput: number
+// --- Calculation Helper ---
+function calculateDocumentTotals(
+  itemsData: (Omit<InvoiceItem, 'id' | 'amount'> | Omit<OrderFormItem, 'id' | 'amount' | 'procurementPrice' | 'vendorName'>)[],
+  additionalChargesData: AdditionalChargeFormData[] | undefined,
+  taxRateInput: number,
+  discountData?: { enabled?: boolean; type?: 'fixed' | 'percentage'; value?: number; }
 ): {
-    processedItems: (InvoiceItem[] | OrderFormItem[]);
-    processedAdditionalCharges: AdditionalChargeItem[];
-    mainItemsSubtotal: number;
-    totalAdditionalChargesValue: number;
-    taxAmount: number;
-    grandTotal: number;
+  processedItems: (InvoiceItem[] | OrderFormItem[]);
+  processedAdditionalCharges: AdditionalChargeItem[];
+  mainItemsSubtotal: number;
+  totalAdditionalChargesValue: number;
+  actualDiscountAmount: number;
+  taxableAmount: number;
+  taxAmount: number;
+  grandTotal: number;
 } {
-    const processedItems = itemsData.map(item => ({
-        ...item,
-        id: (item as any).id || generateId('item'), // Keep existing ID if present
-        amount: item.quantity * item.rate,
-    }));
+  const processedItems = itemsData.map(item => ({
+    ...item,
+    id: (item as any).id || generateId('item'), 
+    amount: (item.quantity || 0) * (item.rate || 0),
+  }));
 
-    const mainItemsSubtotal = processedItems.reduce((sum, item) => sum + item.amount, 0);
+  const mainItemsSubtotal = processedItems.reduce((sum, item) => sum + item.amount, 0);
 
-    const processedAdditionalCharges: AdditionalChargeItem[] = (additionalChargesData || []).map(charge => {
-        let calculatedAmount = 0;
-        if (charge.valueType === 'fixed') {
-            calculatedAmount = charge.value;
-        } else if (charge.valueType === 'percentage') {
-            calculatedAmount = mainItemsSubtotal * (charge.value / 100);
-        }
-        return {
-            id: charge.id || generateId('ac'), // Keep existing ID if present
-            description: charge.description,
-            valueType: charge.valueType,
-            value: charge.value,
-            calculatedAmount: calculatedAmount,
-        };
-    });
-
-    const totalAdditionalChargesValue = processedAdditionalCharges.reduce((sum, charge) => sum + charge.calculatedAmount, 0);
-    const taxableBase = mainItemsSubtotal + totalAdditionalChargesValue;
-    const taxAmount = taxableBase * (taxRateInput / 100);
-    const grandTotal = taxableBase + taxAmount;
-
+  const processedAdditionalCharges: AdditionalChargeItem[] = (additionalChargesData || []).map(charge => {
+    let calculatedAmount = 0;
+    const chargeValue = charge.value || 0;
+    if (charge.valueType === 'fixed') {
+      calculatedAmount = chargeValue;
+    } else if (charge.valueType === 'percentage') {
+      calculatedAmount = mainItemsSubtotal * (chargeValue / 100);
+    }
     return {
-        processedItems: processedItems as (InvoiceItem[] | OrderFormItem[]),
-        processedAdditionalCharges,
-        mainItemsSubtotal,
-        totalAdditionalChargesValue,
-        taxAmount,
-        grandTotal,
+      id: charge.id || generateId('ac'), 
+      description: charge.description,
+      valueType: charge.valueType,
+      value: chargeValue,
+      calculatedAmount: calculatedAmount,
     };
+  });
+
+  const totalAdditionalChargesValue = processedAdditionalCharges.reduce((sum, charge) => sum + charge.calculatedAmount, 0);
+  const subtotalBeforeDiscount = mainItemsSubtotal + totalAdditionalChargesValue;
+
+  let actualDiscountAmount = 0;
+  if (discountData?.enabled && discountData.value && discountData.value > 0) {
+    if (discountData.type === 'fixed') {
+      actualDiscountAmount = discountData.value;
+    } else if (discountData.type === 'percentage') {
+      actualDiscountAmount = subtotalBeforeDiscount * (discountData.value / 100);
+    }
+  }
+  
+  const taxableAmount = subtotalBeforeDiscount - actualDiscountAmount;
+  const taxAmount = taxableAmount * ((taxRateInput || 0) / 100);
+  const grandTotal = taxableAmount + taxAmount;
+
+  return {
+    processedItems: processedItems as (InvoiceItem[] | OrderFormItem[]),
+    processedAdditionalCharges,
+    mainItemsSubtotal,
+    totalAdditionalChargesValue,
+    actualDiscountAmount,
+    taxableAmount,
+    taxAmount,
+    grandTotal,
+  };
 }
 
-// Invoice Functions
+
+// --- Invoice Functions ---
 export const getInvoices = async (): Promise<Invoice[]> => {
   return mockInvoices.map(inv => {
     const customer = mockCustomers.find(c => c.id === inv.customerId);
@@ -303,7 +337,7 @@ export const getInvoiceById = async (id: string): Promise<Invoice | undefined> =
   return undefined;
 };
 
-type CreateInvoiceInputData = Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'> &
+type CreateInvoiceInputData = Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode' | 'discountAmount'> &
                              { items: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
 export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoice> => {
@@ -314,9 +348,14 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     processedItems,
     processedAdditionalCharges,
     mainItemsSubtotal,
+    actualDiscountAmount,
     taxAmount,
     grandTotal
-  } = calculateTotalsAndCharges(data.items, data.additionalCharges, taxRate);
+  } = calculateDocumentTotals(data.items, data.additionalCharges, taxRate, {
+    enabled: data.discountEnabled,
+    type: data.discountType,
+    value: data.discountValue,
+  });
 
   const newInvoice: Invoice = {
     ...data,
@@ -327,6 +366,7 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: generateId('ac')})),
     subtotal: mainItemsSubtotal,
     taxRate: taxRate,
+    discountAmount: actualDiscountAmount,
     taxAmount: taxAmount,
     total: grandTotal,
     createdAt: new Date(),
@@ -335,7 +375,7 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
   return { ...newInvoice, items: newInvoice.items.map(i => ({...i})), additionalCharges: newInvoice.additionalCharges?.map(ac => ({...ac})) };
 };
 
-type UpdateInvoiceInputData = Partial<Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'>> &
+type UpdateInvoiceInputData = Partial<Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode' | 'discountAmount'>> &
                               { items?: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
 export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): Promise<Invoice | null> => {
@@ -343,6 +383,25 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
   if (index === -1) return null;
 
   let existingInvoice = mockInvoices[index];
+  
+  const itemsForCalc = data.items || existingInvoice.items.map(item => ({description: item.description, quantity: item.quantity, rate: item.rate }));
+  const additionalChargesForCalc = data.additionalCharges || existingInvoice.additionalCharges?.map(ac => ({ id: ac.id, description: ac.description, valueType: ac.valueType, value: ac.value })) || [];
+  const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingInvoice.taxRate;
+  const discountDataForCalc = {
+    enabled: data.discountEnabled !== undefined ? data.discountEnabled : existingInvoice.discountEnabled,
+    type: data.discountType !== undefined ? data.discountType : existingInvoice.discountType,
+    value: data.discountValue !== undefined ? data.discountValue : existingInvoice.discountValue,
+  };
+
+  const {
+    processedItems,
+    processedAdditionalCharges,
+    mainItemsSubtotal,
+    actualDiscountAmount,
+    taxAmount,
+    grandTotal
+  } = calculateDocumentTotals(itemsForCalc, additionalChargesForCalc, taxRateForCalc, discountDataForCalc);
+
   let updatedDataIntermediate: Invoice = {
     ...existingInvoice,
     ...data,
@@ -354,6 +413,13 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
     msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
     linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId,
     termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
+    items: processedItems.map(item => ({...item, id: (itemsForCalc.find(i => i.description === item.description && (i as any).id === (item as any).id)?.id || item.id || generateId('item'))  })) as InvoiceItem[],
+    additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description && c.id === ac.id)?.id || ac.id || generateId('ac')) })),
+    subtotal: mainItemsSubtotal,
+    taxRate: taxRateForCalc,
+    discountAmount: actualDiscountAmount,
+    taxAmount: taxAmount,
+    total: grandTotal,
   } as Invoice;
 
   const customerIdForLookup = updatedDataIntermediate.customerId;
@@ -361,30 +427,8 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
   updatedDataIntermediate.customerName = customer?.name || 'Unknown Customer';
   updatedDataIntermediate.currencyCode = customer?.currency || 'USD';
 
-  const itemsForCalc = data.items || existingInvoice.items.map(item => ({description: item.description, quantity: item.quantity, rate: item.rate }));
-  const additionalChargesForCalc = data.additionalCharges || existingInvoice.additionalCharges?.map(ac => ({ id: ac.id, description: ac.description, valueType: ac.valueType, value: ac.value })) || [];
-  const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingInvoice.taxRate;
-
-  const {
-    processedItems,
-    processedAdditionalCharges,
-    mainItemsSubtotal,
-    taxAmount,
-    grandTotal
-  } = calculateTotalsAndCharges(itemsForCalc, additionalChargesForCalc, taxRateForCalc);
-
-  const finalUpdatedInvoice: Invoice = {
-      ...updatedDataIntermediate,
-      items: processedItems.map(item => ({...item, id: (itemsForCalc.find(i => i.description === item.description)?.id || item.id || generateId('item'))  })) as InvoiceItem[],
-      additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description)?.id || ac.id || generateId('ac')) })),
-      subtotal: mainItemsSubtotal,
-      taxRate: taxRateForCalc,
-      taxAmount: taxAmount,
-      total: grandTotal,
-  };
-
-  mockInvoices[index] = finalUpdatedInvoice;
-  return { ...finalUpdatedInvoice, items: finalUpdatedInvoice.items.map(i => ({...i})), additionalCharges: finalUpdatedInvoice.additionalCharges?.map(ac => ({...ac})) };
+  mockInvoices[index] = updatedDataIntermediate;
+  return { ...updatedDataIntermediate, items: updatedDataIntermediate.items.map(i => ({...i})), additionalCharges: updatedDataIntermediate.additionalCharges?.map(ac => ({...ac})) };
 };
 
 export const deleteInvoice = async (id: string): Promise<boolean> => {
@@ -413,7 +457,7 @@ export const getNextInvoiceNumber = async (): Promise<string> => {
     }
 };
 
-// OrderForm Functions
+// --- OrderForm Functions ---
 export const getOrderForms = async (): Promise<OrderForm[]> => {
   return mockOrderForms.map(of => {
     const customer = mockCustomers.find(c => c.id === of.customerId);
@@ -442,7 +486,7 @@ export const getOrderFormById = async (id: string): Promise<OrderForm | undefine
   return undefined;
 };
 
-type CreateOrderFormInputData = Omit<OrderForm, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'> &
+type CreateOrderFormInputData = Omit<OrderForm, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode' | 'discountAmount'> &
                            { items: Omit<OrderFormItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
 export const createOrderForm = async (data: CreateOrderFormInputData): Promise<OrderForm> => {
@@ -453,19 +497,30 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
     processedItems,
     processedAdditionalCharges,
     mainItemsSubtotal,
+    actualDiscountAmount,
     taxAmount,
     grandTotal
-  } = calculateTotalsAndCharges(data.items, data.additionalCharges, taxRate);
+  } = calculateDocumentTotals(data.items, data.additionalCharges, taxRate, {
+    enabled: data.discountEnabled,
+    type: data.discountType,
+    value: data.discountValue,
+  });
 
   const newOrderForm: OrderForm = {
     ...data,
     id: generateId('of'),
     customerName: customer?.name || 'Unknown Customer',
     currencyCode: customer?.currency || 'USD',
-    items: processedItems.map(item => ({...item, id: generateId('of_item')})) as OrderFormItem[],
+    items: processedItems.map(item => ({
+        ...item, 
+        id: generateId('of_item'),
+        procurementPrice: (item as OrderFormItem).procurementPrice, // Retain procurement fields
+        vendorName: (item as OrderFormItem).vendorName,
+    })) as OrderFormItem[],
     additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: generateId('of_ac')})),
     subtotal: mainItemsSubtotal,
     taxRate: taxRate,
+    discountAmount: actualDiscountAmount,
     taxAmount: taxAmount,
     total: grandTotal,
     createdAt: new Date(),
@@ -474,7 +529,7 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
   return { ...newOrderForm, items: newOrderForm.items.map(i => ({...i})), additionalCharges: newOrderForm.additionalCharges?.map(ac => ({...ac})) };
 };
 
-type UpdateOrderFormInputData = Partial<Omit<OrderForm, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode'>> &
+type UpdateOrderFormInputData = Partial<Omit<OrderForm, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode' | 'discountAmount'>> &
                             { items?: Omit<OrderFormItem, 'id' | 'amount'>[], additionalCharges?: AdditionalChargeFormData[] };
 
 export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData): Promise<OrderForm | null> => {
@@ -482,6 +537,31 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
   if (index === -1) return null;
 
   let existingOrderForm = mockOrderForms[index];
+
+  const itemsForCalc = data.items || existingOrderForm.items.map(item => ({
+    description: item.description, 
+    quantity: item.quantity, 
+    rate: item.rate,
+    procurementPrice: item.procurementPrice,
+    vendorName: item.vendorName,
+  }));
+  const additionalChargesForCalc = data.additionalCharges || existingOrderForm.additionalCharges?.map(ac => ({ id: ac.id, description: ac.description, valueType: ac.valueType, value: ac.value })) || [];
+  const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingOrderForm.taxRate;
+  const discountDataForCalc = {
+    enabled: data.discountEnabled !== undefined ? data.discountEnabled : existingOrderForm.discountEnabled,
+    type: data.discountType !== undefined ? data.discountType : existingOrderForm.discountType,
+    value: data.discountValue !== undefined ? data.discountValue : existingOrderForm.discountValue,
+  };
+
+  const {
+    processedItems,
+    processedAdditionalCharges,
+    mainItemsSubtotal,
+    actualDiscountAmount,
+    taxAmount,
+    grandTotal
+  } = calculateDocumentTotals(itemsForCalc, additionalChargesForCalc, taxRateForCalc, discountDataForCalc);
+
   let updatedDataIntermediate: OrderForm = {
      ...existingOrderForm,
      ...data,
@@ -493,6 +573,18 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
      msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
      linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId,
      termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
+     items: processedItems.map((item, idx) => ({
+        ...item, 
+        id: (itemsForCalc[idx] as any).id || item.id || generateId('of_item'),
+        procurementPrice: (item as OrderFormItem).procurementPrice,
+        vendorName: (item as OrderFormItem).vendorName,
+    })) as OrderFormItem[],
+     additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description && c.id === ac.id)?.id || ac.id || generateId('of_ac')) })),
+     subtotal: mainItemsSubtotal,
+     taxRate: taxRateForCalc,
+     discountAmount: actualDiscountAmount,
+     taxAmount: taxAmount,
+     total: grandTotal,
     } as OrderForm;
 
   const customerIdForLookup = updatedDataIntermediate.customerId;
@@ -500,30 +592,8 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
   updatedDataIntermediate.customerName = customer?.name || 'Unknown Customer';
   updatedDataIntermediate.currencyCode = customer?.currency || 'USD';
 
-  const itemsForCalc = data.items || existingOrderForm.items.map(item => ({description: item.description, quantity: item.quantity, rate: item.rate }));
-  const additionalChargesForCalc = data.additionalCharges || existingOrderForm.additionalCharges?.map(ac => ({ id: ac.id, description: ac.description, valueType: ac.valueType, value: ac.value })) || [];
-  const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingOrderForm.taxRate;
-
-  const {
-    processedItems,
-    processedAdditionalCharges,
-    mainItemsSubtotal,
-    taxAmount,
-    grandTotal
-  } = calculateTotalsAndCharges(itemsForCalc, additionalChargesForCalc, taxRateForCalc);
-
-  const finalUpdatedOrderForm: OrderForm = {
-      ...updatedDataIntermediate,
-      items: processedItems.map(item => ({...item, id: (itemsForCalc.find(i => i.description === item.description)?.id || item.id || generateId('of_item'))  })) as OrderFormItem[],
-      additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description)?.id || ac.id || generateId('of_ac')) })),
-      subtotal: mainItemsSubtotal,
-      taxRate: taxRateForCalc,
-      taxAmount: taxAmount,
-      total: grandTotal,
-  };
-
-  mockOrderForms[index] = finalUpdatedOrderForm;
-  return { ...finalUpdatedOrderForm, items: finalUpdatedOrderForm.items.map(i => ({...i})), additionalCharges: finalUpdatedOrderForm.additionalCharges?.map(ac => ({...ac})) };
+  mockOrderForms[index] = updatedDataIntermediate;
+  return { ...updatedDataIntermediate, items: updatedDataIntermediate.items.map(i => ({...i})), additionalCharges: updatedDataIntermediate.additionalCharges?.map(ac => ({...ac})) };
 };
 
 export const deleteOrderForm = async (id: string): Promise<boolean> => {
@@ -552,7 +622,7 @@ export const getNextOrderFormNumber = async (): Promise<string> => {
     }
 };
 
-// TermsTemplate Functions
+// --- TermsTemplate Functions ---
 export const getTermsTemplates = async (): Promise<TermsTemplate[]> => {
   return mockTermsTemplates.map(t => ({ ...t }));
 };
@@ -591,7 +661,7 @@ export const deleteTermsTemplate = async (id: string): Promise<boolean> => {
   return mockTermsTemplates.length < initialLength;
 };
 
-// MSA Template Functions
+// --- MSA Template Functions ---
 export const getMsaTemplates = async (): Promise<MsaTemplate[]> => {
   return mockMsaTemplates.map(t => ({ ...t }));
 };
@@ -620,8 +690,7 @@ export const updateMsaTemplate = async (id: string, data: Partial<Omit<MsaTempla
   const currentTemplate = mockMsaTemplates[index];
   const updatedTemplate: MsaTemplate = {
     ...currentTemplate,
-    ...data, // Apply all updates from data
-    // Specifically handle coverPageTemplateId to allow unsetting
+    ...data,
     coverPageTemplateId: 'coverPageTemplateId' in data ? data.coverPageTemplateId : currentTemplate.coverPageTemplateId,
   };
 
@@ -635,7 +704,7 @@ export const deleteMsaTemplate = async (id: string): Promise<boolean> => {
   return mockMsaTemplates.length < initialLength;
 };
 
-// Cover Page Template Functions
+// --- Cover Page Template Functions ---
 export const getCoverPageTemplates = async (): Promise<CoverPageTemplate[]> => {
   return mockCoverPageTemplates.map(t => ({ ...t }));
 };
@@ -670,4 +739,33 @@ export const deleteCoverPageTemplate = async (id: string): Promise<boolean> => {
   const initialLength = mockCoverPageTemplates.length;
   mockCoverPageTemplates = mockCoverPageTemplates.filter(t => t.id !== id);
   return mockCoverPageTemplates.length < initialLength;
+};
+
+// --- Repository Item Functions ---
+export const getRepositoryItems = async (): Promise<RepositoryItem[]> => {
+  return mockRepositoryItems.map(item => ({ ...item }));
+};
+
+export const createRepositoryItem = async (data: Omit<RepositoryItem, 'id' | 'createdAt'>): Promise<RepositoryItem> => {
+  const newItem: RepositoryItem = {
+    id: generateId('repo_item'),
+    name: data.name,
+    defaultRate: data.defaultRate,
+    createdAt: new Date(),
+  };
+  mockRepositoryItems.push(newItem);
+  return { ...newItem };
+};
+
+export const updateRepositoryItem = async (id: string, data: Partial<Omit<RepositoryItem, 'id' | 'createdAt'>>): Promise<RepositoryItem | null> => {
+  const index = mockRepositoryItems.findIndex(item => item.id === id);
+  if (index === -1) return null;
+  mockRepositoryItems[index] = { ...mockRepositoryItems[index], ...data };
+  return { ...mockRepositoryItems[index] };
+};
+
+export const deleteRepositoryItem = async (id: string): Promise<boolean> => {
+  const initialLength = mockRepositoryItems.length;
+  mockRepositoryItems = mockRepositoryItems.filter(item => item.id !== id);
+  return mockRepositoryItems.length < initialLength;
 };

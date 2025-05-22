@@ -71,11 +71,16 @@ export interface Invoice {
   dueDate: Date;
   items: InvoiceItem[];
   additionalCharges?: AdditionalChargeItem[];
+  discountEnabled?: boolean;
+  discountDescription?: string;
+  discountType?: 'fixed' | 'percentage';
+  discountValue?: number;
+  discountAmount?: number;
   subtotal: number; 
   taxRate: number; 
   taxAmount: number; 
   total: number; 
-  linkedMsaTemplateId?: string; // ID of the selected MSA template
+  linkedMsaTemplateId?: string;
   msaContent?: string;
   msaCoverPageTemplateId?: string; 
   termsAndConditions?: string;
@@ -93,6 +98,8 @@ export interface OrderFormItem {
   quantity: number;
   rate: number;
   amount: number;
+  procurementPrice?: number; // New field
+  vendorName?: string;      // New field
 }
 
 export interface OrderForm {
@@ -105,11 +112,16 @@ export interface OrderForm {
   validUntilDate: Date; 
   items: OrderFormItem[];
   additionalCharges?: AdditionalChargeItem[];
+  discountEnabled?: boolean;
+  discountDescription?: string;
+  discountType?: 'fixed' | 'percentage';
+  discountValue?: number;
+  discountAmount?: number;
   subtotal: number; 
   taxRate: number;
   taxAmount: number; 
   total: number; 
-  linkedMsaTemplateId?: string; // ID of the selected MSA template
+  linkedMsaTemplateId?: string;
   msaContent?: string;
   msaCoverPageTemplateId?: string; 
   termsAndConditions?: string;
@@ -125,5 +137,13 @@ export interface TermsTemplate {
   id: string;
   name: string;
   content: string; // HTML content from RichTextEditor
+  createdAt: Date;
+}
+
+export interface RepositoryItem {
+  id: string;
+  name: string; // This will typically match the 'description' of an invoice/order form item
+  defaultRate?: number;
+  // Potentially add 'defaultUnit' or 'category' in the future
   createdAt: Date;
 }
