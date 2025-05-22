@@ -61,7 +61,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     issueDate: data.issueDate,
     dueDate: data.dueDate,
     taxRate: data.taxRate || 0,
-    items: data.items, // Items include description, quantity, rate
+    items: data.items, 
     additionalCharges: data.additionalCharges,
     discountEnabled: data.discountEnabled,
     discountDescription: data.discountDescription,
@@ -78,6 +78,8 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     serviceEndDate: data.serviceEndDate,
   };
 
+  let savedInvoice: Invoice | null = null;
+
   if (id) {
     const existingInvoice = await Data.getInvoiceById(id);
     if (!existingInvoice) return null;
@@ -90,23 +92,38 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
       linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId),
     };
 
-    const updated = await Data.updateInvoice(id, finalData);
-    if (updated) {
+    savedInvoice = await Data.updateInvoice(id, finalData);
+    if (savedInvoice) {
       revalidatePath('/invoices');
-      revalidatePath(`/invoices/${updated.id}`);
-      revalidatePath(`/invoices/${updated.id}/terms`);
+      revalidatePath(`/invoices/${savedInvoice.id}`);
+      revalidatePath(`/invoices/${savedInvoice.id}/terms`);
       revalidatePath('/(app)/dashboard', 'page');
     }
-    return updated;
   } else {
-    const newInvoice = await Data.createInvoice(invoiceDataCore);
-    if (newInvoice) {
+    savedInvoice = await Data.createInvoice(invoiceDataCore);
+    if (savedInvoice) {
       revalidatePath('/invoices');
-      revalidatePath(`/invoices/${newInvoice.id}`);
+      revalidatePath(`/invoices/${savedInvoice.id}`);
       revalidatePath('/(app)/dashboard', 'page');
     }
-    return newInvoice;
   }
+
+  if (savedInvoice) {
+    const customer = await fetchCustomerById(savedInvoice.customerId);
+    const invoiceCurrency = customer?.currency || savedInvoice.currencyCode || 'USD';
+    for (const item of savedInvoice.items) {
+      await Data.findRepositoryItemByNameAndUpdate(
+        item.description,
+        {
+          defaultRate: item.rate,
+          currencyCode: invoiceCurrency,
+        }
+      );
+    }
+    revalidatePath('/item-repository');
+  }
+
+  return savedInvoice;
 }
 
 export async function removeInvoice(id: string): Promise<boolean> {
@@ -150,7 +167,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     orderFormNumber: data.orderFormNumber,
     issueDate: data.issueDate,
     validUntilDate: data.validUntilDate,
-    items: data.items, // Items include desc, qty, rate, and new procurement fields
+    items: data.items,
     additionalCharges: data.additionalCharges,
     discountEnabled: data.discountEnabled,
     discountDescription: data.discountDescription,
@@ -167,6 +184,8 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     serviceStartDate: data.serviceStartDate,
     serviceEndDate: data.serviceEndDate,
   };
+  
+  let savedOrderForm: OrderForm | null = null;
 
   if (id) {
     const existingOrderForm = await Data.getOrderFormById(id);
@@ -180,21 +199,39 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId),
     };
 
-    const updated = await Data.updateOrderForm(id, finalData);
-    if (updated) {
+    savedOrderForm = await Data.updateOrderForm(id, finalData);
+    if (savedOrderForm) {
       revalidatePath('/orderforms');
-      revalidatePath(`/orderforms/${updated.id}`);
-      revalidatePath(`/orderforms/${updated.id}/terms`);
+      revalidatePath(`/orderforms/${savedOrderForm.id}`);
+      revalidatePath(`/orderforms/${savedOrderForm.id}/terms`);
     }
-    return updated;
   } else {
-    const newOrderForm = await Data.createOrderForm(orderFormDataCore);
-    if(newOrderForm) {
+    savedOrderForm = await Data.createOrderForm(orderFormDataCore);
+    if(savedOrderForm) {
       revalidatePath('/orderforms');
-      revalidatePath(`/orderforms/${newOrderForm.id}`);
+      revalidatePath(`/orderforms/${savedOrderForm.id}`);
     }
-    return newOrderForm;
   }
+
+  if (savedOrderForm) {
+    const customer = await fetchCustomerById(savedOrderForm.customerId);
+    const orderFormCurrency = customer?.currency || savedOrderForm.currencyCode || 'USD';
+
+    for (const item of savedOrderForm.items) {
+      await Data.findRepositoryItemByNameAndUpdate(
+        item.description, // This is used as the 'name' for matching
+        {
+          defaultRate: item.rate,
+          defaultProcurementPrice: item.procurementPrice,
+          defaultVendorName: item.vendorName,
+          currencyCode: orderFormCurrency, 
+        }
+      );
+    }
+    revalidatePath('/item-repository'); 
+  }
+
+  return savedOrderForm;
 }
 
 export async function removeOrderForm(id: string): Promise<boolean> {
@@ -233,7 +270,7 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
     customerId: orderForm.customerId,
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
-    dueDate: addDays(new Date(), 30), // Default due date
+    dueDate: addDays(new Date(), 30), 
     items: orderForm.items.map(item => ({
       description: item.description,
       quantity: item.quantity,
@@ -565,3 +602,4 @@ export async function removeRepositoryItem(id: string): Promise<boolean> {
   if (success) revalidatePath('/item-repository');
   return success;
 }
+

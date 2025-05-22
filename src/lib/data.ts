@@ -182,14 +182,14 @@ let mockCoverPageTemplates: CoverPageTemplate[] = [
 ];
 
 let mockRepositoryItems: RepositoryItem[] = [
-  { id: 'repo_item_1', name: 'Web Design Service', defaultRate: 1200, currencyCode: 'INR', createdAt: new Date(), defaultProcurementPrice: 900, defaultVendorName: "Creative Designs Co." },
-  { id: 'repo_item_2', name: 'Hosting (1 year)', defaultRate: 100, currencyCode: 'USD', createdAt: new Date(), defaultProcurementPrice: 70, defaultVendorName: "CloudNine Hosting" },
-  { id: 'repo_item_3', name: 'Consultation', defaultRate: 80, currencyCode: 'USD', createdAt: new Date(), defaultVendorName: "Expert Advisors Inc." /* Added vendor */ },
-  { id: 'repo_item_4', name: 'Initial Project Scoping', defaultRate: 500, currencyCode: 'INR', createdAt: new Date(), defaultVendorName: "Strategy Solutions", defaultProcurementPrice: 450 },
-  { id: 'repo_item_5', name: 'Phase 1 Development Estimate', defaultRate: 2500, currencyCode: 'INR', createdAt: new Date(), defaultProcurementPrice: 2200, defaultVendorName: "Dev House" },
-  { id: 'repo_item_6', name: 'Monthly Maintenance Retainer', defaultRate: 300, currencyCode: 'USD', createdAt: new Date() /* No default vendor purposefully */ },
-  { id: 'repo_item_7', name: 'Graphic Design Package', defaultRate: 750, currencyCode: 'USD', createdAt: new Date(), defaultProcurementPrice: 600, defaultVendorName: "Pixel Perfect Ltd." },
-  { id: 'repo_item_8', name: 'SEO Audit', defaultRate: 450, currencyCode: 'USD', createdAt: new Date(), defaultVendorName: "Search Boosters" },
+  { id: 'repo_item_1', name: 'Web Design Service', defaultRate: 1250, currencyCode: 'INR', createdAt: new Date(), defaultProcurementPrice: 950, defaultVendorName: "Creative Designs Co. Updated" },
+  { id: 'repo_item_2', name: 'Hosting (1 year)', defaultRate: 110, currencyCode: 'USD', createdAt: new Date(), defaultProcurementPrice: 75, defaultVendorName: "CloudNine Hosting Global" },
+  { id: 'repo_item_3', name: 'Consultation', defaultRate: 85, currencyCode: 'USD', createdAt: new Date(), defaultVendorName: "Expert Advisors LLC", defaultProcurementPrice: 50 },
+  { id: 'repo_item_4', name: 'Initial Project Scoping', defaultRate: 520, currencyCode: 'INR', createdAt: new Date(), defaultVendorName: "Strategy Solutions Plus", defaultProcurementPrice: 460 },
+  { id: 'repo_item_5', name: 'Phase 1 Development Estimate', defaultRate: 2600, currencyCode: 'INR', createdAt: new Date(), defaultProcurementPrice: 2250, defaultVendorName: "Dev House Advanced" },
+  { id: 'repo_item_6', name: 'Monthly Maintenance Retainer', defaultRate: 310, currencyCode: 'USD', createdAt: new Date() },
+  { id: 'repo_item_7', name: 'Graphic Design Package', defaultRate: 760, currencyCode: 'USD', createdAt: new Date(), defaultProcurementPrice: 610, defaultVendorName: "Pixel Perfect Designs" },
+  { id: 'repo_item_8', name: 'SEO Audit', defaultRate: 470, currencyCode: 'USD', createdAt: new Date(), defaultVendorName: "Search Boosters Pro", defaultProcurementPrice: 300 },
 ];
 
 // --- Helper Functions ---
@@ -253,7 +253,7 @@ function calculateDocumentTotals(
   itemsData: (Omit<InvoiceItem, 'id' | 'amount'> | Omit<OrderFormItem, 'id' | 'amount'>)[],
   additionalChargesData: AdditionalChargeFormData[] | undefined,
   taxRateInput: number,
-  discountData?: { enabled?: boolean; type?: 'fixed' | 'percentage'; value?: number; }
+  discountData?: { enabled?: boolean; description?: string; type?: 'fixed' | 'percentage'; value?: number; }
 ): {
   processedItems: (InvoiceItem[] | OrderFormItem[]);
   processedAdditionalCharges: AdditionalChargeItem[];
@@ -266,7 +266,7 @@ function calculateDocumentTotals(
 } {
   const processedItems = itemsData.map(item => ({
     ...item,
-    id: (item as any).id || generateId('item'), // Keep existing ID if present
+    id: (item as any).id || generateId('item'), 
     amount: (item.quantity || 0) * (item.rate || 0),
   }));
 
@@ -281,7 +281,7 @@ function calculateDocumentTotals(
       calculatedAmount = mainItemsSubtotal * (chargeValue / 100);
     }
     return {
-      id: charge.id || generateId('ac'), // Keep existing ID
+      id: charge.id || generateId('ac'), 
       description: charge.description,
       valueType: charge.valueType,
       value: chargeValue,
@@ -363,6 +363,7 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     grandTotal
   } = calculateDocumentTotals(data.items, data.additionalCharges, taxRate, {
     enabled: data.discountEnabled,
+    description: data.discountDescription,
     type: data.discountType,
     value: data.discountValue,
   });
@@ -399,9 +400,9 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
   const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingInvoice.taxRate;
   const discountDataForCalc = {
     enabled: data.discountEnabled !== undefined ? data.discountEnabled : existingInvoice.discountEnabled,
+    description: data.discountDescription !== undefined ? data.discountDescription : existingInvoice.discountDescription,
     type: data.discountType !== undefined ? data.discountType : existingInvoice.discountType,
     value: data.discountValue !== undefined ? data.discountValue : existingInvoice.discountValue,
-    description: data.discountDescription !== undefined ? data.discountDescription : existingInvoice.discountDescription,
   };
 
   const {
@@ -523,6 +524,7 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
     grandTotal
   } = calculateDocumentTotals(data.items, data.additionalCharges, taxRate, {
     enabled: data.discountEnabled,
+    description: data.discountDescription,
     type: data.discountType,
     value: data.discountValue,
   });
@@ -570,9 +572,9 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
   const taxRateForCalc = data.taxRate !== undefined ? data.taxRate : existingOrderForm.taxRate;
   const discountDataForCalc = {
     enabled: data.discountEnabled !== undefined ? data.discountEnabled : existingOrderForm.discountEnabled,
+    description: data.discountDescription !== undefined ? data.discountDescription : existingOrderForm.discountDescription,
     type: data.discountType !== undefined ? data.discountType : existingOrderForm.discountType,
     value: data.discountValue !== undefined ? data.discountValue : existingOrderForm.discountValue,
-    description: data.discountDescription !== undefined ? data.discountDescription : existingOrderForm.discountDescription,
   };
 
   const {
@@ -717,16 +719,14 @@ export const updateMsaTemplate = async (id: string, data: Partial<Omit<MsaTempla
   if (index === -1) return null;
 
   const currentTemplate = mockMsaTemplates[index];
-  const updatedTemplate: MsaTemplate = {
-    ...currentTemplate,
-    ...data,
-  };
-  
+  const updatedTemplate: MsaTemplate = { ...currentTemplate };
+
+  if (data.hasOwnProperty('name')) updatedTemplate.name = data.name!;
+  if (data.hasOwnProperty('content')) updatedTemplate.content = data.content!;
   if (data.hasOwnProperty('coverPageTemplateId')) {
     updatedTemplate.coverPageTemplateId = data.coverPageTemplateId;
   }
-
-
+  
   mockMsaTemplates[index] = updatedTemplate;
   return { ...updatedTemplate };
 };
@@ -805,3 +805,41 @@ export const deleteRepositoryItem = async (id: string): Promise<boolean> => {
   mockRepositoryItems = mockRepositoryItems.filter(item => item.id !== id);
   return mockRepositoryItems.length < initialLength;
 };
+
+export const findRepositoryItemByNameAndUpdate = async (
+  itemName: string,
+  itemDataFromDocument: {
+    rate?: number;
+    procurementPrice?: number;
+    vendorName?: string;
+    currencyCode?: string;
+  }
+): Promise<RepositoryItem | null> => {
+  const itemIndex = mockRepositoryItems.findIndex(
+    (repoItem) => repoItem.name.toLowerCase() === itemName.toLowerCase()
+  );
+
+  if (itemIndex !== -1) {
+    const repoItemToUpdate = { ...mockRepositoryItems[itemIndex] };
+
+    if (itemDataFromDocument.rate !== undefined) {
+      repoItemToUpdate.defaultRate = itemDataFromDocument.rate;
+    }
+    if (itemDataFromDocument.procurementPrice !== undefined) {
+      repoItemToUpdate.defaultProcurementPrice = itemDataFromDocument.procurementPrice;
+    }
+    // If vendorName is explicitly passed (even as an empty string), update it.
+    // If it's undefined (not set in order form), don't change the repository's default.
+    if (itemDataFromDocument.vendorName !== undefined) {
+      repoItemToUpdate.defaultVendorName = itemDataFromDocument.vendorName;
+    }
+    if (itemDataFromDocument.currencyCode) {
+      repoItemToUpdate.currencyCode = itemDataFromDocument.currencyCode;
+    }
+
+    mockRepositoryItems[itemIndex] = repoItemToUpdate;
+    return { ...mockRepositoryItems[itemIndex] }; // Return a clone
+  }
+  return null; // Item not found in repository
+};
+
