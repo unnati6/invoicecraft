@@ -1,6 +1,6 @@
 
 import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate, MsaTemplate, CoverPageTemplate } from '@/types';
-import type { AdditionalChargeFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData } from './schemas';
+import type { AdditionalChargeFormData, CoverPageTemplateFormData, MsaTemplateFormData, TermsTemplateFormData } from './schemas';
 import { addDays } from 'date-fns';
 
 let mockCustomers: Customer[] = [
@@ -9,7 +9,7 @@ let mockCustomers: Customer[] = [
     name: 'Alice Wonderland',
     email: 'alice@example.com',
     phone: '123-456-7890',
-    currency: 'INR', // Alice uses INR
+    currency: 'INR',
     billingAddress: { street: '123 Rabbit Hole', city: 'Storyville', state: 'CA', zip: '90210', country: 'USA' },
     shippingAddress: { street: '123 Rabbit Hole', city: 'Storyville', state: 'CA', zip: '90210', country: 'USA' },
     createdAt: new Date()
@@ -19,7 +19,7 @@ let mockCustomers: Customer[] = [
     name: 'Bob The Builder',
     email: 'bob@example.com',
     phone: '987-654-3210',
-    currency: 'USD', // Bob now uses USD (Changed from GBP)
+    currency: 'USD',
     billingAddress: { street: '456 Construction Way', city: 'BuildCity', state: 'NY', zip: '10001', country: 'USA' },
     createdAt: new Date()
   },
@@ -77,9 +77,9 @@ let mockInvoices: Invoice[] = [
     invoiceNumber: 'INV-002',
     customerId: 'cust_2',
     customerName: 'Bob The Builder',
-    currencyCode: 'USD', // Will be derived as USD due to cust_2 change
+    currencyCode: 'USD',
     issueDate: new Date(2023, 11, 1),
-    dueDate: new Date(2023, 12, 1), // Corrected month index for December
+    dueDate: new Date(2024, 0, 1), // Corrected month index for December
     paymentTerms: "Due on Receipt",
     items: [
       { id: 'item_3', description: 'Consultation', quantity: 5, rate: 80, amount: 400 },
@@ -205,9 +205,10 @@ export const updateCustomer = async (id: string, data: Partial<Omit<Customer, 'i
   const index = mockCustomers.findIndex(c => c.id === id);
   if (index === -1) return null;
 
+  const updatedCustomerData = { ...mockCustomers[index], ...data };
+
   const updatedCustomer: Customer = {
-    ...mockCustomers[index],
-    ...data,
+    ...updatedCustomerData,
     currency: data.currency || mockCustomers[index].currency,
     billingAddress: data.billingAddress !== undefined ? (data.billingAddress ? {...data.billingAddress} : undefined) : (mockCustomers[index].billingAddress ? {...mockCustomers[index].billingAddress} : undefined),
     shippingAddress: data.shippingAddress !== undefined ? (data.shippingAddress ? {...data.shippingAddress} : undefined) : (mockCustomers[index].shippingAddress ? {...mockCustomers[index].shippingAddress} : undefined),
@@ -236,7 +237,7 @@ function calculateTotalsAndCharges(
 } {
     const processedItems = itemsData.map(item => ({
         ...item,
-        id: (item as any).id || generateId('item'),
+        id: (item as any).id || generateId('item'), // Keep existing ID if present
         amount: item.quantity * item.rate,
     }));
 
@@ -250,7 +251,7 @@ function calculateTotalsAndCharges(
             calculatedAmount = mainItemsSubtotal * (charge.value / 100);
         }
         return {
-            id: charge.id || generateId('ac'),
+            id: charge.id || generateId('ac'), // Keep existing ID if present
             description: charge.description,
             valueType: charge.valueType,
             value: charge.value,
@@ -322,19 +323,12 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     id: generateId('inv'),
     customerName: customer?.name || 'Unknown Customer',
     currencyCode: customer?.currency || 'USD',
-    items: processedItems as InvoiceItem[],
-    additionalCharges: processedAdditionalCharges,
+    items: processedItems.map(item => ({...item, id: generateId('item')})) as InvoiceItem[],
+    additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: generateId('ac')})),
     subtotal: mainItemsSubtotal,
     taxRate: taxRate,
     taxAmount: taxAmount,
     total: grandTotal,
-    linkedMsaTemplateId: data.linkedMsaTemplateId,
-    msaContent: data.msaContent,
-    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
-    paymentTerms: data.paymentTerms,
-    commitmentPeriod: data.commitmentPeriod,
-    serviceStartDate: data.serviceStartDate,
-    serviceEndDate: data.serviceEndDate,
     createdAt: new Date(),
   };
   mockInvoices.push(newInvoice);
@@ -356,6 +350,10 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
     dueDate: data.dueDate ? new Date(data.dueDate) : existingInvoice.dueDate,
     serviceStartDate: data.serviceStartDate ? new Date(data.serviceStartDate) : existingInvoice.serviceStartDate,
     serviceEndDate: data.serviceEndDate ? new Date(data.serviceEndDate) : existingInvoice.serviceEndDate,
+    msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
+    linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId,
+    termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
   } as Invoice;
 
   const customerIdForLookup = updatedDataIntermediate.customerId;
@@ -377,7 +375,7 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
 
   const finalUpdatedInvoice: Invoice = {
       ...updatedDataIntermediate,
-      items: processedItems.map(item => ({...item, id: (data.items?.find(i => i.description === item.description)?.id || item.id || generateId('item'))  })) as InvoiceItem[],
+      items: processedItems.map(item => ({...item, id: (itemsForCalc.find(i => i.description === item.description)?.id || item.id || generateId('item'))  })) as InvoiceItem[],
       additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description)?.id || ac.id || generateId('ac')) })),
       subtotal: mainItemsSubtotal,
       taxRate: taxRateForCalc,
@@ -470,13 +468,6 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
     taxRate: taxRate,
     taxAmount: taxAmount,
     total: grandTotal,
-    linkedMsaTemplateId: data.linkedMsaTemplateId,
-    msaContent: data.msaContent,
-    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
-    paymentTerms: data.paymentTerms,
-    commitmentPeriod: data.commitmentPeriod,
-    serviceStartDate: data.serviceStartDate,
-    serviceEndDate: data.serviceEndDate,
     createdAt: new Date(),
   };
   mockOrderForms.push(newOrderForm);
@@ -498,6 +489,10 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
      validUntilDate: data.validUntilDate ? new Date(data.validUntilDate) : existingOrderForm.validUntilDate,
      serviceStartDate: data.serviceStartDate ? new Date(data.serviceStartDate) : existingOrderForm.serviceStartDate,
      serviceEndDate: data.serviceEndDate ? new Date(data.serviceEndDate) : existingOrderForm.serviceEndDate,
+     msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
+     msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
+     linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId,
+     termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
     } as OrderForm;
 
   const customerIdForLookup = updatedDataIntermediate.customerId;
@@ -519,7 +514,7 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
 
   const finalUpdatedOrderForm: OrderForm = {
       ...updatedDataIntermediate,
-      items: processedItems.map(item => ({...item, id: (data.items?.find(i => i.description === item.description)?.id || item.id || generateId('of_item'))  })) as OrderFormItem[],
+      items: processedItems.map(item => ({...item, id: (itemsForCalc.find(i => i.description === item.description)?.id || item.id || generateId('of_item'))  })) as OrderFormItem[],
       additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description)?.id || ac.id || generateId('of_ac')) })),
       subtotal: mainItemsSubtotal,
       taxRate: taxRateForCalc,
@@ -606,27 +601,30 @@ export const getMsaTemplateById = async (id: string): Promise<MsaTemplate | unde
   return template ? { ...template } : undefined;
 };
 
-export const createMsaTemplate = async (data: MsaTemplateFormData): Promise<MsaTemplate> => {
+export const createMsaTemplate = async (data: Partial<Omit<MsaTemplate, 'id' | 'createdAt'>>): Promise<MsaTemplate> => {
   const newTemplate: MsaTemplate = {
     id: generateId('msa_tpl'),
-    name: data.name,
+    name: data.name || 'Unnamed MSA Template',
     content: data.content || '<p></p>',
-    coverPageTemplateId: data.coverPageTemplateId === "_no_cover_page_" ? undefined : data.coverPageTemplateId,
+    coverPageTemplateId: data.coverPageTemplateId,
     createdAt: new Date(),
   };
   mockMsaTemplates.push(newTemplate);
   return { ...newTemplate };
 };
 
-export const updateMsaTemplate = async (id: string, data: Partial<MsaTemplateFormData>): Promise<MsaTemplate | null> => {
+export const updateMsaTemplate = async (id: string, data: Partial<Omit<MsaTemplate, 'id' | 'createdAt'>>): Promise<MsaTemplate | null> => {
   const index = mockMsaTemplates.findIndex(t => t.id === id);
   if (index === -1) return null;
-  const updatedTemplate = {
-    ...mockMsaTemplates[index],
-    ...data,
-    content: data.content !== undefined ? (data.content || '<p></p>') : mockMsaTemplates[index].content,
-    coverPageTemplateId: data.coverPageTemplateId === "_no_cover_page_" ? undefined : (data.coverPageTemplateId !== undefined ? data.coverPageTemplateId : mockMsaTemplates[index].coverPageTemplateId),
+
+  const currentTemplate = mockMsaTemplates[index];
+  const updatedTemplate: MsaTemplate = {
+    ...currentTemplate,
+    ...data, // Apply all updates from data
+    // Specifically handle coverPageTemplateId to allow unsetting
+    coverPageTemplateId: 'coverPageTemplateId' in data ? data.coverPageTemplateId : currentTemplate.coverPageTemplateId,
   };
+
   mockMsaTemplates[index] = updatedTemplate;
   return { ...updatedTemplate };
 };

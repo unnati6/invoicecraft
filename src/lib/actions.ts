@@ -4,7 +4,7 @@
 import { revalidatePath } from 'next/cache';
 import * as Data from './data';
 import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate } from '@/types';
-import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData } from './schemas';
+import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData, BrandingSettingsFormData } from './schemas';
 import { format, addDays } from 'date-fns';
 import { Buffer } from 'buffer'; 
 
@@ -61,7 +61,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     issueDate: data.issueDate,
     dueDate: data.dueDate,
     taxRate: data.taxRate || 0,
-    linkedMsaTemplateId: data.linkedMsaTemplateId,
+    linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId, // Handle "None"
     msaContent: data.msaContent,
     msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     termsAndConditions: data.termsAndConditions,
@@ -83,14 +83,14 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
-      linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId,
+      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId),
     };
 
     const updated = await Data.updateInvoice(id, finalData);
     if (updated) {
       revalidatePath('/invoices'); 
-      revalidatePath(`/invoices/${id}`); 
-      revalidatePath(`/invoices/${id}/terms`);
+      revalidatePath(`/invoices/${updated.id}`); 
+      revalidatePath(`/invoices/${updated.id}/terms`);
       revalidatePath('/(app)/dashboard', 'page'); 
     }
     return updated;
@@ -147,7 +147,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     issueDate: data.issueDate,
     validUntilDate: data.validUntilDate,
     taxRate: data.taxRate || 0,
-    linkedMsaTemplateId: data.linkedMsaTemplateId,
+    linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId, // Handle "None"
     msaContent: data.msaContent,
     msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     termsAndConditions: data.termsAndConditions,
@@ -169,14 +169,14 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
-      linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId,
+      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId),
     };
 
     const updated = await Data.updateOrderForm(id, finalData);
     if (updated) {
       revalidatePath('/orderforms'); 
-      revalidatePath(`/orderforms/${id}`); 
-      revalidatePath(`/orderforms/${id}/terms`); 
+      revalidatePath(`/orderforms/${updated.id}`); 
+      revalidatePath(`/orderforms/${updated.id}/terms`); 
     }
     return updated;
   } else { 
@@ -435,15 +435,21 @@ export async function fetchMsaTemplateById(id: string): Promise<MsaTemplate | un
 }
 
 export async function saveMsaTemplate(data: MsaTemplateFormData, id?: string): Promise<MsaTemplate | null> {
+  const payload: Partial<Omit<MsaTemplate, 'id' | 'createdAt'>> = {
+    name: data.name,
+    content: data.content,
+    coverPageTemplateId: data.coverPageTemplateId === "_no_cover_page_" ? undefined : data.coverPageTemplateId,
+  };
+
   if (id) {
-    const updated = await Data.updateMsaTemplate(id, data);
+    const updated = await Data.updateMsaTemplate(id, payload);
     if (updated) {
       revalidatePath('/templates/msa');
       revalidatePath(`/templates/msa/${id}/edit`);
     }
     return updated;
   } else {
-    const newTemplate = await Data.createMsaTemplate(data);
+    const newTemplate = await Data.createMsaTemplate(payload);
     if (newTemplate) {
       revalidatePath('/templates/msa');
     }
@@ -463,7 +469,7 @@ export async function linkCoverPageToMsa(msaTemplateId: string, coverPageTemplat
   const msaTemplate = await Data.getMsaTemplateById(msaTemplateId);
   if (!msaTemplate) return null;
 
-  const updatedMsaTemplate = await Data.updateMsaTemplate(msaTemplateId, { coverPageTemplateId: coverPageTemplateId || undefined });
+  const updatedMsaTemplate = await Data.updateMsaTemplate(msaTemplateId, { coverPageTemplateId: coverPageTemplateId === null ? undefined : coverPageTemplateId });
   if (updatedMsaTemplate) {
     revalidatePath('/templates/msa');
   }
@@ -503,4 +509,15 @@ export async function removeCoverPageTemplate(id: string): Promise<boolean> {
     revalidatePath('/templates/coverpages');
   }
   return success;
+}
+
+// Branding/Settings Actions
+export async function saveBrandingSettings(data: BrandingSettingsFormData): Promise<boolean> {
+  // In a real app, this would save to a database or a persistent store.
+  // For this prototype, we are using localStorage directly on the client in BrandingPage.
+  // This server action could be used if settings were stored server-side.
+  console.log("Branding settings to save (server action):", data);
+  // Example: await db.saveSettings(data);
+  revalidatePath('/(app)/branding', 'page');
+  return true;
 }
