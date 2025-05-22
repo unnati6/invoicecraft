@@ -2,12 +2,14 @@
 'use client';
 
 import * as _React from 'react';
-import type { Invoice, Customer } from '@/types';
+import type { Invoice, Customer, CoverPageTemplate } from '@/types';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
+import { CoverPageContent } from '@/components/cover-page-content';
+import { fetchCoverPageTemplateById } from '@/lib/actions'; // Import the action
 
 const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
 const SIGNATURE_STORAGE_KEY = 'branding_company_signature_data_url';
@@ -117,14 +119,15 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
     email: 'billing@yourcompany.com',
     phone: '(555) 123-4567'
   });
-
+  const [coverPageTemplate, setCoverPageTemplate] = _React.useState<CoverPageTemplate | undefined>(undefined);
+  const [isLoadingCoverPage, setIsLoadingCoverPage] = _React.useState(false);
 
    _React.useEffect(() => {
     const isClient = typeof window !== 'undefined';
     if (isClient) {
       const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
       if (storedLogo) setCompanyLogoUrl(storedLogo);
-      else setCompanyLogoUrl('/images/revynox_logo_black.png'); // Default if nothing in localStorage
+      else setCompanyLogoUrl('/images/revynox_logo_black.png'); 
       
       const storedSignature = localStorage.getItem(SIGNATURE_STORAGE_KEY);
       if (storedSignature) setCompanySignatureUrl(storedSignature);
@@ -140,20 +143,40 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 
       let addressLine1 = street;
       let addressLine2 = `${city}${city && (stateVal || zip || country) ? ', ' : ''}${stateVal} ${zip}${zip && country ? ', ' : ''}${country}`.trim();
-      if (!addressLine1 && addressLine2) { // If street is empty but city/state/zip/country has value
+      if (!addressLine1 && addressLine2) {
         addressLine1 = addressLine2;
         addressLine2 = '';
       }
       
       setYourCompany({
         name,
-        addressLine1: addressLine1 || 'Your Address Line 1', // Fallback if all parts are empty
-        addressLine2: addressLine2.length > 0 ? addressLine2 : '', // Fallback to empty if only city/state/zip/country was there
+        addressLine1: addressLine1 || 'Your Address Line 1', 
+        addressLine2: addressLine2.length > 0 ? addressLine2 : '', 
         phone,
         email,
       });
     }
-  }, []); // Removed dependencies to avoid re-running unnecessarily if props don't change yourCompany state
+  }, []);
+
+  _React.useEffect(() => {
+    async function loadCoverPage() {
+      if (invoice.msaContent && invoice.msaCoverPageTemplateId && invoice.msaCoverPageTemplateId !== '') {
+        setIsLoadingCoverPage(true);
+        try {
+          const cpt = await fetchCoverPageTemplateById(invoice.msaCoverPageTemplateId);
+          setCoverPageTemplate(cpt);
+        } catch (error) {
+          console.error("Failed to fetch cover page template for preview:", error);
+          setCoverPageTemplate(undefined);
+        } finally {
+          setIsLoadingCoverPage(false);
+        }
+      } else {
+        setCoverPageTemplate(undefined);
+      }
+    }
+    loadCoverPage();
+  }, [invoice.msaContent, invoice.msaCoverPageTemplateId]);
 
 
   const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
@@ -166,7 +189,7 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 
 
   const currencySymbol = getCurrencySymbol(customerToDisplay.currency);
-  const partnerLogoUrl = 'https://placehold.co/150x50.png'; // This can be made dynamic later
+  const partnerLogoUrl = 'https://placehold.co/150x50.png'; 
   const totalAdditionalChargesValue = invoice.additionalCharges?.reduce((sum, charge) => sum + charge.calculatedAmount, 0) || 0;
   const hasShippingAddress = customerToDisplay.shippingAddress &&
                              (customerToDisplay.shippingAddress.street ||
@@ -175,8 +198,18 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
   const processedMsaContent = invoice.msaContent ? replacePlaceholders(invoice.msaContent, invoice, customer) : undefined;
   const processedTermsAndConditions = replacePlaceholders(invoice.termsAndConditions, invoice, customer);
 
+  if (isLoadingCoverPage) {
+    return <div className="p-6 text-center">Loading cover page...</div>;
+  }
+
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
+      {coverPageTemplate && (
+        <>
+          <CoverPageContent document={invoice} customer={customer} template={coverPageTemplate} />
+          <hr className="my-6 border-border" />
+        </>
+      )}
       {processedMsaContent && (
         <>
           <div className="mb-4 prose prose-sm max-w-none">
@@ -271,7 +304,6 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 
       {invoice.additionalCharges && invoice.additionalCharges.length > 0 && (
         <div className="mb-8">
-          {/* Removed "Additional Charges" heading */}
           <table className="w-full border-collapse">
             <tbody>
               {invoice.additionalCharges.map((charge) => (
@@ -288,10 +320,9 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         </div>
       )}
 
-      {partnerLogoUrl && ( // This assumes partnerLogoUrl can be dynamically set or is a placeholder
+      {partnerLogoUrl && ( 
         <div className="mb-8 mt-4 py-4 border-t border-b border-dashed">
-            <div className="flex justify-start"> {/* Changed from justify-center to justify-start */}
-                {/* Removed "In partnership with:" title */}
+            <div className="flex justify-start"> 
                 <Image src={partnerLogoUrl} alt="Partner Logo" width={150} height={50} style={{ objectFit: 'contain', maxHeight: '50px' }} data-ai-hint="partner logo" />
             </div>
         </div>
@@ -336,3 +367,5 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 }
 
 InvoicePreviewContent.displayName = "InvoicePreviewContent";
+
+    

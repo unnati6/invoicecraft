@@ -2,12 +2,14 @@
 'use client';
 
 import * as _React from 'react';
-import type { OrderForm, Customer } from '@/types';
+import type { OrderForm, Customer, CoverPageTemplate } from '@/types'; // Added CoverPageTemplate
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
+import { CoverPageContent } from '@/components/cover-page-content'; // Import CoverPageContent
+import { fetchCoverPageTemplateById } from '@/lib/actions'; // Import the action
 
 const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
 const SIGNATURE_STORAGE_KEY = 'branding_company_signature_data_url';
@@ -117,6 +119,8 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
     email: 'sales@yourcompany.com',
     phone: '(555) 123-7890'
   });
+  const [coverPageTemplate, setCoverPageTemplate] = _React.useState<CoverPageTemplate | undefined>(undefined);
+  const [isLoadingCoverPage, setIsLoadingCoverPage] = _React.useState(false);
 
 
   _React.useEffect(() => {
@@ -124,7 +128,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
     if (isClient) {
         const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
         if (storedLogo) setCompanyLogoUrl(storedLogo);
-        else setCompanyLogoUrl('/images/revynox_logo_black.png'); // Default if nothing in localStorage
+        else setCompanyLogoUrl('/images/revynox_logo_black.png'); 
         
         const storedSignature = localStorage.getItem(SIGNATURE_STORAGE_KEY);
         if (storedSignature) setCompanySignatureUrl(storedSignature);
@@ -155,6 +159,26 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
     }
   }, []);
 
+  _React.useEffect(() => {
+    async function loadCoverPage() {
+      if (orderForm.msaContent && orderForm.msaCoverPageTemplateId && orderForm.msaCoverPageTemplateId !== '') {
+        setIsLoadingCoverPage(true);
+        try {
+          const cpt = await fetchCoverPageTemplateById(orderForm.msaCoverPageTemplateId);
+          setCoverPageTemplate(cpt);
+        } catch (error) {
+          console.error("Failed to fetch cover page template for preview:", error);
+          setCoverPageTemplate(undefined);
+        } finally {
+          setIsLoadingCoverPage(false);
+        }
+      } else {
+        setCoverPageTemplate(undefined);
+      }
+    }
+    loadCoverPage();
+  }, [orderForm.msaContent, orderForm.msaCoverPageTemplateId]);
+
    const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
     name: orderForm.customerName || customer?.name || 'N/A',
     email: customer?.email || 'N/A',
@@ -164,7 +188,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
   };
 
   const currencySymbol = getCurrencySymbol(customerToDisplay.currency);
-  const partnerLogoUrl = 'https://placehold.co/150x50.png'; // This can be made dynamic later
+  const partnerLogoUrl = 'https://placehold.co/150x50.png'; 
   const totalAdditionalChargesValue = orderForm.additionalCharges?.reduce((sum, charge) => sum + charge.calculatedAmount, 0) || 0;
   const hasShippingAddress = customerToDisplay.shippingAddress &&
                              (customerToDisplay.shippingAddress.street ||
@@ -173,8 +197,18 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
   const processedMsaContent = orderForm.msaContent ? replacePlaceholders(orderForm.msaContent, orderForm, customer) : undefined;
   const processedTermsAndConditions = replacePlaceholders(orderForm.termsAndConditions, orderForm, customer);
 
+  if (isLoadingCoverPage) {
+    return <div className="p-6 text-center">Loading cover page...</div>;
+  }
+
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
+      {coverPageTemplate && (
+        <>
+          <CoverPageContent document={orderForm} customer={customer} template={coverPageTemplate} />
+          <hr className="my-6 border-border" />
+        </>
+      )}
       {processedMsaContent && (
         <>
           <div className="mb-4 prose prose-sm max-w-none">
@@ -270,7 +304,6 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
 
       {orderForm.additionalCharges && orderForm.additionalCharges.length > 0 && (
         <div className="mb-8">
-          {/* Removed "Additional Charges" heading */}
           <table className="w-full border-collapse">
             <tbody>
               {orderForm.additionalCharges.map((charge) => (
@@ -287,10 +320,9 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
         </div>
       )}
 
-      {partnerLogoUrl && ( // This assumes partnerLogoUrl can be dynamically set or is a placeholder
+      {partnerLogoUrl && ( 
         <div className="mb-8 mt-4 py-4 border-t border-b border-dashed">
-            <div className="flex justify-start"> {/* Changed from justify-center to justify-start */}
-                {/* Removed "In partnership with:" title */}
+            <div className="flex justify-start"> 
                 <Image src={partnerLogoUrl} alt="Partner Logo" width={150} height={50} style={{ objectFit: 'contain', maxHeight: '50px' }} data-ai-hint="partner logo" />
             </div>
         </div>
@@ -335,3 +367,5 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
 }
 
 OrderFormPreviewContent.displayName = "OrderFormPreviewContent";
+
+    

@@ -26,7 +26,7 @@ async function renderAndCapture(
   const root = ReactDOM.createRoot(hiddenContainer);
   await new Promise<void>((resolveRender) => {
     root.render(React.createElement(React.Fragment, null, element));
-    setTimeout(resolveRender, 500);
+    setTimeout(resolveRender, 700); 
   });
 
   const canvas = await html2canvas(hiddenContainer, {
@@ -44,7 +44,7 @@ async function renderAndCapture(
   return canvas;
 }
 
-function addCanvasToPdf(pdf: jsPDF, canvas: HTMLCanvasElement): void {
+function addCanvasToPdf(pdf: jsPDF, canvas: HTMLCanvasElement, isFirstPageOfCurrentSegment: boolean): boolean {
   const A4_WIDTH_PT = 595.28;
   const A4_HEIGHT_PT = 841.89;
   const margin = 30;
@@ -54,17 +54,29 @@ function addCanvasToPdf(pdf: jsPDF, canvas: HTMLCanvasElement): void {
 
   const imgOriginalWidthPx = canvas.width;
   const imgOriginalHeightPx = canvas.height;
-  const scaleRatio = contentWidthPt / imgOriginalWidthPx;
+  
+  // Calculate scale ratio to fit width, or if image is too narrow, use original size up to contentWidthPt
+  let scaleRatio: number;
+  if (imgOriginalWidthPx > contentWidthPt) {
+      scaleRatio = contentWidthPt / imgOriginalWidthPx;
+  } else {
+      scaleRatio = 1; // Don't scale up if image is narrower than content area
+  }
+  const finalContentWidthPt = Math.min(imgOriginalWidthPx, contentWidthPt);
+
 
   let yOffsetInImagePx = 0;
-  let isFirstPageForThisCanvas = true;
+  let pageAddedForThisCanvas = false;
+  let internalIsFirstPageForThisCanvasChunk = isFirstPageOfCurrentSegment;
 
   while (yOffsetInImagePx < imgOriginalHeightPx) {
-    if (!isFirstPageForThisCanvas) {
+    if (!internalIsFirstPageForThisCanvasChunk) {
       pdf.addPage();
+      pageAddedForThisCanvas = true;
     }
 
     let sourceChunkHeightPx = Math.round(contentHeightPt / scaleRatio);
+    
     if (yOffsetInImagePx + sourceChunkHeightPx > imgOriginalHeightPx) {
       sourceChunkHeightPx = imgOriginalHeightPx - yOffsetInImagePx;
     }
@@ -85,11 +97,12 @@ function addCanvasToPdf(pdf: jsPDF, canvas: HTMLCanvasElement): void {
       );
       const chunkImgData = tempCanvas.toDataURL('image/png');
       const destChunkHeightPt = sourceChunkHeightPx * scaleRatio;
-      pdf.addImage(chunkImgData, 'PNG', margin, margin, contentWidthPt, destChunkHeightPt);
+      pdf.addImage(chunkImgData, 'PNG', margin, margin, finalContentWidthPt, destChunkHeightPt);
     }
     yOffsetInImagePx += sourceChunkHeightPx;
-    isFirstPageForThisCanvas = false;
+    internalIsFirstPageForThisCanvasChunk = false; 
   }
+  return pageAddedForThisCanvas;
 }
 
 export async function downloadPdfForDocument(doc: Invoice | OrderForm, customer?: Customer): Promise<void> {
@@ -99,31 +112,33 @@ export async function downloadPdfForDocument(doc: Invoice | OrderForm, customer?
   hiddenContainer.style.position = 'absolute';
   hiddenContainer.style.left = '-9999px';
   hiddenContainer.style.top = '-9999px';
-  hiddenContainer.style.width = '800px';
+  hiddenContainer.style.width = '800px'; 
   hiddenContainer.style.background = 'white';
   document.body.appendChild(hiddenContainer);
 
   const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
-  let pageAddedForSegments = false; // Track if a page has been added between segments
+  let anythingRenderedYet = false;
 
   try {
     toast({ title: 'Generating PDF...', description: 'Please wait while the document is being prepared.' });
     await delay(100);
 
-    let coverPageTemplate: CoverPageTemplate | undefined = undefined;
-    if (doc.msaContent && doc.msaCoverPageTemplateId) {
-      coverPageTemplate = await fetchCoverPageTemplateById(doc.msaCoverPageTemplateId);
+    // 1. Render Cover Page (if applicable)
+    let coverPageTemplateFetched: CoverPageTemplate | undefined = undefined;
+    if (doc.msaContent && doc.msaCoverPageTemplateId && doc.msaCoverPageTemplateId !== '') {
+      coverPageTemplateFetched = await fetchCoverPageTemplateById(doc.msaCoverPageTemplateId);
     }
 
-    if (coverPageTemplate) {
-      const coverPageElement = React.createElement(CoverPageContent, { document: doc, customer, template: coverPageTemplate });
+    if (coverPageTemplateFetched) {
+      const coverPageElement = React.createElement(CoverPageContent, { document: doc, customer, template: coverPageTemplateFetched });
       const coverCanvas = await renderAndCapture(coverPageElement, hiddenContainerId);
-      addCanvasToPdf(pdf, coverCanvas);
-      pageAddedForSegments = true;
+      addCanvasToPdf(pdf, coverCanvas, true); // True: first page of this segment (and PDF)
+      anythingRenderedYet = true;
     }
 
+    // 2. Render MSA Content (if applicable)
     if (doc.msaContent) {
-      if (pageAddedForSegments) { // Add a new page only if a cover page was rendered
+      if (anythingRenderedYet) {
         pdf.addPage();
       }
       const MsaContentWrapper = () => (
@@ -132,18 +147,23 @@ export async function downloadPdfForDocument(doc: Invoice | OrderForm, customer?
       );
       const msaElement = React.createElement(MsaContentWrapper);
       const msaCanvas = await renderAndCapture(msaElement, hiddenContainerId);
-      addCanvasToPdf(pdf, msaCanvas);
-      pageAddedForSegments = true;
+      addCanvasToPdf(pdf, msaCanvas, true); // True: first page of this MSA segment
+      anythingRenderedYet = true;
     }
 
+    // 3. Render Main Document Content
     const isInvoice = 'invoiceNumber' in doc;
     const PreviewComponent = isInvoice ? InvoicePreviewContent : OrderFormPreviewContent;
-    if (pageAddedForSegments) { // Add a new page if cover or MSA was rendered
-       pdf.addPage();
+    
+    if (anythingRenderedYet) {
+      pdf.addPage();
     }
+    // The PreviewComponent itself might render a cover page if it's part of its logic now for live preview
+    // We need to ensure it's not rendering its own cover page when called from here for PDF generation.
+    // For now, assume PreviewComponent correctly renders only its main body for PDF.
     const mainDocElement = React.createElement(PreviewComponent, { document: doc as any, customer: customer as any } as any);
     const mainDocCanvas = await renderAndCapture(mainDocElement, hiddenContainerId);
-    addCanvasToPdf(pdf, mainDocCanvas);
+    addCanvasToPdf(pdf, mainDocCanvas, true); // True: first page of this main document segment
 
     const docNumber = isInvoice ? doc.invoiceNumber : doc.orderFormNumber;
     const docType = isInvoice ? 'Invoice' : 'OrderForm';
@@ -179,7 +199,7 @@ export async function downloadMultipleDocumentsAsSinglePdf(
   hiddenContainer.style.position = 'absolute';
   hiddenContainer.style.left = '-9999px';
   hiddenContainer.style.top = '-9999px';
-  hiddenContainer.style.width = '800px';
+  hiddenContainer.style.width = '800px'; 
   hiddenContainer.style.background = 'white';
   document.body.appendChild(hiddenContainer);
 
@@ -194,26 +214,28 @@ export async function downloadMultipleDocumentsAsSinglePdf(
       const docType = isInvoice ? 'Invoice' : 'OrderForm';
       const docNumber = isInvoice ? (doc as Invoice).invoiceNumber : (doc as OrderForm).orderFormNumber;
       
-      let pageAddedForSegments = false;
+      let isFirstSegmentForThisDocumentInPdf = true;
 
-      if (i > 0) { // Add page break before starting a new document (unless it's the first)
-        pdf.addPage();
+      if (i > 0) { 
+        pdf.addPage(); 
       }
 
-      let coverPageTemplate: CoverPageTemplate | undefined = undefined;
-      if (doc.msaContent && doc.msaCoverPageTemplateId) {
-        coverPageTemplate = await fetchCoverPageTemplateById(doc.msaCoverPageTemplateId);
+      // 1. Render Cover Page for current document
+      let coverPageTemplateFetched: CoverPageTemplate | undefined = undefined;
+      if (doc.msaContent && doc.msaCoverPageTemplateId && doc.msaCoverPageTemplateId !== '') {
+        coverPageTemplateFetched = await fetchCoverPageTemplateById(doc.msaCoverPageTemplateId);
       }
 
-      if (coverPageTemplate) {
-        const coverPageElement = React.createElement(CoverPageContent, { document: doc, customer, template: coverPageTemplate });
+      if (coverPageTemplateFetched) {
+        const coverPageElement = React.createElement(CoverPageContent, { document: doc, customer, template: coverPageTemplateFetched });
         const coverCanvas = await renderAndCapture(coverPageElement, hiddenContainerId);
-        addCanvasToPdf(pdf, coverCanvas);
-        pageAddedForSegments = true;
+        addCanvasToPdf(pdf, coverCanvas, isFirstSegmentForThisDocumentInPdf);
+        isFirstSegmentForThisDocumentInPdf = false;
       }
 
+      // 2. Render MSA Content for current document
       if (doc.msaContent) {
-        if (pageAddedForSegments) {
+        if (!isFirstSegmentForThisDocumentInPdf) {
           pdf.addPage();
         }
         const MsaContentWrapper = () => (
@@ -222,19 +244,21 @@ export async function downloadMultipleDocumentsAsSinglePdf(
         );
         const msaElement = React.createElement(MsaContentWrapper);
         const msaCanvas = await renderAndCapture(msaElement, hiddenContainerId);
-        addCanvasToPdf(pdf, msaCanvas);
-        pageAddedForSegments = true;
+        addCanvasToPdf(pdf, msaCanvas, isFirstSegmentForThisDocumentInPdf);
+        isFirstSegmentForThisDocumentInPdf = false;
       }
 
-      if (pageAddedForSegments) {
+      // 3. Render Main Document Content for current document
+      if (!isFirstSegmentForThisDocumentInPdf) {
          pdf.addPage();
       }
+      // Again, assume PreviewComponent renders only its main body for PDF
       const mainDocElement = React.createElement(PreviewComponent, { document: doc as any, customer: customer as any } as any);
       const mainDocCanvas = await renderAndCapture(mainDocElement, hiddenContainerId);
-      addCanvasToPdf(pdf, mainDocCanvas);
-
+      addCanvasToPdf(pdf, mainDocCanvas, isFirstSegmentForThisDocumentInPdf);
+      
       toast({ title: 'Progress', description: `Added ${docType} ${docNumber} to PDF (${i + 1}/${docs.length}).` });
-      await delay(300);
+      await delay(500); 
     }
 
     pdf.save(combinedFileName);
