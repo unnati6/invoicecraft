@@ -112,7 +112,7 @@ export default function TermsTemplatesPage() {
                 <Card key={i}>
                   <CardHeader><Skeleton className="h-6 w-3/4 mb-1" /><Skeleton className="h-4 w-1/2" /></CardHeader>
                   <CardContent><Skeleton className="h-32 w-full" /></CardContent>
-                  <CardFooter className="flex justify-end gap-2"><Skeleton className="h-9 w-9" /><Skeleton className="h-9 w-9" /></CardFooter>
+                  <CardFooter className="flex justify-end gap-2"><Skeleton className="h-9 w-9" /><Skeleton className="h-9 w-9" /><Skeleton className="h-9 w-9" /></CardFooter>
                 </Card>
               ) : (
                 <Skeleton key={i} className="h-12 w-full" />
@@ -156,39 +156,41 @@ export default function TermsTemplatesPage() {
         ) : viewMode === 'card' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {templates.map((template) => (
-              <TermsTemplatePreviewDialog
-                key={template.id}
-                template={template}
-                trigger={
-                  <Card className="flex flex-col cursor-pointer hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <CardTitle className="truncate" title={template.name}>{template.name}</CardTitle>
-                      <CardDescription>Created: {format(new Date(template.createdAt), 'PP')}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-grow relative">
-                      <ScrollArea className="h-48 w-full rounded-md border bg-muted/20 p-3 relative">
-                        <div className="prose prose-sm max-w-none">
-                           <ReactMarkdown rehypePlugins={[rehypeRaw]}>{template.content || "*No content*"}</ReactMarkdown>
-                        </div>
-                      </ScrollArea>
-                    </CardContent>
-                    <CardFooter className="flex justify-end gap-2 border-t pt-4 mt-auto">
-                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/templates/terms/${template.id}/edit`); }} title="Edit Template">
-                        <Edit className="h-4 w-4" />
+              <Card key={template.id} className="flex flex-col">
+                <CardHeader>
+                  <CardTitle className="truncate" title={template.name}>{template.name}</CardTitle>
+                  <CardDescription>Created: {format(new Date(template.createdAt), 'PP')}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow relative">
+                  <ScrollArea className="h-48 w-full rounded-md border bg-muted/20 p-3 relative">
+                    <div className="prose prose-sm max-w-none">
+                        <ReactMarkdown rehypePlugins={[rehypeRaw]}>{template.content || "*No content*"}</ReactMarkdown>
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+                <CardFooter className="flex justify-end gap-2 border-t pt-4 mt-auto">
+                  <TermsTemplatePreviewDialog
+                    template={template}
+                    trigger={
+                      <Button variant="ghost" size="icon" title="Preview Template">
+                        <Eye className="h-4 w-4" />
                       </Button>
-                      <DeleteConfirmationDialog 
-                        onConfirm={() => handleDeleteTemplate(template.id)} 
-                        itemName={`template "${template.name}"`}
-                        trigger={
-                          <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Delete Template">
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        }
-                      />
-                    </CardFooter>
-                  </Card>
-                }
-              />
+                    }
+                  />
+                  <Button variant="ghost" size="icon" onClick={() => router.push(`/templates/terms/${template.id}/edit`)} title="Edit Template">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <DeleteConfirmationDialog 
+                    onConfirm={() => handleDeleteTemplate(template.id)} 
+                    itemName={`template "${template.name}"`}
+                    trigger={
+                      <Button variant="ghost" size="icon" title="Delete Template">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    }
+                  />
+                </CardFooter>
+              </Card>
             ))}
           </div>
         ) : (
@@ -198,7 +200,7 @@ export default function TermsTemplatesPage() {
               <DataTable
                 columns={columns}
                 data={templates}
-                onRowClick={(row) => router.push(`/templates/terms/${row.id}/edit`)} // Kept for list view row click to edit
+                onRowClick={(row) => router.push(`/templates/terms/${row.id}/edit`)}
                 noResultsMessage="No T&C templates found."
               />
             </CardContent>
