@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { customerSchema, type CustomerFormData } from '@/lib/schemas';
 import type { Customer } from '@/types';
-import { Save } from 'lucide-react';
+import { Save, Copy } from 'lucide-react'; // Added Copy icon
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CustomerFormProps {
@@ -89,6 +89,17 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
     },
   });
 
+  const handleCopyBillingAddress = () => {
+    const billing = form.getValues('billingAddress');
+    if (billing) {
+      form.setValue('shippingAddress.street', billing.street || '', { shouldDirty: true, shouldValidate: true });
+      form.setValue('shippingAddress.city', billing.city || '', { shouldDirty: true, shouldValidate: true });
+      form.setValue('shippingAddress.state', billing.state || '', { shouldDirty: true, shouldValidate: true });
+      form.setValue('shippingAddress.zip', billing.zip || '', { shouldDirty: true, shouldValidate: true });
+      form.setValue('shippingAddress.country', billing.country || '', { shouldDirty: true, shouldValidate: true });
+    }
+  };
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -105,7 +116,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>Full Name *</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. John Doe" {...field} />
+                      <Input placeholder="e.g. John Doe" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -118,7 +129,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>Email Address *</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="e.g. john.doe@example.com" {...field} />
+                      <Input type="email" placeholder="e.g. john.doe@example.com" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -133,7 +144,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>Phone Number</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. (123) 456-7890" {...field} />
+                      <Input placeholder="e.g. (123) 456-7890" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -174,7 +185,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>Street</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. 123 Main St" {...field} />
+                      <Input placeholder="e.g. 123 Main St" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -187,7 +198,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>City</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Anytown" {...field} />
+                      <Input placeholder="e.g. Anytown" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -202,7 +213,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>State / Province</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. CA" {...field} />
+                      <Input placeholder="e.g. CA" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -215,7 +226,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>ZIP / Postal Code</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. 90210" {...field} />
+                      <Input placeholder="e.g. 90210" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -228,7 +239,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>Country</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. USA" {...field} />
+                      <Input placeholder="e.g. USA" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -236,7 +247,12 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
               />
             </div>
 
-            <p className="text-base font-semibold text-foreground pt-4">Shipping Address</p>
+            <div className="flex justify-between items-center pt-4">
+                <p className="text-base font-semibold text-foreground">Shipping Address</p>
+                <Button type="button" variant="outline" size="sm" onClick={handleCopyBillingAddress}>
+                    <Copy className="mr-2 h-3 w-3" /> Copy Billing Address
+                </Button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
@@ -245,7 +261,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>Street</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. 456 Oak Ave" {...field} />
+                      <Input placeholder="e.g. 456 Oak Ave" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -258,7 +274,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>City</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Otherville" {...field} />
+                      <Input placeholder="e.g. Otherville" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -273,7 +289,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>State / Province</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. TX" {...field} />
+                      <Input placeholder="e.g. TX" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -286,7 +302,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>ZIP / Postal Code</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. 75001" {...field} />
+                      <Input placeholder="e.g. 75001" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -299,7 +315,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>Country</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. USA" {...field} />
+                      <Input placeholder="e.g. USA" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -320,4 +336,3 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
 }
 
 CustomerForm.displayName = "CustomerForm";
-
