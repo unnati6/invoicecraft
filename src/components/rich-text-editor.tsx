@@ -7,7 +7,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import LinkExtension from '@tiptap/extension-link';
 import { Color as TiptapColor } from '@tiptap/extension-color';
-import TextStyle from '@tiptap/extension-text-style';
+import TextStyle from '@tiptap/extension-text-style'; // Import TextStyle
 import { Image as TiptapImage } from '@tiptap/extension-image';
 
 import {
@@ -25,7 +25,7 @@ import {
   Link as LinkIcon,
   Image as ImageIcon,
   Palette,
-  Paintbrush, // Icon for default color
+  Paintbrush,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -373,15 +373,15 @@ export function RichTextEditor({ value, onChange, disabled = false }: RichTextEd
       FontSizeMark,
       Underline,
       LinkExtension.configure({
-        openOnClick: false, // Recommended to prevent accidental navigation
+        openOnClick: false, 
         autolink: true,
       }),
-      TiptapImage.configure({ // Basic image via URL
-        inline: false, // Can be true if you want inline images
+      TiptapImage.configure({ 
+        inline: false, 
       }),
-      TextStyle.name, // Needs to be registered for TiptapColor to work
+      TextStyle, // Correctly add the TextStyle extension object
       TiptapColor.configure({
-        types: ['textStyle'], // Apply color to textStyle marks
+        types: ['textStyle'], 
       }),
     ],
     content: value,
@@ -433,5 +433,3 @@ declare module '@tiptap/core' {
     };
   }
 }
-
-    
