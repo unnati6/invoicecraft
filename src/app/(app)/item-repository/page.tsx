@@ -165,9 +165,9 @@ export default function ItemRepositoryPage() {
           <CardHeader>
             <CardTitle>All Repository Items</CardTitle>
             <CardDescription>
-              This repository stores default values for your items and services (e.g., name, default selling rate, default procurement price, default vendor, default currency).
+              This repository stores **default values** for your items and services (e.g., name, default selling rate, default procurement price, default vendor, default currency).
               These are templates for when you add items to new documents.
-              <strong className="block mt-1">Note: Values shown here are the defaults stored in the repository. They do not reflect customizations made on individual order forms or invoices. Editing items here requires a dedicated form (not yet implemented).</strong>
+              <strong className="block mt-1">Note: Values shown here are the defaults stored in the repository. They do NOT reflect customizations made on individual order forms or invoices, nor are they updated by changes on those documents. Editing items here requires a dedicated form (not yet implemented).</strong>
             </CardDescription>
           </CardHeader>
           <CardContent>

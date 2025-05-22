@@ -20,7 +20,7 @@ let mockCustomers: Customer[] = [
     name: 'Bob The Builder',
     email: 'bob@example.com',
     phone: '987-654-3210',
-    currency: 'USD', // Changed from GBP
+    currency: 'USD',
     billingAddress: { street: '456 Construction Way', city: 'BuildCity', state: 'NY', zip: '10001', country: 'USA' },
     createdAt: new Date()
   },
@@ -90,6 +90,12 @@ let mockInvoices: Invoice[] = [
     items: [
       { id: 'item_3', description: 'Consultation', quantity: 5, rate: 80, amount: 400 },
     ],
+    additionalCharges: [],
+    discountEnabled: false,
+    discountDescription: "",
+    discountType: "fixed",
+    discountValue: 0,
+    discountAmount: 0,
     subtotal: 400,
     taxRate: 0,
     taxAmount: 0,
@@ -124,6 +130,7 @@ let mockOrderForms: OrderForm[] = [
       { id: 'of_ac_1', description: 'Rush Fee', valueType: 'percentage', value: 5, calculatedAmount: 150 }
     ],
     discountEnabled: false,
+    discountAmount: 0,
     subtotal: 3000,
     taxRate: 10,
     taxAmount: (3000 + 150) * 0.10,
@@ -155,7 +162,7 @@ let mockCoverPageTemplates: CoverPageTemplate[] = [
     name: 'Standard Cover Page',
     title: 'Master Service Agreement',
     companyLogoEnabled: true,
-    companyLogoUrl: '', // Will use branding logo
+    companyLogoUrl: '', 
     clientLogoEnabled: true,
     clientLogoUrl: 'https://placehold.co/150x50.png',
     additionalImage1Enabled: false,
@@ -177,11 +184,12 @@ let mockCoverPageTemplates: CoverPageTemplate[] = [
 let mockRepositoryItems: RepositoryItem[] = [
   { id: 'repo_item_1', name: 'Web Design Service', defaultRate: 1200, currencyCode: 'INR', createdAt: new Date(), defaultProcurementPrice: 900, defaultVendorName: "Creative Designs Co." },
   { id: 'repo_item_2', name: 'Hosting (1 year)', defaultRate: 100, currencyCode: 'USD', createdAt: new Date(), defaultProcurementPrice: 70, defaultVendorName: "CloudNine Hosting" },
-  { id: 'repo_item_3', name: 'Consultation', defaultRate: 80, currencyCode: 'USD', createdAt: new Date() },
+  { id: 'repo_item_3', name: 'Consultation', defaultRate: 80, currencyCode: 'USD', createdAt: new Date(), defaultVendorName: "Expert Advisors Inc." /* Added vendor */ },
   { id: 'repo_item_4', name: 'Initial Project Scoping', defaultRate: 500, currencyCode: 'INR', createdAt: new Date(), defaultVendorName: "Strategy Solutions", defaultProcurementPrice: 450 },
   { id: 'repo_item_5', name: 'Phase 1 Development Estimate', defaultRate: 2500, currencyCode: 'INR', createdAt: new Date(), defaultProcurementPrice: 2200, defaultVendorName: "Dev House" },
-  { id: 'repo_item_6', name: 'Monthly Maintenance Retainer', defaultRate: 300, currencyCode: 'USD', createdAt: new Date() },
+  { id: 'repo_item_6', name: 'Monthly Maintenance Retainer', defaultRate: 300, currencyCode: 'USD', createdAt: new Date() /* No default vendor purposefully */ },
   { id: 'repo_item_7', name: 'Graphic Design Package', defaultRate: 750, currencyCode: 'USD', createdAt: new Date(), defaultProcurementPrice: 600, defaultVendorName: "Pixel Perfect Ltd." },
+  { id: 'repo_item_8', name: 'SEO Audit', defaultRate: 450, currencyCode: 'USD', createdAt: new Date(), defaultVendorName: "Search Boosters" },
 ];
 
 // --- Helper Functions ---
@@ -189,7 +197,7 @@ const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().
 
 // --- Customer Functions ---
 export const getCustomers = async (): Promise<Customer[]> => {
-  return mockCustomers.map(c => ({
+  return mockCustomers.map(c => ({ 
     ...c,
     billingAddress: c.billingAddress ? { ...c.billingAddress } : undefined,
     shippingAddress: c.shippingAddress ? { ...c.shippingAddress } : undefined,
@@ -198,11 +206,11 @@ export const getCustomers = async (): Promise<Customer[]> => {
 
 export const getCustomerById = async (id: string): Promise<Customer | undefined> => {
   const customer = mockCustomers.find(c => c.id === id);
-  return customer ? {
+  return customer ? { 
     ...customer,
     billingAddress: customer.billingAddress ? { ...customer.billingAddress } : undefined,
     shippingAddress: customer.shippingAddress ? { ...customer.shippingAddress } : undefined,
-  } : undefined;
+   } : undefined;
 };
 
 export const createCustomer = async (data: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer> => {
@@ -242,7 +250,7 @@ export const deleteCustomer = async (id: string): Promise<boolean> => {
 
 // --- Calculation Helper ---
 function calculateDocumentTotals(
-  itemsData: (Omit<InvoiceItem, 'id' | 'amount'> | Omit<OrderFormItem, 'id' | 'amount' | 'procurementPrice' | 'vendorName'>)[],
+  itemsData: (Omit<InvoiceItem, 'id' | 'amount'> | Omit<OrderFormItem, 'id' | 'amount'>)[],
   additionalChargesData: AdditionalChargeFormData[] | undefined,
   taxRateInput: number,
   discountData?: { enabled?: boolean; type?: 'fixed' | 'percentage'; value?: number; }
@@ -258,7 +266,7 @@ function calculateDocumentTotals(
 } {
   const processedItems = itemsData.map(item => ({
     ...item,
-    id: (item as any).id || generateId('item'),
+    id: (item as any).id || generateId('item'), // Keep existing ID if present
     amount: (item.quantity || 0) * (item.rate || 0),
   }));
 
@@ -273,7 +281,7 @@ function calculateDocumentTotals(
       calculatedAmount = mainItemsSubtotal * (chargeValue / 100);
     }
     return {
-      id: charge.id || generateId('ac'),
+      id: charge.id || generateId('ac'), // Keep existing ID
       description: charge.description,
       valueType: charge.valueType,
       value: chargeValue,
@@ -393,6 +401,7 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
     enabled: data.discountEnabled !== undefined ? data.discountEnabled : existingInvoice.discountEnabled,
     type: data.discountType !== undefined ? data.discountType : existingInvoice.discountType,
     value: data.discountValue !== undefined ? data.discountValue : existingInvoice.discountValue,
+    description: data.discountDescription !== undefined ? data.discountDescription : existingInvoice.discountDescription,
   };
 
   const {
@@ -404,7 +413,7 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
     grandTotal
   } = calculateDocumentTotals(itemsForCalc, additionalChargesForCalc, taxRateForCalc, discountDataForCalc);
 
-  let updatedDataIntermediate: Invoice = {
+  const updatedInvoice: Invoice = {
     ...existingInvoice,
     ...data,
     issueDate: data.issueDate ? new Date(data.issueDate) : existingInvoice.issueDate,
@@ -415,22 +424,32 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
     msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
     linkedMsaTemplateId: data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId,
     termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
-    items: processedItems.map(item => ({...item, id: (itemsForCalc.find(i => i.description === item.description && (i as any).id === (item as any).id)?.id || item.id || generateId('item'))  })) as InvoiceItem[],
-    additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description && c.id === ac.id)?.id || ac.id || generateId('ac')) })),
+    items: processedItems.map((item, idx) => ({
+        ...item, 
+        id: (data.items && data.items[idx] && (data.items[idx] as any).id) ? (data.items[idx] as any).id : (existingInvoice.items[idx]?.id || generateId('item')),
+    })) as InvoiceItem[],
+    additionalCharges: processedAdditionalCharges.map((ac, idx) => ({
+        ...ac, 
+        id: (data.additionalCharges && data.additionalCharges[idx] && data.additionalCharges[idx].id) ? data.additionalCharges[idx].id : (existingInvoice.additionalCharges?.[idx]?.id || generateId('ac')),
+    })),
     subtotal: mainItemsSubtotal,
     taxRate: taxRateForCalc,
+    discountEnabled: discountDataForCalc.enabled,
+    discountDescription: discountDataForCalc.description,
+    discountType: discountDataForCalc.type,
+    discountValue: discountDataForCalc.value,
     discountAmount: actualDiscountAmount,
     taxAmount: taxAmount,
     total: grandTotal,
-  } as Invoice;
+  };
 
-  const customerIdForLookup = updatedDataIntermediate.customerId;
+  const customerIdForLookup = updatedInvoice.customerId;
   const customer = mockCustomers.find(c => c.id === customerIdForLookup);
-  updatedDataIntermediate.customerName = customer?.name || 'Unknown Customer';
-  updatedDataIntermediate.currencyCode = customer?.currency || 'USD';
+  updatedInvoice.customerName = customer?.name || 'Unknown Customer';
+  updatedInvoice.currencyCode = customer?.currency || 'USD';
 
-  mockInvoices[index] = updatedDataIntermediate;
-  return { ...updatedDataIntermediate, items: updatedDataIntermediate.items.map(i => ({...i})), additionalCharges: updatedDataIntermediate.additionalCharges?.map(ac => ({...ac})) };
+  mockInvoices[index] = updatedInvoice;
+  return { ...updatedInvoice, items: updatedInvoice.items.map(i => ({...i})), additionalCharges: updatedInvoice.additionalCharges?.map(ac => ({...ac})) };
 };
 
 export const deleteInvoice = async (id: string): Promise<boolean> => {
@@ -553,6 +572,7 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
     enabled: data.discountEnabled !== undefined ? data.discountEnabled : existingOrderForm.discountEnabled,
     type: data.discountType !== undefined ? data.discountType : existingOrderForm.discountType,
     value: data.discountValue !== undefined ? data.discountValue : existingOrderForm.discountValue,
+    description: data.discountDescription !== undefined ? data.discountDescription : existingOrderForm.discountDescription,
   };
 
   const {
@@ -564,7 +584,7 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
     grandTotal
   } = calculateDocumentTotals(itemsForCalc, additionalChargesForCalc, taxRateForCalc, discountDataForCalc);
 
-  let updatedDataIntermediate: OrderForm = {
+  const updatedOrderForm: OrderForm = {
      ...existingOrderForm,
      ...data,
      issueDate: data.issueDate ? new Date(data.issueDate) : existingOrderForm.issueDate,
@@ -577,25 +597,32 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
      termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
      items: processedItems.map((item, idx) => ({
         ...item,
-        id: (itemsForCalc[idx] as any).id || item.id || generateId('of_item'),
+        id: (data.items && data.items[idx] && (data.items[idx] as any).id) ? (data.items[idx] as any).id : (existingOrderForm.items[idx]?.id || generateId('of_item')),
         procurementPrice: (item as OrderFormItem).procurementPrice,
         vendorName: (item as OrderFormItem).vendorName,
     })) as OrderFormItem[],
-     additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (additionalChargesForCalc.find(c => c.description === ac.description && c.id === ac.id)?.id || ac.id || generateId('of_ac')) })),
+     additionalCharges: processedAdditionalCharges.map((ac, idx) => ({
+        ...ac, 
+        id: (data.additionalCharges && data.additionalCharges[idx] && data.additionalCharges[idx].id) ? data.additionalCharges[idx].id : (existingOrderForm.additionalCharges?.[idx]?.id || generateId('of_ac')),
+    })),
      subtotal: mainItemsSubtotal,
      taxRate: taxRateForCalc,
+     discountEnabled: discountDataForCalc.enabled,
+     discountDescription: discountDataForCalc.description,
+     discountType: discountDataForCalc.type,
+     discountValue: discountDataForCalc.value,
      discountAmount: actualDiscountAmount,
      taxAmount: taxAmount,
      total: grandTotal,
-    } as OrderForm;
+    };
 
-  const customerIdForLookup = updatedDataIntermediate.customerId;
+  const customerIdForLookup = updatedOrderForm.customerId;
   const customer = mockCustomers.find(c => c.id === customerIdForLookup);
-  updatedDataIntermediate.customerName = customer?.name || 'Unknown Customer';
-  updatedDataIntermediate.currencyCode = customer?.currency || 'USD';
+  updatedOrderForm.customerName = customer?.name || 'Unknown Customer';
+  updatedOrderForm.currencyCode = customer?.currency || 'USD';
 
-  mockOrderForms[index] = updatedDataIntermediate;
-  return { ...updatedDataIntermediate, items: updatedDataIntermediate.items.map(i => ({...i})), additionalCharges: updatedDataIntermediate.additionalCharges?.map(ac => ({...ac})) };
+  mockOrderForms[index] = updatedOrderForm;
+  return { ...updatedOrderForm, items: updatedOrderForm.items.map(i => ({...i})), additionalCharges: updatedOrderForm.additionalCharges?.map(ac => ({...ac})) };
 };
 
 export const deleteOrderForm = async (id: string): Promise<boolean> => {
@@ -694,7 +721,7 @@ export const updateMsaTemplate = async (id: string, data: Partial<Omit<MsaTempla
     ...currentTemplate,
     ...data,
   };
-  // Explicitly handle coverPageTemplateId if it's being unset
+  
   if (data.hasOwnProperty('coverPageTemplateId')) {
     updatedTemplate.coverPageTemplateId = data.coverPageTemplateId;
   }
