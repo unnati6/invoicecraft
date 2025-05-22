@@ -10,13 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Eye, Trash2, Download, ChevronDown, FileSignature } from 'lucide-react';
+import { PlusCircle, Edit, Eye, Trash2, Download, ChevronDown, FileSignature, PackageSearch } from 'lucide-react';
 import type { OrderForm, Customer } from '@/types';
 import { getAllOrderForms, removeOrderForm, fetchCustomerById, convertMultipleOrderFormsToInvoices } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { OrderFormPreviewDialog } from '@/components/orderform-preview-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input'; // Added Input
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +36,7 @@ export default function OrderFormsPage() {
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isDownloading, setIsDownloading] = React.useState(false);
   const [isBulkConverting, setIsBulkConverting] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState(''); // Added state for search term
 
   React.useEffect(() => {
     async function fetchData() {
@@ -212,11 +214,24 @@ export default function OrderFormsPage() {
   
   const numSelected = Object.values(rowSelection).filter(Boolean).length;
 
+  const filteredOrderForms = React.useMemo(() => {
+    if (!searchTerm.trim()) {
+      return orderForms;
+    }
+    const lowercasedFilter = searchTerm.toLowerCase();
+    return orderForms.filter(of =>
+      (of.customerName && of.customerName.toLowerCase().includes(lowercasedFilter))
+    );
+  }, [orderForms, searchTerm]);
+
   if (loading) {
     return (
       <>
         <AppHeader title="Order Forms">
-          <Skeleton className="h-10 w-36" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-10 w-64" /> {/* Skeleton for filter input */}
+            <Skeleton className="h-10 w-44" /> {/* Skeleton for Create button */}
+          </div>
         </AppHeader>
         <main className="flex-1 p-6 space-y-6">
           <Card>
@@ -231,6 +246,13 @@ export default function OrderFormsPage() {
   return (
     <>
       <AppHeader title="Order Forms">
+        <Input
+          type="text"
+          placeholder="Filter by customer name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="h-10 w-64"
+        />
          {numSelected > 0 && (
           <>
             <Button onClick={handleBulkConvertToInvoices} disabled={isBulkConverting || isDownloading} variant="outline">
@@ -262,18 +284,34 @@ export default function OrderFormsPage() {
         <Card>
           <CardHeader><CardTitle>All Order Forms</CardTitle></CardHeader>
           <CardContent>
+            {filteredOrderForms.length === 0 && !loading ? (
+               <div className="flex flex-col items-center justify-center h-[30vh] text-center">
+                <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
+                <h2 className="text-xl font-semibold mb-2">
+                  {searchTerm ? "No Matching Order Forms" : "No Order Forms Yet"}
+                </h2>
+                <p className="text-muted-foreground mb-4">
+                  {searchTerm ? `Your search for "${searchTerm}" did not match any order forms.` : "Create your first order form to get started!"}
+                </p>
+                <Link href="/orderforms/new">
+                    <Button><PlusCircle className="mr-2 h-4 w-4" /> Create Your First Order Form</Button>
+                </Link>
+              </div>
+            ) : (
             <DataTable
               columns={columns}
-              data={orderForms}
+              data={filteredOrderForms}
               onRowClick={(row) => router.push(`/orderforms/${row.id}`)}
-              noResultsMessage="No order forms found. Create your first order form!"
+              noResultsMessage={searchTerm ? `No order forms match your filter "${searchTerm}".` : "No order forms found. Create your first order form!"}
               isSelectable={true}
               rowSelection={rowSelection}
               onRowSelectionChange={setRowSelection}
             />
+            )}
           </CardContent>
         </Card>
       </main>
     </>
   );
 }
+
