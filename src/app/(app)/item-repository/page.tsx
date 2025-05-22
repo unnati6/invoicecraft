@@ -13,7 +13,7 @@ import type { RepositoryItem } from '@/types';
 import { getAllRepositoryItems, removeRepositoryItem } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input'; // Added Input import
+import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 
@@ -21,7 +21,7 @@ export default function ItemRepositoryPage() {
   const { toast } = useToast();
   const [items, setItems] = React.useState<RepositoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [searchTerm, setSearchTerm] = React.useState(''); // Added state for search term
+  const [searchTerm, setSearchTerm] = React.useState('');
 
   React.useEffect(() => {
     async function fetchData() {
@@ -48,16 +48,6 @@ export default function ItemRepositoryPage() {
     }
   };
 
-  const handleEditItem = (item: RepositoryItem) => {
-    console.log("Attempting to edit item:", item);
-    toast({
-      title: "Feature Not Implemented",
-      description: "Editing repository items directly from this page is not yet available. This requires a dedicated form.",
-      variant: "warning",
-      duration: 5000,
-    });
-  };
-
   const handleAddNewItem = () => {
      console.log("Attempting to add new item");
      toast({
@@ -75,7 +65,8 @@ export default function ItemRepositoryPage() {
     const lowercasedFilter = searchTerm.toLowerCase();
     return items.filter(item =>
       item.name.toLowerCase().includes(lowercasedFilter) ||
-      (item.defaultVendorName && item.defaultVendorName.toLowerCase().includes(lowercasedFilter))
+      (item.defaultVendorName && item.defaultVendorName.toLowerCase().includes(lowercasedFilter)) ||
+      (item.clientName && item.clientName.toLowerCase().includes(lowercasedFilter))
     );
   }, [items, searchTerm]);
 
@@ -96,6 +87,11 @@ export default function ItemRepositoryPage() {
       header: 'Default Vendor Name',
       cell: (row: RepositoryItem) => row.defaultVendorName || 'N/A'
     },
+    { 
+      accessorKey: 'clientName', 
+      header: 'Client Name', 
+      cell: (row: RepositoryItem) => row.clientName || 'N/A' 
+    },
     {
       accessorKey: 'createdAt',
       header: 'Created At',
@@ -106,12 +102,14 @@ export default function ItemRepositoryPage() {
       header: 'Actions',
       cell: (row: RepositoryItem) => (
         <div className="flex space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => handleEditItem(row)} title="Edit Item (Not Implemented)">
-            <Edit className="h-4 w-4" />
-          </Button>
+          <Link href={`/item-repository/${row.id}/edit`}>
+            <Button variant="ghost" size="icon" title="Edit Item">
+              <Edit className="h-4 w-4" />
+            </Button>
+          </Link>
           <DeleteConfirmationDialog
             onConfirm={() => handleDeleteItem(row.id)}
-            itemName={`repository item "${row.name}"`}
+            itemName={`repository item "${row.name}"${row.clientName ? ` for ${row.clientName}` : ''}`}
             trigger={
               <Button variant="ghost" size="icon" title="Delete Item">
                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -128,15 +126,18 @@ export default function ItemRepositoryPage() {
       <>
         <AppHeader title="Item Repository">
           <div className="flex items-center gap-2">
-            <Skeleton className="h-10 w-64" /> {/* Skeleton for filter input */}
-            <Skeleton className="h-10 w-36" /> {/* Skeleton for Add button */}
+            <Skeleton className="h-10 w-64" />
+            <Skeleton className="h-10 w-36" />
           </div>
         </AppHeader>
         <main className="flex-1 p-6 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>All Repository Items</CardTitle>
-              <CardDescription>Manage your predefined items, services, and their default values. Changes made here do not automatically update existing order forms or invoices.</CardDescription>
+              <CardDescription>
+                Manage your predefined items and services. Items can be global defaults or client-specific if created/updated via an Order Form.
+                <strong className="block mt-1">Note: Editing items via this page modifies their default values in the repository.</strong>
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -157,7 +158,7 @@ export default function ItemRepositoryPage() {
         <div className="flex items-center gap-2">
           <Input
             type="text"
-            placeholder="Filter by item name or vendor..."
+            placeholder="Filter by item, vendor, or client..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="h-10 w-64"
@@ -172,9 +173,8 @@ export default function ItemRepositoryPage() {
           <CardHeader>
             <CardTitle>All Repository Items</CardTitle>
             <CardDescription>
-              This repository stores **default values** for your items and services (e.g., name, default selling rate, default procurement price, default vendor, default currency).
-              These are templates for when you add items to new documents.
-              <strong className="block mt-1">Note: Values shown here are the defaults stored in the repository. They do NOT reflect customizations made on individual order forms or invoices, nor are they updated by changes on those documents. Editing items here requires a dedicated form (not yet implemented).</strong>
+              This repository stores default values for your items and services. Items can be global defaults, or they can become client-specific if their details (like rate or vendor) are modified on an Order Form for a particular client.
+              <strong className="block mt-1">Note: To edit an item's default values, use the "Edit" action. To add a new global default item, use the "Add New Item" button (form not yet implemented).</strong>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -202,5 +202,4 @@ export default function ItemRepositoryPage() {
     </>
   );
 }
-
     
