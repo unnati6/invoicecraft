@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { getCurrencySymbol } from '@/lib/currency-utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog'; // Added DialogTrigger
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface RepositoryItemPreviewDialogProps {
@@ -32,7 +32,7 @@ function RepositoryItemPreviewDialog({ item, trigger }: RepositoryItemPreviewDia
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Preview: {item.name}</DialogTitle>
-          {item.customerName && <DialogDescription>Customer Specific: {item.customerName}</DialogDescription>}
+          {item.customerName && <ShadDialogDescription>Customer Specific: {item.customerName}</ShadDialogDescription>}
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] p-1 pr-4">
             <div className="space-y-2 text-sm">
@@ -179,14 +179,14 @@ export default function ItemRepositoryPage() {
         <div className="flex items-center gap-2">
           <Input
             type="text"
-            placeholder="Filter items..."
+            placeholder="Filter by item, vendor, or customer..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="h-10 w-64"
           />
           <Button variant={viewMode === 'card' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('card')} title="Card View"><LayoutGrid className="h-4 w-4" /></Button>
           <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')} title="List View"><ListFilter className="h-4 w-4" /></Button>
-          <Button onClick={handleAddNewItem} title="Add New Repository Item (Form Not Implemented)">
+          <Button onClick={handleAddNewItem} title="Adding items directly requires a dedicated form (not yet implemented). Items are auto-created/updated via Order Forms.">
             <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
           </Button>
         </div>
@@ -195,12 +195,14 @@ export default function ItemRepositoryPage() {
         {filteredItems.length === 0 && !loading ? (
           <div className="flex flex-col items-center justify-center h-[50vh] text-center">
             <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
-            <h2 className="text-xl font-semibold mb-2">{searchTerm ? "No Matching Items Found" : "No Items in Repository"}</h2>
-            <p className="text-muted-foreground mb-4">
-              {searchTerm ? `Your search for "${searchTerm}" did not match any items.` : "Items added via Order Forms (or a dedicated form later) will appear here."}
+            <h2 className="text-xl font-semibold mb-2">
+              {searchTerm ? "No Matching Items Found" : "No Items in Repository"}
+            </h2>
+            <p className="text-muted-foreground mb-4 max-w-md">
+              {searchTerm ? `Your search for "${searchTerm}" did not match any items.` : "Items added or updated via Order Forms will appear here. You can also add global default items (form not yet implemented)."}
             </p>
-            <Button onClick={handleAddNewItem} title="Add New Repository Item (Form Not Implemented)">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Repository Item
+            <Button onClick={handleAddNewItem} title="Adding items directly requires a dedicated form (not yet implemented).">
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Default Item
             </Button>
           </div>
         ) : viewMode === 'card' ? (
@@ -221,7 +223,7 @@ export default function ItemRepositoryPage() {
                       <p>Vendor: {item.defaultVendorName || 'N/A'}</p>
                     </CardContent>
                     <CardFooter className="flex justify-end gap-1 border-t pt-3 mt-auto">
-                      <Button variant="ghost" size="icon" title="Edit Item" onClick={(e) => { e.stopPropagation(); router.push(`/item-repository/${item.id}/edit`); }}>
+                       <Button variant="ghost" size="icon" title="Edit Item" onClick={(e) => { e.stopPropagation(); router.push(`/item-repository/${item.id}/edit`); }}>
                         <Edit className="h-4 w-4" />
                       </Button>
                       <DeleteConfirmationDialog
@@ -243,7 +245,10 @@ export default function ItemRepositoryPage() {
           <Card>
             <CardHeader>
               <CardTitle>All Repository Items</CardTitle>
-              <CardDescription>Manage default values for items/services. These can be global or customer-specific.</CardDescription>
+              <CardDescription>
+                Manage default values for items/services. These can be global or customer-specific (updated via Order Forms).
+                <strong className="block mt-1">Note: Values shown are defaults. Editing items here requires a dedicated form (not yet implemented).</strong>
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <DataTable
