@@ -156,27 +156,39 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         email,
       });
     }
-  }, []);
+  }, [yourCompany.name, yourCompany.email, yourCompany.phone]); // Dependencies to re-run if these specific default values change
 
   _React.useEffect(() => {
+    const msaCoverId = invoice?.msaCoverPageTemplateId;
+
     async function loadCoverPage() {
-      if (invoice.msaContent && invoice.msaCoverPageTemplateId && invoice.msaCoverPageTemplateId !== '') {
+      if (msaCoverId && msaCoverId !== '') {
         setIsLoadingCoverPage(true);
+        console.log(`[InvoicePreviewContent ${invoice?.id}] Fetching cover page template ID: ${msaCoverId}`);
         try {
-          const cpt = await fetchCoverPageTemplateById(invoice.msaCoverPageTemplateId);
-          setCoverPageTemplate(cpt);
+          const cpt = await fetchCoverPageTemplateById(msaCoverId);
+          if (cpt) {
+            console.log(`[InvoicePreviewContent ${invoice?.id}] Successfully fetched cover page template: ${cpt.name}`);
+            setCoverPageTemplate(cpt);
+          } else {
+            console.warn(`[InvoicePreviewContent ${invoice?.id}] Cover page template ID ${msaCoverId} not found.`);
+            setCoverPageTemplate(undefined);
+          }
         } catch (error) {
-          console.error("Failed to fetch cover page template for preview:", error);
+          console.error(`[InvoicePreviewContent ${invoice?.id}] Error fetching cover page template ID ${msaCoverId}:`, error);
           setCoverPageTemplate(undefined);
         } finally {
           setIsLoadingCoverPage(false);
         }
       } else {
+        console.log(`[InvoicePreviewContent ${invoice?.id}] No msaCoverPageTemplateId, clearing cover page template.`);
         setCoverPageTemplate(undefined);
+        setIsLoadingCoverPage(false);
       }
     }
+
     loadCoverPage();
-  }, [invoice.msaContent, invoice.msaCoverPageTemplateId]);
+  }, [invoice?.id, invoice?.msaCoverPageTemplateId]);
 
 
   const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
@@ -198,7 +210,7 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
   const processedMsaContent = invoice.msaContent ? replacePlaceholders(invoice.msaContent, invoice, customer) : undefined;
   const processedTermsAndConditions = replacePlaceholders(invoice.termsAndConditions, invoice, customer);
 
-  if (isLoadingCoverPage) {
+  if (isLoadingCoverPage && invoice?.msaCoverPageTemplateId) {
     return <div className="p-6 text-center">Loading cover page...</div>;
   }
 
@@ -262,7 +274,7 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
         <div className={`text-left ${hasShippingAddress ? 'md:text-right md:col-span-1' : 'md:text-right md:col-start-3 md:col-span-1'}`}>
           <p><span className="font-semibold text-muted-foreground">Issue Date:</span> {format(new Date(invoice.issueDate), 'PPP')}</p>
           <p><span className="font-semibold text-muted-foreground">Due Date:</span> {format(new Date(invoice.dueDate), 'PPP')}</p>
-          <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.status === 'Paid' ? 'bg-primary/10 text-primary' : invoice.status === 'Overdue' ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-secondary-foreground'}`}>{invoice.status}</span></p>
+          <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.status === 'Paid' ? 'bg-primary/10 text-primary' : invoice.status === 'Overdue' ? 'bg-status-overdue text-status-overdue-foreground' : invoice.status === 'Sent' ? 'bg-destructive/10 text-destructive-foreground' : 'bg-secondary text-secondary-foreground'}`}>{invoice.status}</span></p>
            {customerToDisplay.currency && <p><span className="font-semibold text-muted-foreground">Currency:</span> {customerToDisplay.currency}</p>}
         </div>
       </div>
@@ -330,10 +342,16 @@ export function InvoicePreviewContent({ document: invoice, customer }: InvoicePr
 
       <div className="flex justify-end mb-8">
         <div className="w-full max-w-xs space-y-2">
-          <div className="flex justify-between"><span className="text-muted-foreground">Subtotal (Items):</span><span>{currencySymbol}{invoice.subtotal.toFixed(2)}</span></div>
-          {totalAdditionalChargesValue > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Total Additional Charges:</span><span>{currencySymbol}{totalAdditionalChargesValue.toFixed(2)}</span></div>)}
-          <div className="flex justify-between"><span className="text-muted-foreground">Tax ({invoice.taxRate}%):</span><span>{currencySymbol}{invoice.taxAmount.toFixed(2)}</span></div>
-          <div className="flex justify-between border-t border-border pt-2 mt-2"><span className="font-bold text-lg">Total:</span><span className="font-bold text-lg">{currencySymbol}{invoice.total.toFixed(2)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Subtotal (Items):</span><span>{currencySymbol}{(isFinite(invoice.subtotal) ? invoice.subtotal : 0).toFixed(2)}</span></div>
+          {totalAdditionalChargesValue > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Total Additional Charges:</span><span>{currencySymbol}{(isFinite(totalAdditionalChargesValue) ? totalAdditionalChargesValue : 0).toFixed(2)}</span></div>)}
+           {invoice.discountEnabled && invoice.discountAmount && invoice.discountAmount > 0 && (
+            <div className="flex justify-between text-destructive">
+              <span>Discount {invoice.discountDescription ? `(${invoice.discountDescription})` : ''}:</span>
+              <span>-{currencySymbol}{(isFinite(invoice.discountAmount) ? invoice.discountAmount : 0).toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between"><span className="text-muted-foreground">Tax ({invoice.taxRate}%):</span><span>{currencySymbol}{(isFinite(invoice.taxAmount) ? invoice.taxAmount : 0).toFixed(2)}</span></div>
+          <div className="flex justify-between border-t border-border pt-2 mt-2"><span className="font-bold text-lg">Total:</span><span className="font-bold text-lg">{currencySymbol}{(isFinite(invoice.total) ? invoice.total : 0).toFixed(2)}</span></div>
         </div>
       </div>
 

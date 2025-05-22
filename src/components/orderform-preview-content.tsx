@@ -157,27 +157,38 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
             email,
         });
     }
-  }, []);
+  }, [yourCompany.name, yourCompany.email, yourCompany.phone]); // Dependencies to re-run if these specific default values change
 
   _React.useEffect(() => {
+    const msaCoverId = orderForm?.msaCoverPageTemplateId;
+
     async function loadCoverPage() {
-      if (orderForm.msaContent && orderForm.msaCoverPageTemplateId && orderForm.msaCoverPageTemplateId !== '') {
+      if (msaCoverId && msaCoverId !== '') {
         setIsLoadingCoverPage(true);
+        console.log(`[OrderFormPreviewContent ${orderForm?.id}] Fetching cover page template ID: ${msaCoverId}`);
         try {
-          const cpt = await fetchCoverPageTemplateById(orderForm.msaCoverPageTemplateId);
-          setCoverPageTemplate(cpt);
+          const cpt = await fetchCoverPageTemplateById(msaCoverId);
+           if (cpt) {
+            console.log(`[OrderFormPreviewContent ${orderForm?.id}] Successfully fetched cover page template: ${cpt.name}`);
+            setCoverPageTemplate(cpt);
+          } else {
+            console.warn(`[OrderFormPreviewContent ${orderForm?.id}] Cover page template ID ${msaCoverId} not found.`);
+            setCoverPageTemplate(undefined);
+          }
         } catch (error) {
-          console.error("Failed to fetch cover page template for preview:", error);
+          console.error(`[OrderFormPreviewContent ${orderForm?.id}] Error fetching cover page template ID ${msaCoverId}:`, error);
           setCoverPageTemplate(undefined);
         } finally {
           setIsLoadingCoverPage(false);
         }
       } else {
+        console.log(`[OrderFormPreviewContent ${orderForm?.id}] No msaCoverPageTemplateId, clearing cover page template.`);
         setCoverPageTemplate(undefined);
+        setIsLoadingCoverPage(false);
       }
     }
     loadCoverPage();
-  }, [orderForm.msaContent, orderForm.msaCoverPageTemplateId]);
+  }, [orderForm?.id, orderForm?.msaCoverPageTemplateId]);
 
    const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
     name: orderForm.customerName || customer?.name || 'N/A',
@@ -197,7 +208,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
   const processedMsaContent = orderForm.msaContent ? replacePlaceholders(orderForm.msaContent, orderForm, customer) : undefined;
   const processedTermsAndConditions = replacePlaceholders(orderForm.termsAndConditions, orderForm, customer);
 
-  if (isLoadingCoverPage) {
+  if (isLoadingCoverPage && orderForm?.msaCoverPageTemplateId) {
     return <div className="p-6 text-center">Loading cover page...</div>;
   }
 
@@ -262,7 +273,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
         <div className={`text-left ${hasShippingAddress ? 'md:text-right md:col-span-1' : 'md:text-right md:col-start-3 md:col-span-1'}`}>
           <p><span className="font-semibold text-muted-foreground">Issue Date:</span> {format(new Date(orderForm.issueDate), 'PPP')}</p>
           <p><span className="font-semibold text-muted-foreground">Valid Until:</span> {format(new Date(orderForm.validUntilDate), 'PPP')}</p>
-           <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${orderForm.status === 'Accepted' ? 'bg-primary/10 text-primary' : orderForm.status === 'Declined' || orderForm.status === 'Expired' ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-secondary-foreground'}`}>{orderForm.status}</span></p>
+           <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${orderForm.status === 'Accepted' ? 'bg-primary/10 text-primary' : orderForm.status === 'Declined' || orderForm.status === 'Expired' ? 'bg-destructive/10 text-destructive-foreground' : 'bg-secondary text-secondary-foreground'}`}>{orderForm.status}</span></p>
            {customerToDisplay.currency && <p><span className="font-semibold text-muted-foreground">Currency:</span> {customerToDisplay.currency}</p>}
         </div>
       </div>
@@ -330,10 +341,16 @@ export function OrderFormPreviewContent({ document: orderForm, customer }: Order
 
       <div className="flex justify-end mb-8">
         <div className="w-full max-w-xs space-y-2">
-          <div className="flex justify-between"><span className="text-muted-foreground">Subtotal (Items):</span><span>{currencySymbol}{orderForm.subtotal.toFixed(2)}</span></div>
-          {totalAdditionalChargesValue > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Total Additional Charges:</span><span>{currencySymbol}{totalAdditionalChargesValue.toFixed(2)}</span></div>)}
-          <div className="flex justify-between"><span className="text-muted-foreground">Tax ({orderForm.taxRate}%):</span><span>{currencySymbol}{orderForm.taxAmount.toFixed(2)}</span></div>
-          <div className="flex justify-between border-t border-border pt-2 mt-2"><span className="font-bold text-lg">Total:</span><span className="font-bold text-lg">{currencySymbol}{orderForm.total.toFixed(2)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Subtotal (Items):</span><span>{currencySymbol}{(isFinite(orderForm.subtotal) ? orderForm.subtotal : 0).toFixed(2)}</span></div>
+          {totalAdditionalChargesValue > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Total Additional Charges:</span><span>{currencySymbol}{(isFinite(totalAdditionalChargesValue) ? totalAdditionalChargesValue : 0).toFixed(2)}</span></div>)}
+           {orderForm.discountEnabled && orderForm.discountAmount && orderForm.discountAmount > 0 && (
+            <div className="flex justify-between text-destructive">
+              <span>Discount {orderForm.discountDescription ? `(${orderForm.discountDescription})` : ''}:</span>
+              <span>-{currencySymbol}{(isFinite(orderForm.discountAmount) ? orderForm.discountAmount : 0).toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between"><span className="text-muted-foreground">Tax ({orderForm.taxRate}%):</span><span>{currencySymbol}{(isFinite(orderForm.taxAmount) ? orderForm.taxAmount : 0).toFixed(2)}</span></div>
+          <div className="flex justify-between border-t border-border pt-2 mt-2"><span className="font-bold text-lg">Total:</span><span className="font-bold text-lg">{currencySymbol}{(isFinite(orderForm.total) ? orderForm.total : 0).toFixed(2)}</span></div>
         </div>
       </div>
 
