@@ -20,7 +20,7 @@ let mockCustomers: Customer[] = [
     name: 'Bob The Builder',
     email: 'bob@example.com',
     phone: '987-654-3210',
-    currency: 'USD', // Changed from GBP to USD
+    currency: 'USD',
     billingAddress: { street: '456 Construction Way', city: 'BuildCity', state: 'NY', zip: '10001', country: 'USA' },
     createdAt: new Date()
   },
@@ -70,9 +70,9 @@ let mockInvoices: Invoice[] = [
     discountType: "fixed",
     discountValue: 50,
     discountAmount: 50,
-    subtotal: 1300, // (1200 + 100)
+    subtotal: 1300, 
     taxRate: 10,
-    taxAmount: (1300 + 50 - 50) * 0.10, // Tax on (itemsSubtotal + additionalChargesTotal - discountAmount)
+    taxAmount: (1300 + 50 - 50) * 0.10, 
     total: (1300 + 50 - 50) + ((1300 + 50 - 50) * 0.10),
     termsAndConditions: 'Payment due within 30 days. Late fees apply.',
     status: 'Sent',
@@ -127,16 +127,16 @@ let mockOrderForms: OrderForm[] = [
       { id: 'of_item_2', description: 'Phase 1 Development Estimate', quantity: 1, rate: 2500, amount: 2500, procurementPrice: 2000, vendorName: "Dev Experts Inc." },
     ],
     additionalCharges: [
-      { id: 'of_ac_1', description: 'Rush Fee', valueType: 'percentage', value: 5, calculatedAmount: 150 } // 5% of 3000 = 150
+      { id: 'of_ac_1', description: 'Rush Fee', valueType: 'percentage', value: 5, calculatedAmount: 150 }
     ],
     discountEnabled: false,
     discountDescription: "",
     discountType: "fixed",
     discountValue: 0,
     discountAmount: 0,
-    subtotal: 3000, // (500 + 2500)
+    subtotal: 3000, 
     taxRate: 10,
-    taxAmount: (3000 + 150 - 0) * 0.10, // Tax on (itemsSubtotal + additionalChargesTotal - discountAmount)
+    taxAmount: (3000 + 150 - 0) * 0.10, 
     total: (3000 + 150 - 0) + ((3000 + 150 - 0) * 0.10),
     termsAndConditions: 'This order form is valid for 30 days. Prices subject to change thereafter.',
     status: 'Sent',
@@ -188,8 +188,8 @@ let mockRepositoryItems: RepositoryItem[] = [
   { id: 'repo_item_1', name: 'Web Design Service', defaultRate: 1250, currencyCode: 'INR', createdAt: new Date(), defaultProcurementPrice: 950, defaultVendorName: "Creative Designs Co.", customerId: 'cust_1', customerName: 'Alice Wonderland' },
   { id: 'repo_item_2', name: 'Hosting (1 year)', defaultRate: 110, currencyCode: 'USD', createdAt: new Date(), defaultProcurementPrice: 75, defaultVendorName: "CloudNine Hosting Global" },
   { id: 'repo_item_3', name: 'Consultation', defaultRate: 85, currencyCode: 'USD', createdAt: new Date(), defaultVendorName: "Expert Advisors LLC", defaultProcurementPrice: 50, customerId: 'cust_2', customerName: 'Bob The Builder' },
-  { id: 'repo_item_4', name: 'Initial Project Scoping', defaultRate: 520, currencyCode: 'INR', createdAt: new Date(), defaultVendorName: "Strategy Solutions Plus", defaultProcurementPrice: 460 },
-  { id: 'repo_item_5', name: 'Phase 1 Development Estimate', defaultRate: 2600, currencyCode: 'INR', createdAt: new Date(), defaultProcurementPrice: 2250, defaultVendorName: "Dev House Advanced" },
+  { id: 'repo_item_4', name: 'Initial Project Scoping', defaultRate: 520, currencyCode: 'INR', createdAt: new Date(), defaultVendorName: "Scope Masters", defaultProcurementPrice: 460, customerId: 'cust_1', customerName: 'Alice Wonderland' },
+  { id: 'repo_item_5', name: 'Phase 1 Development Estimate', defaultRate: 2600, currencyCode: 'INR', createdAt: new Date(), defaultProcurementPrice: 2250, defaultVendorName: "Dev Experts Inc.", customerId: 'cust_1', customerName: 'Alice Wonderland' },
   { id: 'repo_item_6', name: 'Monthly Maintenance Retainer', defaultRate: 310, currencyCode: 'USD', createdAt: new Date(), defaultVendorName: "Reliable Support Ltd." },
   { id: 'repo_item_7', name: 'Graphic Design Package', defaultRate: 760, currencyCode: 'USD', createdAt: new Date(), defaultProcurementPrice: 610, defaultVendorName: "Pixel Perfect Designs" },
   { id: 'repo_item_8', name: 'SEO Audit', defaultRate: 470, currencyCode: 'USD', createdAt: new Date(), defaultVendorName: "Search Boosters Pro", defaultProcurementPrice: 300, customerName: 'Bob The Builder', customerId: 'cust_2' },
@@ -226,7 +226,7 @@ export const createCustomer = async (data: Omit<Customer, 'id' | 'createdAt'>): 
     createdAt: new Date()
   };
   mockCustomers.push(newCustomer);
-  return { ...newCustomer };
+  return { ...newCustomer, billingAddress: newCustomer.billingAddress ? { ...newCustomer.billingAddress} : undefined, shippingAddress: newCustomer.shippingAddress ? { ...newCustomer.shippingAddress} : undefined };
 };
 
 export const updateCustomer = async (id: string, data: Partial<Omit<Customer, 'id' | 'createdAt'>>): Promise<Customer | null> => {
@@ -234,8 +234,9 @@ export const updateCustomer = async (id: string, data: Partial<Omit<Customer, 'i
   if (index === -1) return null;
 
   const updatedCustomerData = { ...mockCustomers[index], ...data };
-  mockCustomers[index] = updatedCustomerData;
-  return { ...updatedCustomerData };
+  mockCustomers[index] = updatedCustomerData; // Replace the old object with the new one
+  // Return a clone of the updated object
+  return { ...updatedCustomerData, billingAddress: updatedCustomerData.billingAddress ? { ...updatedCustomerData.billingAddress} : undefined, shippingAddress: updatedCustomerData.shippingAddress ? { ...updatedCustomerData.shippingAddress} : undefined };
 };
 
 export const deleteCustomer = async (id: string): Promise<boolean> => {
@@ -262,7 +263,7 @@ function calculateDocumentTotals(
 } {
   const processedItems = itemsData.map(item => ({
     ...item,
-    id: (item as any).id || generateId('item'), // Keep existing ID or generate new if item itself is new
+    id: (item as any).id || generateId('item'), 
     amount: (item.quantity || 0) * (item.rate || 0),
   }));
 
@@ -414,7 +415,7 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
     grandTotal
   } = calculateDocumentTotals(itemsForCalc, additionalChargesForCalc, taxRateForCalc, discountDataForCalc);
 
-  const updatedInvoice: Invoice = {
+  const updatedInvoiceData: Omit<Invoice, 'id' | 'createdAt' | 'customerName' | 'currencyCode' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'additionalCharges' | 'discountAmount'> & { items: InvoiceItem[], additionalCharges?: AdditionalChargeItem[], subtotal: number, taxAmount: number, total: number, discountAmount: number } = {
     ...existingInvoice,
     ...data,
     issueDate: data.issueDate ? new Date(data.issueDate) : existingInvoice.issueDate,
@@ -444,13 +445,18 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
     total: grandTotal,
   };
 
-  const customerIdForLookup = updatedInvoice.customerId;
-  const customer = mockCustomers.find(c => c.id === customerIdForLookup);
-  updatedInvoice.customerName = customer?.name || 'Unknown Customer';
-  updatedInvoice.currencyCode = customer?.currency || 'USD';
+  const customer = mockCustomers.find(c => c.id === updatedInvoiceData.customerId);
+  
+  const finalUpdatedInvoice: Invoice = {
+    ...updatedInvoiceData,
+    id: existingInvoice.id,
+    createdAt: existingInvoice.createdAt,
+    customerName: customer?.name || 'Unknown Customer',
+    currencyCode: customer?.currency || 'USD',
+  };
 
-  mockInvoices[index] = updatedInvoice;
-  return { ...updatedInvoice, items: updatedInvoice.items.map(i => ({...i})), additionalCharges: updatedInvoice.additionalCharges?.map(ac => ({...ac})) };
+  mockInvoices[index] = finalUpdatedInvoice;
+  return { ...finalUpdatedInvoice, items: finalUpdatedInvoice.items.map(i => ({...i})), additionalCharges: finalUpdatedInvoice.additionalCharges?.map(ac => ({...ac})) };
 };
 
 export const deleteInvoice = async (id: string): Promise<boolean> => {
@@ -590,7 +596,7 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
     grandTotal
   } = calculateDocumentTotals(itemsForCalc, additionalChargesForCalc, taxRateForCalc, discountDataForCalc);
 
-  const updatedOrderForm: OrderForm = {
+  const updatedOrderFormData: Omit<OrderForm, 'id' | 'createdAt' | 'customerName' | 'currencyCode' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'additionalCharges' | 'discountAmount'> & { items: OrderFormItem[], additionalCharges?: AdditionalChargeItem[], subtotal: number, taxAmount: number, total: number, discountAmount: number } = {
      ...existingOrderForm,
      ...data,
      issueDate: data.issueDate ? new Date(data.issueDate) : existingOrderForm.issueDate,
@@ -621,14 +627,19 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
      taxAmount: taxAmount,
      total: grandTotal,
     };
+  
+  const customer = mockCustomers.find(c => c.id === updatedOrderFormData.customerId);
 
-  const customerIdForLookup = updatedOrderForm.customerId;
-  const customer = mockCustomers.find(c => c.id === customerIdForLookup);
-  updatedOrderForm.customerName = customer?.name || 'Unknown Customer';
-  updatedOrderForm.currencyCode = customer?.currency || 'USD';
+  const finalUpdatedOrderForm: OrderForm = {
+    ...updatedOrderFormData,
+    id: existingOrderForm.id,
+    createdAt: existingOrderForm.createdAt,
+    customerName: customer?.name || 'Unknown Customer',
+    currencyCode: customer?.currency || 'USD',
+  };
 
-  mockOrderForms[index] = updatedOrderForm;
-  return { ...updatedOrderForm, items: updatedOrderForm.items.map(i => ({...i})), additionalCharges: updatedOrderForm.additionalCharges?.map(ac => ({...ac})) };
+  mockOrderForms[index] = finalUpdatedOrderForm;
+  return { ...finalUpdatedOrderForm, items: finalUpdatedOrderForm.items.map(i => ({...i})), additionalCharges: finalUpdatedOrderForm.additionalCharges?.map(ac => ({...ac})) };
 };
 
 export const deleteOrderForm = async (id: string): Promise<boolean> => {
@@ -817,53 +828,35 @@ export const deleteRepositoryItem = async (id: string): Promise<boolean> => {
   return mockRepositoryItems.length < initialLength;
 };
 
-export const findRepositoryItemByNameAndUpdate = async (
+export async function findRepositoryItemByNameAndUpdate (
   itemName: string,
   updateData: {
     defaultRate?: number;
     defaultProcurementPrice?: number;
     defaultVendorName?: string;
     currencyCode?: string;
-    customerId?: string;
-    customerName?: string;
   }
-): Promise<RepositoryItem | null> => {
+): Promise<RepositoryItem | null> {
+  // This function now only updates GLOBAL repository items (no customerId)
+  // Client-specific items are handled by upsertRepositoryItemFromOrderForm
   const itemIndex = mockRepositoryItems.findIndex(
     (repoItem) =>
       repoItem.name.toLowerCase() === itemName.toLowerCase() &&
-      (updateData.customerId ? repoItem.customerId === updateData.customerId : !repoItem.customerId) // Match client-specific or global
+      !repoItem.customerId // Only match global items
   );
 
   if (itemIndex !== -1) {
-    // Update existing item
     mockRepositoryItems[itemIndex] = {
       ...mockRepositoryItems[itemIndex],
       defaultRate: updateData.defaultRate !== undefined ? updateData.defaultRate : mockRepositoryItems[itemIndex].defaultRate,
       defaultProcurementPrice: updateData.defaultProcurementPrice !== undefined ? updateData.defaultProcurementPrice : mockRepositoryItems[itemIndex].defaultProcurementPrice,
       defaultVendorName: updateData.defaultVendorName !== undefined ? updateData.defaultVendorName : mockRepositoryItems[itemIndex].defaultVendorName,
       currencyCode: updateData.currencyCode || mockRepositoryItems[itemIndex].currencyCode,
-      // customerId and customerName are not updated here as they define the item's specificity
     };
-    console.log("[REPO UPDATE] Updated repository item:", mockRepositoryItems[itemIndex]);
+    console.log("[REPO UPDATE (Global)] Updated global repository item:", { ...mockRepositoryItems[itemIndex] });
     return { ...mockRepositoryItems[itemIndex] };
-  } else if (updateData.customerId && updateData.customerName) {
-    // Create new client-specific item if it doesn't exist for this client
-    const newItem: RepositoryItem = {
-      id: generateId('repo_item_dyn'),
-      name: itemName,
-      defaultRate: updateData.defaultRate,
-      defaultProcurementPrice: updateData.defaultProcurementPrice,
-      defaultVendorName: updateData.defaultVendorName,
-      currencyCode: updateData.currencyCode || 'USD',
-      customerId: updateData.customerId,
-      customerName: updateData.customerName,
-      createdAt: new Date(),
-    };
-    mockRepositoryItems.push(newItem);
-    console.log("[REPO UPDATE] Created new client-specific repository item:", newItem);
-    return { ...newItem };
   }
-  console.log("[REPO UPDATE] No matching repository item found to update for name:", itemName, "and customerId:", updateData.customerId);
+  console.log("[REPO UPDATE (Global)] No matching global repository item found to update for name:", itemName);
   return null;
 };
 
@@ -873,7 +866,7 @@ export const upsertRepositoryItemFromOrderForm = async (
   orderFormCustomerName: string,
   orderFormCurrencyCode: string
 ): Promise<RepositoryItem | null> => {
-  console.log("[UPSERT REPO ITEM] Processing item from Order Form:", itemFromOrderForm, "for customer:", orderFormCustomerName);
+  console.log("[UPSERT REPO ITEM] Start. Item from OF:", itemFromOrderForm, "CustID:", orderFormCustomerId, "CustName:", orderFormCustomerName, "Currency:", orderFormCurrencyCode);
 
   const itemIndex = mockRepositoryItems.findIndex(
     (repoItem) =>
@@ -882,10 +875,9 @@ export const upsertRepositoryItemFromOrderForm = async (
   );
 
   if (itemIndex !== -1) {
-    // Update existing client-specific item
+    console.log("[UPSERT REPO ITEM] Found existing client-specific item. Index:", itemIndex, "Item:", mockRepositoryItems[itemIndex]);
     const repoItemToUpdate = { ...mockRepositoryItems[itemIndex] };
     repoItemToUpdate.defaultRate = itemFromOrderForm.rate;
-    // Only update if values are provided, don't overwrite with undefined
     if (itemFromOrderForm.procurementPrice !== undefined) {
       repoItemToUpdate.defaultProcurementPrice = itemFromOrderForm.procurementPrice;
     }
@@ -893,11 +885,11 @@ export const upsertRepositoryItemFromOrderForm = async (
       repoItemToUpdate.defaultVendorName = itemFromOrderForm.vendorName;
     }
     repoItemToUpdate.currencyCode = orderFormCurrencyCode;
-    mockRepositoryItems[itemIndex] = repoItemToUpdate;
-    console.log("[UPSERT REPO ITEM] Updated existing repository item:", mockRepositoryItems[itemIndex]);
+    mockRepositoryItems[index] = repoItemToUpdate; // CRITICAL FIX: Should be itemIndex, not 'index'
+    console.log("[UPSERT REPO ITEM] Updated existing repository item:", { ...mockRepositoryItems[itemIndex] });
     return { ...mockRepositoryItems[itemIndex] };
   } else {
-    // Create new client-specific item
+    console.log("[UPSERT REPO ITEM] No existing client-specific item found. Creating new.");
     const newItem: RepositoryItem = {
       id: generateId('repo_item_client'),
       name: itemFromOrderForm.description,
@@ -910,7 +902,8 @@ export const upsertRepositoryItemFromOrderForm = async (
       createdAt: new Date(),
     };
     mockRepositoryItems.push(newItem);
-    console.log("[UPSERT REPO ITEM] Created new repository item:", newItem);
+    console.log("[UPSERT REPO ITEM] Created new repository item:", { ...newItem });
     return { ...newItem };
   }
 };
+
