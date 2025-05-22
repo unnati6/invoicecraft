@@ -16,7 +16,7 @@ import { getAllPurchaseOrders, removePurchaseOrder } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getCurrencySymbol } from '@/lib/currency-utils'; // Assuming POs might reference a base currency
+import { getCurrencySymbol } from '@/lib/currency-utils';
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
@@ -52,10 +52,10 @@ export default function PurchaseOrdersPage() {
 
   const getStatusVariant = (status: PurchaseOrder['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-      case 'Issued': return 'default'; // Green
-      case 'Fulfilled': return 'secondary'; // Blue-gray
-      case 'Cancelled': return 'destructive'; // Red
-      case 'Draft': return 'outline'; // Default outline
+      case 'Issued': return 'default'; 
+      case 'Fulfilled': return 'secondary'; 
+      case 'Cancelled': return 'destructive'; 
+      case 'Draft': return 'outline'; 
       default: return 'outline';
     }
   };
@@ -77,8 +77,7 @@ export default function PurchaseOrdersPage() {
     { 
       accessorKey: 'grandTotalVendorPayable', 
       header: 'Total Payable', 
-      // Assuming POs might not have a specific currency_code, default to app's base for display
-      cell: (row: PurchaseOrder) => `${getCurrencySymbol('USD')}${row.grandTotalVendorPayable.toFixed(2)}`, 
+      cell: (row: PurchaseOrder) => `${getCurrencySymbol('USD')}${row.grandTotalVendorPayable.toFixed(2)}`, // Assuming USD for now, could be dynamic
       size: 130 
     },
     { 
@@ -96,7 +95,7 @@ export default function PurchaseOrdersPage() {
       header: 'Actions',
       cell: (row: PurchaseOrder) => (
         <div className="flex space-x-1">
-          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); /* router.push(`/purchase-orders/${row.id}`); */ toast({title: "Info", description: "PO detail view not yet implemented."}) }} title="View Purchase Order">
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/purchase-orders/${row.id}`); }} title="View Purchase Order">
             <Eye className="h-4 w-4" />
           </Button>
           <DeleteConfirmationDialog 
@@ -148,7 +147,7 @@ export default function PurchaseOrdersPage() {
               <DataTable
                 columns={columns}
                 data={purchaseOrders}
-                onRowClick={(row) => { /* router.push(`/purchase-orders/${row.id}`); */ toast({title: "Info", description: "PO detail view not yet implemented."})}}
+                onRowClick={(row) => router.push(`/purchase-orders/${row.id}`)}
                 noResultsMessage="No purchase orders found."
               />
             )}
