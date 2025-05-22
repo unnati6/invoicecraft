@@ -10,9 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Eye, Trash2, ChevronDown, Download } from 'lucide-react';
+import { PlusCircle, Edit, Eye, Trash2, ChevronDown, Download, CheckSquare } from 'lucide-react';
 import type { Invoice, Customer } from '@/types';
-import { getAllInvoices, removeInvoice, fetchCustomerById } from '@/lib/actions';
+import { getAllInvoices, removeInvoice, fetchCustomerById, markInvoiceAsPaid } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog';
@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils';
+import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils.tsx';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 
 export default function InvoicesPage() {
@@ -34,6 +34,8 @@ export default function InvoicesPage() {
   const [loading, setLoading] = React.useState(true);
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isDownloading, setIsDownloading] = React.useState(false);
+  const [isMarkingPaid, setIsMarkingPaid] = React.useState<string | null>(null);
+
 
   React.useEffect(() => {
     async function fetchData() {
@@ -62,6 +64,27 @@ export default function InvoicesPage() {
       toast({ title: "Success", description: "Invoice deleted successfully." });
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete invoice.", variant: "destructive" });
+    }
+  };
+
+  const handleMarkAsPaid = async (invoiceId: string) => {
+    setIsMarkingPaid(invoiceId);
+    try {
+      const updatedInvoice = await markInvoiceAsPaid(invoiceId);
+      if (updatedInvoice) {
+        setInvoices(prevInvoices =>
+          prevInvoices.map(inv =>
+            inv.id === invoiceId ? { ...inv, status: 'Paid' } : inv
+          )
+        );
+        toast({ title: "Success", description: `Invoice ${updatedInvoice.invoiceNumber} marked as paid.` });
+      } else {
+        toast({ title: "Error", description: "Failed to mark invoice as paid.", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+    } finally {
+      setIsMarkingPaid(null);
     }
   };
 
@@ -129,7 +152,7 @@ export default function InvoicesPage() {
 
   const columns: any[] = [
     { accessorKey: 'invoiceNumber', header: 'Number', cell: (row: Invoice) => row.invoiceNumber, size: 100 },
-    { accessorKey: 'customerName', header: 'Customer', cell: (row: Invoice) => row.customerName || 'N/A', size: 200 },
+    { accessorKey: 'customerName', header: 'Customer', cell: (row: Invoice) => row.customerName || 'N/A', size: 150 },
     { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: Invoice) => format(new Date(row.issueDate), 'PP'), size: 120 },
     { accessorKey: 'dueDate', header: 'Due Date', cell: (row: Invoice) => format(new Date(row.dueDate), 'PP'), size: 120 },
     { accessorKey: 'total', header: 'Total', cell: (row: Invoice) => `${getCurrencySymbol(row.currencyCode)}${row.total.toFixed(2)}`, size: 100 },
@@ -159,6 +182,17 @@ export default function InvoicesPage() {
           <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/invoices/${row.id}`); }} title="Edit Invoice">
             <Edit className="h-4 w-4" />
           </Button>
+          {row.status !== 'Paid' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => { e.stopPropagation(); handleMarkAsPaid(row.id); }}
+              disabled={isMarkingPaid === row.id}
+              title="Mark as Paid"
+            >
+              <CheckSquare className="h-4 w-4 text-primary" />
+            </Button>
+          )}
           <DeleteConfirmationDialog 
             onConfirm={() => handleDeleteInvoice(row.id)} 
             itemName={`invoice ${row.invoiceNumber}`}
@@ -170,7 +204,7 @@ export default function InvoicesPage() {
           />
         </div>
       ),
-      size: 150
+      size: 180 // Increased size to accommodate new button
     },
   ];
   

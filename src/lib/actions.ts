@@ -60,7 +60,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     invoiceNumber: data.invoiceNumber,
     issueDate: data.issueDate,
     dueDate: data.dueDate,
-    items: data.items, 
+    items: data.items,
     additionalCharges: data.additionalCharges,
     discountEnabled: data.discountEnabled,
     discountDescription: data.discountDescription,
@@ -112,15 +112,8 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     const customer = await fetchCustomerById(savedInvoice.customerId);
     const invoiceCurrency = customer?.currency || savedInvoice.currencyCode || 'USD';
     for (const item of savedInvoice.items) {
-      // For invoices, we'll use the same client-specific upsert logic as order forms
-      // No procurementPrice or vendorName from invoice items to pass
       await Data.upsertRepositoryItemFromOrderForm(
-        { 
-          description: item.description, 
-          rate: item.rate,
-          quantity: item.quantity, // quantity is not directly used by upsert but good to pass for context
-          // procurementPrice and vendorName are undefined here
-        } as OrderFormItem, // Cast to satisfy the function, knowing it handles missing fields
+        item, // InvoiceItem can be cast or handled by upsertRepositoryItem
         savedInvoice.customerId,
         customer?.name || 'Unknown Customer',
         invoiceCurrency
@@ -157,6 +150,34 @@ export async function saveInvoiceTerms(id: string, data: TermsFormData): Promise
 export async function fetchNextInvoiceNumber(): Promise<string> {
     return Data.getNextInvoiceNumber();
 }
+
+export async function markInvoiceAsPaid(invoiceId: string): Promise<Invoice | null> {
+  const invoice = await Data.getInvoiceById(invoiceId);
+  if (!invoice) {
+    console.error(`Invoice not found for marking as paid: ${invoiceId}`);
+    return null;
+  }
+
+  if (invoice.status === 'Paid') {
+    console.warn(`Invoice ${invoiceId} is already paid.`);
+    // Consider returning the invoice itself or null/error if no action should be taken client-side
+    return invoice; 
+  }
+
+  const updatedInvoice = await Data.updateInvoice(invoiceId, { status: 'Paid' });
+
+  if (updatedInvoice) {
+    revalidatePath('/invoices'); // For the list page
+    revalidatePath(`/invoices/${invoiceId}`); // For the specific invoice detail page
+    if (updatedInvoice.customerId) {
+        revalidatePath(`/customers/${updatedInvoice.customerId}/edit`); // For the customer edit page
+    }
+    revalidatePath('/(app)/dashboard', 'page'); // For the dashboard
+    return updatedInvoice;
+  }
+  return null;
+}
+
 
 // OrderForm Actions
 export async function getAllOrderForms(): Promise<OrderForm[]> {
@@ -515,7 +536,7 @@ export async function saveMsaTemplate(data: MsaTemplateFormData, id?: string): P
     }
     return updated;
   } else {
-    const newTemplate = await Data.createMsaTemplate(payload);
+    const newTemplate = await Data.createMsaTemplate(payload as Omit<MsaTemplate, 'id' | 'createdAt'>);
     if (newTemplate) {
       revalidatePath('/templates/msa');
     }
@@ -589,7 +610,7 @@ export async function getAllRepositoryItems(): Promise<RepositoryItem[]> {
   return Data.getRepositoryItems();
 }
 
-export async function fetchRepositoryItemById(id: string): Promise<RepositoryItem | undefined> { // New function
+export async function fetchRepositoryItemById(id: string): Promise<RepositoryItem | undefined> { 
   return Data.getRepositoryItemById(id);
 }
 
@@ -620,4 +641,3 @@ export async function removeRepositoryItem(id: string): Promise<boolean> {
   if (success) revalidatePath('/item-repository');
   return success;
 }
-
