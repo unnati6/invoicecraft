@@ -9,10 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Signature, CalendarDays, User, Mail, Building, Briefcase, Send, ListChecks } from 'lucide-react';
-import type { Invoice, OrderForm, Customer } from '@/types';
-import { fetchInvoiceById, fetchOrderFormById, fetchCustomerById } from '@/lib/actions';
+import type { Invoice, OrderForm, Customer, CoverPageTemplate as CoverPageTemplateType } from '@/types';
+import { fetchInvoiceById, fetchOrderFormById, fetchCustomerById, fetchCoverPageTemplateById } from '@/lib/actions';
 import { Skeleton } from '@/components/ui/skeleton';
-import Image from 'next/image';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { InvoicePreviewContent } from '@/components/invoice-preview-content';
+import { OrderFormPreviewContent } from '@/components/orderform-preview-content';
+
 
 interface PlacedField {
   id: string;
@@ -46,51 +49,50 @@ export default function PlaceSignatureFieldsPage() {
   const documentType = params.documentType as string;
   const documentId = params.documentId as string;
 
-  const [documentInfo, setDocumentInfo] = React.useState<string | null>(null);
+  const [documentData, setDocumentData] = React.useState<Invoice | OrderForm | null>(null);
+  const [customerData, setCustomerData] = React.useState<Customer | undefined>(undefined);
+  const [coverPageTemplateData, setCoverPageTemplateData] = React.useState<CoverPageTemplateType | undefined>(undefined);
   const [isLoadingDocument, setIsLoadingDocument] = React.useState(true);
+  
   const [selectedRecipientId, setSelectedRecipientId] = React.useState<string>(mockRecipients[0]?.id || '');
   const [placedFields, setPlacedFields] = React.useState<PlacedField[]>([]);
 
   React.useEffect(() => {
-    async function loadDocumentInfo() {
+    async function loadDocumentData() {
       setIsLoadingDocument(true);
-      let docNumber = '';
-      let customerName = 'N/A';
+      setDocumentData(null);
+      setCustomerData(undefined);
+      setCoverPageTemplateData(undefined);
+
       try {
+        let doc: Invoice | OrderForm | undefined | null = null;
         if (documentType === 'invoice' && documentId) {
-          const invoice = await fetchInvoiceById(documentId as string);
-          if (invoice) {
-            docNumber = invoice.invoiceNumber;
-            if (invoice.customerId) {
-              const customer = await fetchCustomerById(invoice.customerId);
-              customerName = customer?.name || 'N/A';
-            }
-          }
+          doc = await fetchInvoiceById(documentId as string);
         } else if (documentType === 'orderform' && documentId) {
-          const orderForm = await fetchOrderFormById(documentId as string);
-          if (orderForm) {
-            docNumber = orderForm.orderFormNumber;
-             if (orderForm.customerId) {
-              const customer = await fetchCustomerById(orderForm.customerId);
-              customerName = customer?.name || 'N/A';
-            }
-          }
+          doc = await fetchOrderFormById(documentId as string);
         }
-        if (docNumber) {
-          setDocumentInfo(`${documentType === 'invoice' ? 'Invoice' : 'Order Form'} #${docNumber} for ${customerName}`);
+
+        if (doc) {
+          setDocumentData(doc);
+          if (doc.customerId) {
+            const customer = await fetchCustomerById(doc.customerId);
+            setCustomerData(customer);
+          }
+          if (doc.msaContent && doc.msaCoverPageTemplateId) {
+            const cpt = await fetchCoverPageTemplateById(doc.msaCoverPageTemplateId);
+            setCoverPageTemplateData(cpt);
+          }
         } else {
-          setDocumentInfo('Document not found.');
           toast({ title: "Error", description: "Could not load document details.", variant: "destructive" });
         }
       } catch (error) {
-        setDocumentInfo('Error loading document.');
         toast({ title: "Error", description: "Failed to fetch document information.", variant: "destructive" });
       } finally {
         setIsLoadingDocument(false);
       }
     }
     if (documentType && documentId) {
-      loadDocumentInfo();
+      loadDocumentData();
     }
   }, [documentType, documentId, toast]);
 
@@ -108,8 +110,9 @@ export default function PlaceSignatureFieldsPage() {
     setPlacedFields(prev => [...prev, newField]);
     toast({
       title: "Field Added (Conceptual)",
-      description: `${fieldName} field added for ${recipient.name}. Drag & drop not implemented in prototype.`,
-      variant: "default"
+      description: `${fieldName} field conceptually added for ${recipient.name}. Drag & drop onto document not implemented in this prototype.`,
+      variant: "default",
+      duration: 4000,
     });
   };
 
@@ -118,27 +121,30 @@ export default function PlaceSignatureFieldsPage() {
       toast({ title: "No Fields Placed", description: "Please add at least one signature field.", variant: "destructive" });
       return;
     }
-    // In a real app, this would trigger backend processing
     toast({
       title: "Prototype: Sent for Signature",
       description: "In a real application, this would send the document with placed fields to recipients.",
       variant: "warning",
       duration: 5000,
     });
-    router.push('/dashboard'); // Redirect to dashboard after "sending"
+    router.push('/dashboard'); 
   };
 
   const pageTitle = isLoadingDocument
     ? "Loading Document..."
-    : documentInfo || "Place Signature Fields";
+    : documentData 
+      ? `Place Fields: ${'invoiceNumber' in documentData ? documentData.invoiceNumber : documentData.orderFormNumber}`
+      : "Place Signature Fields";
 
   if (isLoadingDocument) {
     return (
       <>
-        <AppHeader title="Loading..." showBackButton />
-        <main className="flex-1 p-4 md:p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2"><Skeleton className="w-full h-[70vh]"/></div>
+        <AppHeader title="Loading Document..." showBackButton />
+        <main className="flex flex-1 flex-col p-4 md:p-6">
+          <div className="grid flex-1 grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-muted/30 rounded-lg border flex items-center justify-center overflow-hidden min-h-[calc(100vh-12rem)]">
+                <Skeleton className="w-[600px] h-[825px]"/>
+            </div>
             <div className="lg:col-span-1"><Skeleton className="w-full h-[70vh]" /></div>
           </div>
         </main>
@@ -146,12 +152,12 @@ export default function PlaceSignatureFieldsPage() {
     );
   }
   
-  if (!documentInfo || documentInfo === 'Document not found.' || documentInfo === 'Error loading document.') {
+  if (!documentData) {
     return (
       <>
-        <AppHeader title="Error" showBackButton />
+        <AppHeader title="Error Loading Document" showBackButton />
         <main className="flex-1 p-4 md:p-6">
-          <Card><CardHeader><CardTitle>Error Loading Document</CardTitle></CardHeader><CardContent><p>{documentInfo}</p></CardContent></Card>
+          <Card><CardHeader><CardTitle>Error</CardTitle></CardHeader><CardContent><p>Could not load the document to place fields. Please try again.</p></CardContent></Card>
         </main>
       </>
     );
@@ -164,22 +170,33 @@ export default function PlaceSignatureFieldsPage() {
       <main className="flex flex-1 flex-col p-4 md:p-6">
         <div className="grid flex-1 grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-muted/30 rounded-lg border flex items-center justify-center overflow-hidden min-h-[calc(100vh-12rem)]">
-            {/* Placeholder for document preview. In a real app, this would be an iframe or a rendered PDF/image. */}
-            <Image 
-              src="https://placehold.co/800x1100.png?text=Document+Preview+(Drag+Fields+Here)" 
-              alt="Document Preview" 
-              width={600} 
-              height={825}
-              className="object-contain shadow-lg"
-              data-ai-hint="document page"
-            />
+            <ScrollArea className="w-full h-full max-w-[800px] max-h-[calc(100vh-14rem)] bg-white shadow-lg">
+              {documentType === 'invoice' && documentData ? (
+                <InvoicePreviewContent 
+                  document={documentData as Invoice} 
+                  customer={customerData} 
+                  coverPageTemplate={coverPageTemplateData} 
+                />
+              ) : documentType === 'orderform' && documentData ? (
+                <OrderFormPreviewContent 
+                  document={documentData as OrderForm} 
+                  customer={customerData} 
+                  coverPageTemplate={coverPageTemplateData} 
+                />
+              ) : (
+                <p>Error: Document type not supported or data missing.</p>
+              )}
+            </ScrollArea>
           </div>
 
           <div className="lg:col-span-1">
-            <Card className="sticky top-20"> {/* top-16 (header) + p-4 (main padding) */}
+            <Card className="sticky top-20">
               <CardHeader>
                 <CardTitle>Signature Fields</CardTitle>
-                <CardDescription>Select a recipient, then click a field type to add it to the document (conceptually).</CardDescription>
+                <CardDescription>
+                  Select a recipient, then click a field type. This conceptually adds the field.
+                  <strong className="block mt-1">Actual drag & drop placement onto the document preview is not implemented in this prototype.</strong>
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 max-h-[calc(100vh-22rem)] overflow-y-auto pr-2">
                 <div className="space-y-1">
@@ -218,11 +235,13 @@ export default function PlaceSignatureFieldsPage() {
                     <h4 className="font-medium text-sm text-muted-foreground flex items-center">
                         <ListChecks className="mr-2 h-4 w-4"/> Conceptually Placed Fields
                     </h4>
-                    <ul className="list-disc list-inside text-xs space-y-1 text-muted-foreground pl-2">
-                      {placedFields.map(pf => (
-                        <li key={pf.id}>{pf.type} for {pf.recipientName}</li>
-                      ))}
-                    </ul>
+                    <ScrollArea className="h-32">
+                      <ul className="list-disc list-inside text-xs space-y-1 text-muted-foreground pl-2">
+                        {placedFields.map(pf => (
+                          <li key={pf.id}>{pf.type} for {pf.recipientName}</li>
+                        ))}
+                      </ul>
+                    </ScrollArea>
                   </div>
                 )}
 
@@ -243,3 +262,5 @@ export default function PlaceSignatureFieldsPage() {
     </>
   );
 }
+
+    
