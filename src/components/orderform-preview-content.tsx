@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as _React from 'react';
@@ -8,7 +9,6 @@ import { getCurrencySymbol } from '@/lib/currency-utils';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import { CoverPageContent } from '@/components/cover-page-content'; 
-import { fetchCoverPageTemplateById } from '@/lib/actions'; // For live preview
 
 const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
 const SIGNATURE_STORAGE_KEY = 'branding_company_signature_data_url';
@@ -27,7 +27,7 @@ const COMPANY_INFO_KEYS = {
 interface OrderFormPreviewContentProps {
   document: OrderForm;
   customer?: Customer;
-  coverPageTemplate?: CoverPageTemplate; // Prop for PDF generation
+  coverPageTemplate?: CoverPageTemplate;
 }
 
 function replacePlaceholders(
@@ -58,9 +58,9 @@ function replacePlaceholders(
     '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
     '{{validUntilDate}}': () => format(new Date(doc.validUntilDate), 'PPP'), 
     '{{totalAmount}}': () => `${currencySymbol}${doc.total.toFixed(2)}`,
-    '{{paymentTerms}}': () => (doc.paymentTerms === 'Custom' && doc.customPaymentTerms ? doc.customPaymentTerms : doc.paymentTerms),
-    '{{commitmentPeriod}}': () => (doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod ? doc.customCommitmentPeriod : doc.commitmentPeriod),
-    '{{paymentFrequency}}': () => (doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency ? doc.customPaymentFrequency : doc.paymentFrequency),
+    '{{paymentTerms}}': () => doc.paymentTerms === 'Custom' && doc.customPaymentTerms ? doc.customPaymentTerms : doc.paymentTerms,
+    '{{commitmentPeriod}}': () => doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod ? doc.customCommitmentPeriod : doc.commitmentPeriod,
+    '{{paymentFrequency}}': () => doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency ? doc.customPaymentFrequency : doc.paymentFrequency,
     '{{serviceStartDate}}': () => doc.serviceStartDate ? format(new Date(doc.serviceStartDate), 'PPP') : '',
     '{{serviceEndDate}}': () => doc.serviceEndDate ? format(new Date(doc.serviceEndDate), 'PPP') : '',
   };
@@ -110,7 +110,7 @@ function replacePlaceholders(
 }
 
 
-export function OrderFormPreviewContent({ document: orderForm, customer, coverPageTemplate: initialCoverPageTemplate }: OrderFormPreviewContentProps) {
+export function OrderFormPreviewContent({ document: orderForm, customer, coverPageTemplate }: OrderFormPreviewContentProps) {
   const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
   const [companySignatureUrl, setCompanySignatureUrl] = _React.useState<string | null>(null);
   const [yourCompany, setYourCompany] = _React.useState({
@@ -120,9 +120,6 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
     email: 'sales@yourcompany.com',
     phone: '(555) 123-7890'
   });
-
-  const [livePreviewCoverPageTemplate, setLivePreviewCoverPageTemplate] = _React.useState<CoverPageTemplate | undefined>(initialCoverPageTemplate);
-  const [isLoadingCoverPage, setIsLoadingCoverPage] = _React.useState(false);
 
   _React.useEffect(() => {
     console.log("[OrderFormPreviewContent] Received document.msaContent:", orderForm.msaContent);
@@ -161,32 +158,6 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
     }
   }, [orderForm.msaContent, yourCompany.name, yourCompany.email, yourCompany.phone]);
 
-  _React.useEffect(() => {
-    if (initialCoverPageTemplate) {
-      setLivePreviewCoverPageTemplate(initialCoverPageTemplate);
-      return;
-    }
-    const fetchForDialog = async () => {
-      if (orderForm?.msaContent && orderForm.msaCoverPageTemplateId) {
-        setIsLoadingCoverPage(true);
-        console.log(`[OrderFormPreviewContent] Fetching CPT ID: ${orderForm.msaCoverPageTemplateId} for live preview.`);
-        try {
-          const cpt = await fetchCoverPageTemplateById(orderForm.msaCoverPageTemplateId);
-          setLivePreviewCoverPageTemplate(cpt);
-        } catch (error) {
-          console.error("Error fetching cover page template for live preview:", error);
-          setLivePreviewCoverPageTemplate(undefined);
-        } finally {
-          setIsLoadingCoverPage(false);
-        }
-      } else {
-        setLivePreviewCoverPageTemplate(undefined);
-        setIsLoadingCoverPage(false);
-      }
-    };
-    fetchForDialog();
-  }, [orderForm?.id, orderForm?.msaCoverPageTemplateId, orderForm?.msaContent, initialCoverPageTemplate]);
-
    const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
     name: orderForm.customerName || customer?.name || 'N/A',
     email: customer?.email || 'N/A',
@@ -205,19 +176,16 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
   const processedMsaContent = orderForm.msaContent ? replacePlaceholders(orderForm.msaContent, orderForm, customer) : undefined;
   const processedTermsAndConditions = replacePlaceholders(orderForm.termsAndConditions, orderForm, customer);
 
-  const displayPaymentTerms = orderForm.paymentTerms === 'Custom' && orderForm.customPaymentTerms ? orderForm.customPaymentTerms : orderForm.paymentTerms;
-  const displayCommitmentPeriod = orderForm.commitmentPeriod === 'Custom' && orderForm.customCommitmentPeriod ? orderForm.customCommitmentPeriod : orderForm.commitmentPeriod;
-  const displayPaymentFrequency = orderForm.paymentFrequency === 'Custom' && orderForm.customPaymentFrequency ? orderForm.customPaymentFrequency : orderForm.paymentFrequency;
+  const paymentTermsText = orderForm.paymentTerms === 'Custom' ? (orderForm.customPaymentTerms || 'Custom (Not specified)') : orderForm.paymentTerms;
+  const commitmentPeriodText = orderForm.commitmentPeriod === 'Custom' ? (orderForm.customCommitmentPeriod || 'Custom (Not specified)') : orderForm.commitmentPeriod;
+  const paymentFrequencyText = orderForm.paymentFrequency === 'Custom' ? (orderForm.customPaymentFrequency || 'Custom (Not specified)') : orderForm.paymentFrequency;
   
-  if (isLoadingCoverPage && orderForm?.msaContent && orderForm.msaCoverPageTemplateId) {
-    return <div className="p-6 text-center">Loading cover page information...</div>;
-  }
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
-      {livePreviewCoverPageTemplate && orderForm?.msaContent && (
+      {coverPageTemplate && orderForm?.msaContent && (
         <>
-          <CoverPageContent document={orderForm} customer={customer} template={livePreviewCoverPageTemplate} />
+          <CoverPageContent document={orderForm} customer={customer} template={coverPageTemplate} />
           <hr className="my-6 border-border" />
         </>
       )}
@@ -279,13 +247,13 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
         </div>
       </div>
 
-      { (displayPaymentTerms || displayCommitmentPeriod || displayPaymentFrequency || orderForm.serviceStartDate || orderForm.serviceEndDate) && (
+      { (paymentTermsText || commitmentPeriodText || paymentFrequencyText || orderForm.serviceStartDate || orderForm.serviceEndDate) && (
         <div className="mb-6 p-4 border rounded-md bg-muted/30">
           <h3 className="font-semibold mb-2 text-muted-foreground">Service &amp; Payment Overview</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            {displayPaymentTerms && <p><span className="font-medium">Payment Terms:</span> {displayPaymentTerms}</p>}
-            {displayCommitmentPeriod && <p><span className="font-medium">Commitment:</span> {displayCommitmentPeriod}</p>}
-            {displayPaymentFrequency && <p><span className="font-medium">Payment Frequency:</span> {displayPaymentFrequency}</p>}
+            {paymentTermsText && <p><span className="font-medium">Payment Terms:</span> {paymentTermsText}</p>}
+            {commitmentPeriodText && <p><span className="font-medium">Commitment:</span> {commitmentPeriodText}</p>}
+            {paymentFrequencyText && <p><span className="font-medium">Payment Frequency:</span> {paymentFrequencyText}</p>}
             {orderForm.serviceStartDate && <p><span className="font-medium">Service Start:</span> {format(new Date(orderForm.serviceStartDate), 'PPP')}</p>}
             {orderForm.serviceEndDate && <p><span className="font-medium">Service End:</span> {format(new Date(orderForm.serviceEndDate), 'PPP')}</p>}
           </div>
@@ -385,3 +353,4 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
 }
 
 OrderFormPreviewContent.displayName = "OrderFormPreviewContent";
+

@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as _React from 'react';
@@ -27,7 +28,7 @@ const COMPANY_INFO_KEYS = {
 interface InvoicePreviewContentProps {
   document: Invoice;
   customer?: Customer;
-  coverPageTemplate?: CoverPageTemplate; // Prop for PDF generation
+  coverPageTemplate?: CoverPageTemplate;
 }
 
 function replacePlaceholders(
@@ -58,9 +59,9 @@ function replacePlaceholders(
     '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
     '{{dueDate}}': () => format(new Date(doc.dueDate), 'PPP'),
     '{{totalAmount}}': () => `${currencySymbol}${doc.total.toFixed(2)}`,
-    '{{paymentTerms}}': () => (doc.paymentTerms === 'Custom' && doc.customPaymentTerms ? doc.customPaymentTerms : doc.paymentTerms),
-    '{{commitmentPeriod}}': () => (doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod ? doc.customCommitmentPeriod : doc.commitmentPeriod),
-    '{{paymentFrequency}}': () => (doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency ? doc.customPaymentFrequency : doc.paymentFrequency),
+    '{{paymentTerms}}': () => doc.paymentTerms === 'Custom' && doc.customPaymentTerms ? doc.customPaymentTerms : doc.paymentTerms,
+    '{{commitmentPeriod}}': () => doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod ? doc.customCommitmentPeriod : doc.commitmentPeriod,
+    '{{paymentFrequency}}': () => doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency ? doc.customPaymentFrequency : doc.paymentFrequency,
     '{{serviceStartDate}}': () => doc.serviceStartDate ? format(new Date(doc.serviceStartDate), 'PPP') : '',
     '{{serviceEndDate}}': () => doc.serviceEndDate ? format(new Date(doc.serviceEndDate), 'PPP') : '',
   };
@@ -111,7 +112,7 @@ function replacePlaceholders(
 }
 
 
-export function InvoicePreviewContent({ document: invoice, customer, coverPageTemplate: initialCoverPageTemplate }: InvoicePreviewContentProps) {
+export function InvoicePreviewContent({ document: invoice, customer, coverPageTemplate }: InvoicePreviewContentProps) {
   const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
   const [companySignatureUrl, setCompanySignatureUrl] = _React.useState<string | null>(null);
   const [yourCompany, setYourCompany] = _React.useState({
@@ -121,10 +122,6 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
     email: 'billing@yourcompany.com',
     phone: '(555) 123-4567'
   });
-
-  // State for cover page template specifically for dialog preview
-  const [livePreviewCoverPageTemplate, setLivePreviewCoverPageTemplate] = _React.useState<CoverPageTemplate | undefined>(initialCoverPageTemplate);
-  const [isLoadingCoverPage, setIsLoadingCoverPage] = _React.useState(false);
 
   _React.useEffect(() => {
     console.log("[InvoicePreviewContent] Received document.msaContent:", invoice.msaContent);
@@ -161,35 +158,7 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
         email,
       });
     }
-  }, [invoice.msaContent, yourCompany.name, yourCompany.email, yourCompany.phone]); // Added invoice.msaContent to deps to see if it triggers re-log
-
-  _React.useEffect(() => {
-    if (initialCoverPageTemplate) { // If cover page template is passed as a prop (e.g., for PDF generation)
-      setLivePreviewCoverPageTemplate(initialCoverPageTemplate);
-      return;
-    }
-
-    // Otherwise, fetch for live dialog preview if needed
-    const fetchForDialog = async () => {
-      if (invoice?.msaContent && invoice.msaCoverPageTemplateId) {
-        setIsLoadingCoverPage(true);
-        console.log(`[InvoicePreviewContent] Fetching CPT ID: ${invoice.msaCoverPageTemplateId} for live preview.`);
-        try {
-          const cpt = await fetchCoverPageTemplateById(invoice.msaCoverPageTemplateId);
-          setLivePreviewCoverPageTemplate(cpt);
-        } catch (error) {
-          console.error("Error fetching cover page template for live preview:", error);
-          setLivePreviewCoverPageTemplate(undefined);
-        } finally {
-          setIsLoadingCoverPage(false);
-        }
-      } else {
-        setLivePreviewCoverPageTemplate(undefined);
-        setIsLoadingCoverPage(false);
-      }
-    };
-    fetchForDialog();
-  }, [invoice?.id, invoice?.msaCoverPageTemplateId, invoice?.msaContent, initialCoverPageTemplate]);
+  }, [invoice.msaContent, yourCompany.name, yourCompany.email, yourCompany.phone]);
 
 
   const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
@@ -211,19 +180,16 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
   const processedMsaContent = invoice.msaContent ? replacePlaceholders(invoice.msaContent, invoice, customer) : undefined;
   const processedTermsAndConditions = replacePlaceholders(invoice.termsAndConditions, invoice, customer);
 
-  const displayPaymentTerms = invoice.paymentTerms === 'Custom' && invoice.customPaymentTerms ? invoice.customPaymentTerms : invoice.paymentTerms;
-  const displayCommitmentPeriod = invoice.commitmentPeriod === 'Custom' && invoice.customCommitmentPeriod ? invoice.customCommitmentPeriod : invoice.commitmentPeriod;
-  const displayPaymentFrequency = invoice.paymentFrequency === 'Custom' && invoice.customPaymentFrequency ? invoice.customPaymentFrequency : invoice.paymentFrequency;
+  const paymentTermsText = invoice.paymentTerms === 'Custom' ? (invoice.customPaymentTerms || 'Custom (Not specified)') : invoice.paymentTerms;
+  const commitmentPeriodText = invoice.commitmentPeriod === 'Custom' ? (invoice.customCommitmentPeriod || 'Custom (Not specified)') : invoice.commitmentPeriod;
+  const paymentFrequencyText = invoice.paymentFrequency === 'Custom' ? (invoice.customPaymentFrequency || 'Custom (Not specified)') : invoice.paymentFrequency;
 
-  if (isLoadingCoverPage && invoice?.msaContent && invoice.msaCoverPageTemplateId) {
-    return <div className="p-6 text-center">Loading cover page information...</div>;
-  }
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
-      {livePreviewCoverPageTemplate && invoice?.msaContent && (
+      {coverPageTemplate && invoice?.msaContent && (
         <>
-          <CoverPageContent document={invoice} customer={customer} template={livePreviewCoverPageTemplate} />
+          <CoverPageContent document={invoice} customer={customer} template={coverPageTemplate} />
           <hr className="my-6 border-border" />
         </>
       )}
@@ -284,13 +250,13 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
         </div>
       </div>
 
-      { (displayPaymentTerms || displayCommitmentPeriod || displayPaymentFrequency || invoice.serviceStartDate || invoice.serviceEndDate) && (
+      { (paymentTermsText || commitmentPeriodText || paymentFrequencyText || invoice.serviceStartDate || invoice.serviceEndDate) && (
         <div className="mb-6 p-4 border rounded-md bg-muted/30">
           <h3 className="font-semibold mb-2 text-muted-foreground">Service &amp; Payment Overview</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            {displayPaymentTerms && <p><span className="font-medium">Payment Terms:</span> {displayPaymentTerms}</p>}
-            {displayCommitmentPeriod && <p><span className="font-medium">Commitment:</span> {displayCommitmentPeriod}</p>}
-            {displayPaymentFrequency && <p><span className="font-medium">Payment Frequency:</span> {displayPaymentFrequency}</p>}
+            {paymentTermsText && <p><span className="font-medium">Payment Terms:</span> {paymentTermsText}</p>}
+            {commitmentPeriodText && <p><span className="font-medium">Commitment:</span> {commitmentPeriodText}</p>}
+            {paymentFrequencyText && <p><span className="font-medium">Payment Frequency:</span> {paymentFrequencyText}</p>}
             {invoice.serviceStartDate && <p><span className="font-medium">Service Start:</span> {format(new Date(invoice.serviceStartDate), 'PPP')}</p>}
             {invoice.serviceEndDate && <p><span className="font-medium">Service End:</span> {format(new Date(invoice.serviceEndDate), 'PPP')}</p>}
           </div>
@@ -390,3 +356,4 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
 }
 
 InvoicePreviewContent.displayName = "InvoicePreviewContent";
+
