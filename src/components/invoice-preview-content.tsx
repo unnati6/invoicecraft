@@ -28,7 +28,7 @@ const COMPANY_INFO_KEYS = {
 interface InvoicePreviewContentProps {
   document: Invoice;
   customer?: Customer;
-  coverPageTemplate?: CoverPageTemplate;
+  coverPageTemplate?: CoverPageTemplate; // Passed from dialog
 }
 
 function replacePlaceholders(
@@ -40,6 +40,10 @@ function replacePlaceholders(
   let processedContent = content;
 
   const currencySymbol = getCurrencySymbol(customer?.currency || doc.currencyCode);
+
+  const paymentTermsDisplay = (doc.paymentTerms === 'Custom' && doc.customPaymentTerms) ? doc.customPaymentTerms : doc.paymentTerms;
+  const commitmentPeriodDisplay = (doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod) ? doc.customCommitmentPeriod : doc.commitmentPeriod;
+  const paymentFrequencyDisplay = (doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency) ? doc.customPaymentFrequency : doc.paymentFrequency;
 
   const placeholders: Record<string, () => string | undefined | null> = {
     '{{customerName}}': () => customer?.name,
@@ -59,9 +63,9 @@ function replacePlaceholders(
     '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
     '{{dueDate}}': () => format(new Date(doc.dueDate), 'PPP'),
     '{{totalAmount}}': () => `${currencySymbol}${doc.total.toFixed(2)}`,
-    '{{paymentTerms}}': () => doc.paymentTerms === 'Custom' && doc.customPaymentTerms ? doc.customPaymentTerms : doc.paymentTerms,
-    '{{commitmentPeriod}}': () => doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod ? doc.customCommitmentPeriod : doc.commitmentPeriod,
-    '{{paymentFrequency}}': () => doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency ? doc.customPaymentFrequency : doc.paymentFrequency,
+    '{{paymentTerms}}': () => paymentTermsDisplay,
+    '{{commitmentPeriod}}': () => commitmentPeriodDisplay,
+    '{{paymentFrequency}}': () => paymentFrequencyDisplay,
     '{{serviceStartDate}}': () => doc.serviceStartDate ? format(new Date(doc.serviceStartDate), 'PPP') : '',
     '{{serviceEndDate}}': () => doc.serviceEndDate ? format(new Date(doc.serviceEndDate), 'PPP') : '',
   };
@@ -107,7 +111,7 @@ function replacePlaceholders(
   `;
   processedContent = processedContent.replace(/{{signaturePanel}}/g, signaturePanelHtml);
   
-  if (!processedContent.trim()) return undefined;
+  if (!processedContent?.trim()) return undefined;
   return processedContent;
 }
 
@@ -180,9 +184,17 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
   const processedMsaContent = invoice.msaContent ? replacePlaceholders(invoice.msaContent, invoice, customer) : undefined;
   const processedTermsAndConditions = replacePlaceholders(invoice.termsAndConditions, invoice, customer);
 
-  const paymentTermsText = invoice.paymentTerms === 'Custom' ? (invoice.customPaymentTerms || 'Custom (Not specified)') : invoice.paymentTerms;
-  const commitmentPeriodText = invoice.commitmentPeriod === 'Custom' ? (invoice.customCommitmentPeriod || 'Custom (Not specified)') : invoice.commitmentPeriod;
-  const paymentFrequencyText = invoice.paymentFrequency === 'Custom' ? (invoice.customPaymentFrequency || 'Custom (Not specified)') : invoice.paymentFrequency;
+  const paymentTermsText = (invoice.paymentTerms === 'Custom' && invoice.customPaymentTerms) 
+    ? invoice.customPaymentTerms 
+    : (invoice.paymentTerms === 'Custom' ? 'Custom (Not specified)' : invoice.paymentTerms);
+
+  const commitmentPeriodText = (invoice.commitmentPeriod === 'Custom' && invoice.customCommitmentPeriod) 
+    ? invoice.customCommitmentPeriod 
+    : (invoice.commitmentPeriod === 'Custom' ? 'Custom (Not specified)' : invoice.commitmentPeriod);
+  
+  const paymentFrequencyText = (invoice.paymentFrequency === 'Custom' && invoice.customPaymentFrequency) 
+    ? invoice.customPaymentFrequency 
+    : (invoice.paymentFrequency === 'Custom' ? 'Custom (Not specified)' : invoice.paymentFrequency);
 
 
   return (
@@ -245,7 +257,7 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
         <div className={`text-left ${hasShippingAddress ? 'md:text-right md:col-span-1' : 'md:text-right md:col-start-3 md:col-span-1'}`}>
           <p><span className="font-semibold text-muted-foreground">Issue Date:</span> {format(new Date(invoice.issueDate), 'PPP')}</p>
           <p><span className="font-semibold text-muted-foreground">Due Date:</span> {format(new Date(invoice.dueDate), 'PPP')}</p>
-          <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.status === 'Paid' ? 'bg-primary/10 text-primary' : invoice.status === 'Overdue' ? 'bg-status-overdue-DEFAULT text-status-overdue-foreground' : invoice.status === 'Sent' ? 'bg-destructive/10 text-destructive-foreground' : 'bg-secondary text-secondary-foreground'}`}>{invoice.status}</span></p>
+          <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.status === 'Paid' ? 'bg-primary/10 text-primary' : invoice.status === 'Overdue' ? 'bg-status-overdue-background text-status-overdue-foreground' : invoice.status === 'Sent' ? 'bg-destructive/10 text-destructive-foreground' : 'bg-secondary text-secondary-foreground'}`}>{invoice.status}</span></p>
            {customerToDisplay.currency && <p><span className="font-semibold text-muted-foreground">Currency:</span> {customerToDisplay.currency}</p>}
         </div>
       </div>
@@ -254,9 +266,9 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
         <div className="mb-6 p-4 border rounded-md bg-muted/30">
           <h3 className="font-semibold mb-2 text-muted-foreground">Service &amp; Payment Overview</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            {paymentTermsText && <p><span className="font-medium">Payment Terms:</span> {paymentTermsText}</p>}
-            {commitmentPeriodText && <p><span className="font-medium">Commitment:</span> {commitmentPeriodText}</p>}
-            {paymentFrequencyText && <p><span className="font-medium">Payment Frequency:</span> {paymentFrequencyText}</p>}
+            {paymentTermsText && paymentTermsText !== "N/A" && <p><span className="font-medium">Payment Terms:</span> {paymentTermsText}</p>}
+            {commitmentPeriodText && commitmentPeriodText !== "N/A" && <p><span className="font-medium">Commitment Period:</span> {commitmentPeriodText}</p>}
+            {paymentFrequencyText && paymentFrequencyText !== "N/A" && <p><span className="font-medium">Payment Frequency:</span> {paymentFrequencyText}</p>}
             {invoice.serviceStartDate && <p><span className="font-medium">Service Start:</span> {format(new Date(invoice.serviceStartDate), 'PPP')}</p>}
             {invoice.serviceEndDate && <p><span className="font-medium">Service End:</span> {format(new Date(invoice.serviceEndDate), 'PPP')}</p>}
           </div>
@@ -356,4 +368,3 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
 }
 
 InvoicePreviewContent.displayName = "InvoicePreviewContent";
-

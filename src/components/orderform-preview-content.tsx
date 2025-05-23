@@ -27,7 +27,7 @@ const COMPANY_INFO_KEYS = {
 interface OrderFormPreviewContentProps {
   document: OrderForm;
   customer?: Customer;
-  coverPageTemplate?: CoverPageTemplate;
+  coverPageTemplate?: CoverPageTemplate; // Passed from dialog
 }
 
 function replacePlaceholders(
@@ -39,6 +39,10 @@ function replacePlaceholders(
   let processedContent = content;
 
   const currencySymbol = getCurrencySymbol(customer?.currency || doc.currencyCode);
+
+  const paymentTermsDisplay = (doc.paymentTerms === 'Custom' && doc.customPaymentTerms) ? doc.customPaymentTerms : doc.paymentTerms;
+  const commitmentPeriodDisplay = (doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod) ? doc.customCommitmentPeriod : doc.commitmentPeriod;
+  const paymentFrequencyDisplay = (doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency) ? doc.customPaymentFrequency : doc.paymentFrequency;
 
   const placeholders: Record<string, () => string | undefined | null> = {
     '{{customerName}}': () => customer?.name,
@@ -58,9 +62,9 @@ function replacePlaceholders(
     '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
     '{{validUntilDate}}': () => format(new Date(doc.validUntilDate), 'PPP'), 
     '{{totalAmount}}': () => `${currencySymbol}${doc.total.toFixed(2)}`,
-    '{{paymentTerms}}': () => doc.paymentTerms === 'Custom' && doc.customPaymentTerms ? doc.customPaymentTerms : doc.paymentTerms,
-    '{{commitmentPeriod}}': () => doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod ? doc.customCommitmentPeriod : doc.commitmentPeriod,
-    '{{paymentFrequency}}': () => doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency ? doc.customPaymentFrequency : doc.paymentFrequency,
+    '{{paymentTerms}}': () => paymentTermsDisplay,
+    '{{commitmentPeriod}}': () => commitmentPeriodDisplay,
+    '{{paymentFrequency}}': () => paymentFrequencyDisplay,
     '{{serviceStartDate}}': () => doc.serviceStartDate ? format(new Date(doc.serviceStartDate), 'PPP') : '',
     '{{serviceEndDate}}': () => doc.serviceEndDate ? format(new Date(doc.serviceEndDate), 'PPP') : '',
   };
@@ -105,7 +109,7 @@ function replacePlaceholders(
     </div>
   `;
   processedContent = processedContent.replace(/{{signaturePanel}}/g, signaturePanelHtml);
-  if (!processedContent.trim()) return undefined;
+  if (!processedContent?.trim()) return undefined;
   return processedContent;
 }
 
@@ -176,9 +180,17 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
   const processedMsaContent = orderForm.msaContent ? replacePlaceholders(orderForm.msaContent, orderForm, customer) : undefined;
   const processedTermsAndConditions = replacePlaceholders(orderForm.termsAndConditions, orderForm, customer);
 
-  const paymentTermsText = orderForm.paymentTerms === 'Custom' ? (orderForm.customPaymentTerms || 'Custom (Not specified)') : orderForm.paymentTerms;
-  const commitmentPeriodText = orderForm.commitmentPeriod === 'Custom' ? (orderForm.customCommitmentPeriod || 'Custom (Not specified)') : orderForm.commitmentPeriod;
-  const paymentFrequencyText = orderForm.paymentFrequency === 'Custom' ? (orderForm.customPaymentFrequency || 'Custom (Not specified)') : orderForm.paymentFrequency;
+  const paymentTermsText = (orderForm.paymentTerms === 'Custom' && orderForm.customPaymentTerms) 
+    ? orderForm.customPaymentTerms 
+    : (orderForm.paymentTerms === 'Custom' ? 'Custom (Not specified)' : orderForm.paymentTerms);
+
+  const commitmentPeriodText = (orderForm.commitmentPeriod === 'Custom' && orderForm.customCommitmentPeriod) 
+    ? orderForm.customCommitmentPeriod 
+    : (orderForm.commitmentPeriod === 'Custom' ? 'Custom (Not specified)' : orderForm.commitmentPeriod);
+  
+  const paymentFrequencyText = (orderForm.paymentFrequency === 'Custom' && orderForm.customPaymentFrequency) 
+    ? orderForm.customPaymentFrequency 
+    : (orderForm.paymentFrequency === 'Custom' ? 'Custom (Not specified)' : orderForm.paymentFrequency);
   
 
   return (
@@ -251,9 +263,9 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
         <div className="mb-6 p-4 border rounded-md bg-muted/30">
           <h3 className="font-semibold mb-2 text-muted-foreground">Service &amp; Payment Overview</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            {paymentTermsText && <p><span className="font-medium">Payment Terms:</span> {paymentTermsText}</p>}
-            {commitmentPeriodText && <p><span className="font-medium">Commitment:</span> {commitmentPeriodText}</p>}
-            {paymentFrequencyText && <p><span className="font-medium">Payment Frequency:</span> {paymentFrequencyText}</p>}
+            {paymentTermsText && paymentTermsText !== "N/A" && <p><span className="font-medium">Payment Terms:</span> {paymentTermsText}</p>}
+            {commitmentPeriodText && commitmentPeriodText !== "N/A" && <p><span className="font-medium">Commitment Period:</span> {commitmentPeriodText}</p>}
+            {paymentFrequencyText && paymentFrequencyText !== "N/A" && <p><span className="font-medium">Payment Frequency:</span> {paymentFrequencyText}</p>}
             {orderForm.serviceStartDate && <p><span className="font-medium">Service Start:</span> {format(new Date(orderForm.serviceStartDate), 'PPP')}</p>}
             {orderForm.serviceEndDate && <p><span className="font-medium">Service End:</span> {format(new Date(orderForm.serviceEndDate), 'PPP')}</p>}
           </div>
@@ -353,4 +365,3 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
 }
 
 OrderFormPreviewContent.displayName = "OrderFormPreviewContent";
-
