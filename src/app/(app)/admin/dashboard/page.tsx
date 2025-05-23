@@ -12,7 +12,7 @@ import { getAllUsers, toggleUserActiveStatus } from '@/lib/actions';
 import type { User, PlanType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, isAfter } from 'date-fns';
-import { Users, UserCheck, UserX, CalendarDays, Mail, Save, Settings, Send } from 'lucide-react';
+import { Users, UserCheck, UserX, Mail, Save, Settings, Send } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -210,7 +210,7 @@ export default function AdminDashboardPage() {
                   )}/>
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={smtpForm.control} name="port" render={({ field }) => (
-                        <FormItem><FormLabel>Port</FormLabel><FormControl><Input type="number" placeholder="587" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Port</FormLabel><FormControl><Input type="number" placeholder="587" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={smtpForm.control} name="encryption" render={({ field }) => (
                         <FormItem><FormLabel>Encryption</FormLabel>
@@ -239,7 +239,7 @@ export default function AdminDashboardPage() {
               <form onSubmit={emailTemplateForm.handleSubmit(handleSaveEmailTemplate)}>
                 <CardHeader>
                   <CardTitle className="flex items-center"><Mail className="mr-2 h-5 w-5"/> Configure Reminder Email</CardTitle>
-                  <CardDescription>Set the subject and body for payment reminder emails. Template saved to browser storage. Use placeholders like `{{userName}}`, `{{invoiceNumber}}`, `{{pendingAmount}}`, `{{dueDate}}`, `{{currencySymbol}}`.</CardDescription>
+                  <CardDescription>Set the subject and body for payment reminder emails. Template saved to browser storage. Use placeholders like '{{userName}}', '{{invoiceNumber}}', '{{pendingAmount}}', '{{dueDate}}', '{{currencySymbol}}'.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <FormField control={emailTemplateForm.control} name="subject" render={({ field }) => (
