@@ -112,7 +112,11 @@ let mockInvoices: Invoice[] = [
     issueDate: new Date(2023, 10, 15),
     dueDate: new Date(2023, 11, 15),
     paymentTerms: "Net 30 Days",
+    customPaymentTerms: "",
     commitmentPeriod: "N/A",
+    customCommitmentPeriod: "",
+    paymentFrequency: "Monthly",
+    customPaymentFrequency: "",
     serviceStartDate: new Date(2023, 10, 1),
     serviceEndDate: new Date(2023, 10, 30),
     linkedMsaTemplateId: 'msa_tpl_1',
@@ -147,6 +151,11 @@ let mockInvoices: Invoice[] = [
     issueDate: new Date(2023, 11, 1),
     dueDate: new Date(2024, 0, 1),
     paymentTerms: "Due on Receipt",
+    customPaymentTerms: "",
+    commitmentPeriod: "N/A",
+    customCommitmentPeriod: "",
+    paymentFrequency: "Monthly",
+    customPaymentFrequency: "",
     items: [
       { id: 'item_3', description: 'Consultation', quantity: 5, rate: 80, amount: 400 },
     ],
@@ -176,7 +185,11 @@ let mockOrderForms: OrderForm[] = [
     issueDate: new Date(2024, 0, 10),
     validUntilDate: new Date(2024, 1, 9),
     paymentTerms: "Net 15 Days",
+    customPaymentTerms: "",
     commitmentPeriod: "3 Months",
+    customCommitmentPeriod: "",
+    paymentFrequency: "Monthly",
+    customPaymentFrequency: "",
     serviceStartDate: new Date(2024, 0, 15),
     serviceEndDate: new Date(2024, 3, 14),
     linkedMsaTemplateId: 'msa_tpl_1',
@@ -456,10 +469,24 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
   });
 
   const newInvoice: Invoice = {
-    ...data,
     id: generateId('inv'),
+    invoiceNumber: data.invoiceNumber,
+    customerId: data.customerId,
     customerName: customer?.name || 'Unknown Customer',
     currencyCode: customer?.currency || 'USD',
+    issueDate: data.issueDate,
+    dueDate: data.dueDate,
+    paymentTerms: data.paymentTerms,
+    customPaymentTerms: data.customPaymentTerms || '',
+    commitmentPeriod: data.commitmentPeriod,
+    customCommitmentPeriod: data.customCommitmentPeriod || '',
+    paymentFrequency: data.paymentFrequency,
+    customPaymentFrequency: data.customPaymentFrequency || '',
+    serviceStartDate: data.serviceStartDate,
+    serviceEndDate: data.serviceEndDate,
+    linkedMsaTemplateId: data.linkedMsaTemplateId,
+    msaContent: data.msaContent,
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     items: processedItems.map(item => ({...item, id: (item as any).id || generateId('item')})) as InvoiceItem[],
     additionalCharges: processedAdditionalCharges.map(ac => ({...ac, id: (ac as any).id || generateId('ac')})),
     subtotal: mainItemsSubtotal,
@@ -471,6 +498,8 @@ export const createInvoice = async (data: CreateInvoiceInputData): Promise<Invoi
     discountAmount: actualDiscountAmount,
     taxAmount: taxAmount,
     total: grandTotal,
+    termsAndConditions: data.termsAndConditions,
+    status: data.status,
     createdAt: new Date(),
   };
   mockInvoices.push(newInvoice);
@@ -510,6 +539,12 @@ export const updateInvoice = async (id: string, data: UpdateInvoiceInputData): P
     ...data,
     issueDate: data.issueDate ? new Date(data.issueDate) : existingInvoice.issueDate,
     dueDate: data.dueDate ? new Date(data.dueDate) : existingInvoice.dueDate,
+    paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingInvoice.paymentTerms,
+    customPaymentTerms: data.customPaymentTerms !== undefined ? data.customPaymentTerms : existingInvoice.customPaymentTerms,
+    commitmentPeriod: data.commitmentPeriod !== undefined ? data.commitmentPeriod : existingInvoice.commitmentPeriod,
+    customCommitmentPeriod: data.customCommitmentPeriod !== undefined ? data.customCommitmentPeriod : existingInvoice.customCommitmentPeriod,
+    paymentFrequency: data.paymentFrequency !== undefined ? data.paymentFrequency : existingInvoice.paymentFrequency,
+    customPaymentFrequency: data.customPaymentFrequency !== undefined ? data.customPaymentFrequency : existingInvoice.customPaymentFrequency,
     serviceStartDate: data.serviceStartDate ? new Date(data.serviceStartDate) : (existingInvoice.serviceStartDate ? new Date(existingInvoice.serviceStartDate) : null),
     serviceEndDate: data.serviceEndDate ? new Date(data.serviceEndDate) : (existingInvoice.serviceEndDate ? new Date(existingInvoice.serviceEndDate) : null),
     msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
@@ -626,10 +661,24 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
   });
 
   const newOrderForm: OrderForm = {
-    ...data,
     id: generateId('of'),
+    orderFormNumber: data.orderFormNumber,
+    customerId: data.customerId,
     customerName: customer?.name || 'Unknown Customer',
     currencyCode: customer?.currency || 'USD',
+    issueDate: data.issueDate,
+    validUntilDate: data.validUntilDate,
+    paymentTerms: data.paymentTerms,
+    customPaymentTerms: data.customPaymentTerms || '',
+    commitmentPeriod: data.commitmentPeriod,
+    customCommitmentPeriod: data.customCommitmentPeriod || '',
+    paymentFrequency: data.paymentFrequency,
+    customPaymentFrequency: data.customPaymentFrequency || '',
+    serviceStartDate: data.serviceStartDate,
+    serviceEndDate: data.serviceEndDate,
+    linkedMsaTemplateId: data.linkedMsaTemplateId,
+    msaContent: data.msaContent,
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     items: processedItems.map(item => ({
         ...item,
         id: (item as any).id || generateId('of_item'),
@@ -646,6 +695,8 @@ export const createOrderForm = async (data: CreateOrderFormInputData): Promise<O
     discountAmount: actualDiscountAmount,
     taxAmount: taxAmount,
     total: grandTotal,
+    termsAndConditions: data.termsAndConditions,
+    status: data.status,
     createdAt: new Date(),
   };
   mockOrderForms.push(newOrderForm);
@@ -691,6 +742,12 @@ export const updateOrderForm = async (id: string, data: UpdateOrderFormInputData
      ...data,
      issueDate: data.issueDate ? new Date(data.issueDate) : existingOrderForm.issueDate,
      validUntilDate: data.validUntilDate ? new Date(data.validUntilDate) : existingOrderForm.validUntilDate,
+     paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : existingOrderForm.paymentTerms,
+     customPaymentTerms: data.customPaymentTerms !== undefined ? data.customPaymentTerms : existingOrderForm.customPaymentTerms,
+     commitmentPeriod: data.commitmentPeriod !== undefined ? data.commitmentPeriod : existingOrderForm.commitmentPeriod,
+     customCommitmentPeriod: data.customCommitmentPeriod !== undefined ? data.customCommitmentPeriod : existingOrderForm.customCommitmentPeriod,
+     paymentFrequency: data.paymentFrequency !== undefined ? data.paymentFrequency : existingOrderForm.paymentFrequency,
+     customPaymentFrequency: data.customPaymentFrequency !== undefined ? data.customPaymentFrequency : existingOrderForm.customPaymentFrequency,
      serviceStartDate: data.serviceStartDate ? new Date(data.serviceStartDate) : (existingOrderForm.serviceStartDate ? new Date(existingOrderForm.serviceStartDate) : null),
      serviceEndDate: data.serviceEndDate ? new Date(data.serviceEndDate) : (existingOrderForm.serviceEndDate ? new Date(existingOrderForm.serviceEndDate) : null),
      msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
@@ -926,17 +983,13 @@ export const deleteRepositoryItem = async (id: string): Promise<boolean> => {
 };
 
 export const upsertRepositoryItemFromOrderForm = async (
-  itemFromDocument: OrderFormItem | InvoiceItem,
+  itemFromDocument: OrderFormItem | InvoiceItem, // Can be either
   documentCustomerId: string,
   documentCustomerName: string,
   documentCurrencyCode: string
 ): Promise<RepositoryItem | null> => {
-  const isOrderFormItem = 'procurementPrice' in itemFromDocument || 'vendorName' in itemFromDocument;
   const description = itemFromDocument.description;
-
-  console.log(
-    `[UPSERT REPO] Processing item: "${description}" for customer: "${documentCustomerName}" (ID: ${documentCustomerId}). Currency: ${documentCurrencyCode}. From OrderForm: ${isOrderFormItem}`
-  );
+  console.log(`[UPSERT REPO] Processing item: "${description}" for customer: "${documentCustomerName}" (ID: ${documentCustomerId}). Currency: ${documentCurrencyCode}.`);
 
   const itemIndex = mockRepositoryItems.findIndex(
     (repoItem) =>
@@ -944,26 +997,28 @@ export const upsertRepositoryItemFromOrderForm = async (
       repoItem.customerId === documentCustomerId
   );
 
-  if (itemIndex !== -1) {
+  const procurementPrice = 'procurementPrice' in itemFromDocument ? (itemFromDocument as OrderFormItem).procurementPrice : undefined;
+  const vendorName = 'vendorName' in itemFromDocument ? (itemFromDocument as OrderFormItem).vendorName : undefined;
+
+
+  if (itemIndex !== -1) { // Found existing client-specific item
     const repoItemToUpdate = { ...mockRepositoryItems[itemIndex] };
     console.log(`[UPSERT REPO] Found existing client-specific item to update. ID: ${repoItemToUpdate.id}, Name: ${repoItemToUpdate.name}`);
     
     repoItemToUpdate.defaultRate = itemFromDocument.rate;
     repoItemToUpdate.currencyCode = documentCurrencyCode;
 
-    if (isOrderFormItem) {
-        const orderItem = itemFromDocument as OrderFormItem;
-        if (orderItem.procurementPrice !== undefined) {
-            repoItemToUpdate.defaultProcurementPrice = orderItem.procurementPrice;
-        }
-        if (orderItem.vendorName !== undefined) { // Allow empty string to clear vendor
-            repoItemToUpdate.defaultVendorName = orderItem.vendorName;
-        }
+    if (procurementPrice !== undefined) {
+        repoItemToUpdate.defaultProcurementPrice = procurementPrice;
     }
+    if (vendorName !== undefined) { // Allows setting to empty string to clear
+        repoItemToUpdate.defaultVendorName = vendorName;
+    }
+    
     mockRepositoryItems[itemIndex] = repoItemToUpdate;
     console.log(`[UPSERT REPO] Updated to:`, JSON.parse(JSON.stringify(repoItemToUpdate)));
     return { ...mockRepositoryItems[itemIndex] };
-  } else {
+  } else { // No client-specific item found, create new
     console.log(`[UPSERT REPO] No existing client-specific item for "${description}" & customer "${documentCustomerName}". Creating new.`);
     const newItemData: Omit<RepositoryItem, 'id' | 'createdAt'> = {
       name: description,
@@ -971,13 +1026,10 @@ export const upsertRepositoryItemFromOrderForm = async (
       currencyCode: documentCurrencyCode,
       customerId: documentCustomerId,
       customerName: documentCustomerName,
+      defaultProcurementPrice: procurementPrice,
+      defaultVendorName: vendorName,
     };
-    if (isOrderFormItem) {
-        const orderItem = itemFromDocument as OrderFormItem;
-        newItemData.defaultProcurementPrice = orderItem.procurementPrice;
-        newItemData.defaultVendorName = orderItem.vendorName;
-    }
-    const createdItem = await createRepositoryItem(newItemData);
+    const createdItem = await createRepositoryItem(newItemData); // This already console.logs creation
     return { ...createdItem };
   }
 };
@@ -1096,3 +1148,4 @@ export const logAllData = () => {
   console.log("Mock Purchase Orders:", JSON.parse(JSON.stringify(mockPurchaseOrders)));
 };
 
+    
