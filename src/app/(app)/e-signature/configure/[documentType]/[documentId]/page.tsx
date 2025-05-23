@@ -11,8 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, Users, Mail, MessageSquare, FilePenLine } from 'lucide-react';
-import type { Invoice, OrderForm, Customer } from '@/types'; // Assuming types might be needed
-import { fetchInvoiceById, fetchOrderFormById, fetchCustomerById } from '@/lib/actions'; // Assuming actions exist
+import type { Invoice, OrderForm, Customer } from '@/types';
+import { fetchInvoiceById, fetchOrderFormById, fetchCustomerById } from '@/lib/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Recipient {
@@ -109,13 +109,10 @@ export default function ConfigureSignatureRequestPage() {
        toast({ title: "Missing Email Details", description: "Please provide an email subject and message.", variant: "destructive" });
       return;
     }
-    // In a real app, this would proceed to the field placement step.
-    toast({
-      title: "Next Step: Define Fields (Prototype)",
-      description: "The UI for placing signature fields (drag & drop) is a complex feature planned for future development. For now, imagine you'd place fields for each recipient.",
-      duration: 7000,
-      variant: "warning"
-    });
+    
+    // For prototype, navigate to the conceptual field placement page.
+    console.log(`Attempting to navigate from Configure Page: /e-signature/place-fields/${documentType}/${documentId}`);
+    router.push(`/e-signature/place-fields/${documentType}/${documentId}`);
   };
 
   const pageTitle = isLoadingDocument
