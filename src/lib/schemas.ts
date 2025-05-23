@@ -13,7 +13,7 @@ export const customerSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   phone: z.string().optional(),
-  currency: z.string().optional(),
+  currency: z.string().optional(), // Stores currency code like 'USD', 'INR'
   billingAddress: addressSchema,
   shippingAddress: addressSchema,
 });
@@ -66,6 +66,17 @@ const discountSchemaFields = {
   discountValue: z.number().optional().default(0),
 };
 
+const commonDocumentSchemaFields = {
+  paymentTerms: z.string().optional().default("Net 30 Days"),
+  customPaymentTerms: z.string().optional(),
+  commitmentPeriod: z.string().optional().default("N/A"),
+  customCommitmentPeriod: z.string().optional(),
+  paymentFrequency: z.string().optional().default("Monthly"),
+  customPaymentFrequency: z.string().optional(),
+  serviceStartDate: z.date().optional().nullable(),
+  serviceEndDate: z.date().optional().nullable(),
+}
+
 export const invoiceSchema = z.object({
   customerId: z.string().min(1, { message: "Customer is required." }),
   invoiceNumber: z.string().min(1, { message: "Invoice number is required." }),
@@ -80,34 +91,38 @@ export const invoiceSchema = z.object({
   msaCoverPageTemplateId: z.string().optional(),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Paid', 'Overdue']).default('Draft'),
-  paymentTerms: z.string().optional(),
-  commitmentPeriod: z.string().optional(),
-  serviceStartDate: z.date().optional().nullable(),
-  serviceEndDate: z.date().optional().nullable(),
-}).refine(data => {
-  if (data.serviceStartDate && data.serviceEndDate) {
-    return data.serviceEndDate >= data.serviceStartDate;
+  ...commonDocumentSchemaFields,
+}).superRefine((data, ctx) => {
+  if (data.serviceStartDate && data.serviceEndDate && data.serviceEndDate < data.serviceStartDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "End date cannot be before start date",
+      path: ["serviceEndDate"],
+    });
   }
-  return true;
-}, {
-  message: "End date cannot be before start date",
-  path: ["serviceEndDate"],
-}).refine(data => {
-  if (data.discountEnabled) {
-    return data.discountValue !== undefined && data.discountValue > 0;
+  if (data.discountEnabled && (data.discountValue === undefined || data.discountValue <= 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Discount value must be greater than 0 if discount is enabled.",
+      path: ["discountValue"],
+    });
   }
-  return true;
-}, {
-  message: "Discount value must be greater than 0 if discount is enabled.",
-  path: ["discountValue"],
-}).refine(data => {
-  if (data.discountEnabled && data.discountType === 'percentage') {
-    return data.discountValue !== undefined && data.discountValue <= 100;
+  if (data.discountEnabled && data.discountType === 'percentage' && (data.discountValue === undefined || data.discountValue > 100)) {
+     ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Percentage discount cannot exceed 100%.",
+      path: ["discountValue"],
+    });
   }
-  return true;
-}, {
-  message: "Percentage discount cannot exceed 100%.",
-  path: ["discountValue"],
+  if (data.paymentTerms === 'Custom' && !data.customPaymentTerms?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Custom payment terms cannot be empty.", path: ["customPaymentTerms"] });
+  }
+  if (data.commitmentPeriod === 'Custom' && !data.customCommitmentPeriod?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Custom commitment period cannot be empty.", path: ["customCommitmentPeriod"] });
+  }
+  if (data.paymentFrequency === 'Custom' && !data.customPaymentFrequency?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Custom payment frequency cannot be empty.", path: ["customPaymentFrequency"] });
+  }
 });
 
 export type InvoiceFormData = z.infer<typeof invoiceSchema>;
@@ -137,34 +152,38 @@ export const orderFormSchema = z.object({
   msaCoverPageTemplateId: z.string().optional(),
   termsAndConditions: z.string().optional(),
   status: z.enum(['Draft', 'Sent', 'Accepted', 'Declined', 'Expired']).default('Draft'),
-  paymentTerms: z.string().optional(),
-  commitmentPeriod: z.string().optional(),
-  serviceStartDate: z.date().optional().nullable(),
-  serviceEndDate: z.date().optional().nullable(),
-}).refine(data => {
-  if (data.serviceStartDate && data.serviceEndDate) {
-    return data.serviceEndDate >= data.serviceStartDate;
+  ...commonDocumentSchemaFields,
+}).superRefine((data, ctx) => {
+  if (data.serviceStartDate && data.serviceEndDate && data.serviceEndDate < data.serviceStartDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "End date cannot be before start date",
+      path: ["serviceEndDate"],
+    });
   }
-  return true;
-}, {
-  message: "End date cannot be before start date",
-  path: ["serviceEndDate"],
-}).refine(data => {
-  if (data.discountEnabled) {
-    return data.discountValue !== undefined && data.discountValue > 0;
+  if (data.discountEnabled && (data.discountValue === undefined || data.discountValue <= 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Discount value must be greater than 0 if discount is enabled.",
+      path: ["discountValue"],
+    });
   }
-  return true;
-}, {
-  message: "Discount value must be greater than 0 if discount is enabled.",
-  path: ["discountValue"],
-}).refine(data => {
-  if (data.discountEnabled && data.discountType === 'percentage') {
-    return data.discountValue !== undefined && data.discountValue <= 100;
+   if (data.discountEnabled && data.discountType === 'percentage' && (data.discountValue === undefined || data.discountValue > 100)) {
+     ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Percentage discount cannot exceed 100%.",
+      path: ["discountValue"],
+    });
   }
-  return true;
-}, {
-  message: "Percentage discount cannot exceed 100%.",
-  path: ["discountValue"],
+  if (data.paymentTerms === 'Custom' && !data.customPaymentTerms?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Custom payment terms cannot be empty.", path: ["customPaymentTerms"] });
+  }
+  if (data.commitmentPeriod === 'Custom' && !data.customCommitmentPeriod?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Custom commitment period cannot be empty.", path: ["customCommitmentPeriod"] });
+  }
+  if (data.paymentFrequency === 'Custom' && !data.customPaymentFrequency?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Custom payment frequency cannot be empty.", path: ["customPaymentFrequency"] });
+  }
 });
 export type OrderFormFormData = z.infer<typeof orderFormSchema>;
 
@@ -193,11 +212,10 @@ export const repositoryItemSchema = z.object({
 export type RepositoryItemFormData = z.infer<typeof repositoryItemSchema>;
 
 export const purchaseOrderItemSchema = z.object({
-  id: z.string().optional(), // Not strictly needed from form, but good for type consistency
+  id: z.string().optional(), 
   description: z.string(),
   quantity: z.number(),
   procurementPrice: z.number(),
-  // totalVendorPayable will be calculated
 });
 export type PurchaseOrderItemFormData = z.infer<typeof purchaseOrderItemSchema>;
 
@@ -209,6 +227,21 @@ export const purchaseOrderSchema = z.object({
   issueDate: z.date(),
   items: z.array(purchaseOrderItemSchema).min(1, "At least one item is required for a PO."),
   status: z.enum(['Draft', 'Issued', 'Fulfilled', 'Cancelled']).default('Draft'),
-  // grandTotalVendorPayable will be calculated
 });
 export type PurchaseOrderFormData = z.infer<typeof purchaseOrderSchema>;
+
+// Schemas for Admin Dashboard SMTP and Email Template Settings
+export const smtpSettingsSchema = z.object({
+  host: z.string().min(1, { message: "SMTP Host is required." }),
+  port: z.coerce.number().int().min(1, { message: "Port must be a positive integer." }),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  encryption: z.enum(['None', 'SSL', 'TLS']).default('None'),
+});
+export type SmtpSettingsFormData = z.infer<typeof smtpSettingsSchema>;
+
+export const emailTemplateSchema = z.object({
+  subject: z.string().min(1, { message: "Email subject is required." }),
+  body: z.string().min(1, { message: "Email body cannot be empty." }).default('<p></p>'),
+});
+export type EmailTemplateFormData = z.infer<typeof emailTemplateSchema>;
