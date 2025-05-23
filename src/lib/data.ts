@@ -26,18 +26,45 @@ let mockCustomers: Customer[] = [
   },
 ];
 
+const longMSALoremIpsum = `
+<h2>1. Definitions</h2>
+<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+<p><strong>1.1 "Agreement"</strong> means this Master Services Agreement, including all Schedules and Exhibits attached hereto and all Order Forms executed hereunder.</p>
+<p><strong>1.2 "Client Data"</strong> means any data, information or material provided or submitted by Client to Company in the course of utilizing the Services.</p>
+<p><strong>1.3 "Confidential Information"</strong> means all information disclosed by a party ("Disclosing Party") to the other party ("Receiving Party"), whether orally or in writing, that is designated as confidential or that reasonably should be understood to be confidential given the nature of the information and the circumstances of disclosure.</p>
+
+<h2>2. Services</h2>
+<p>Curabitur pretium tincidunt lacus. Nulla gravida orci a odio. Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus magna felis sollicitudin mauris. Integer in mauris eu nibh euismod gravida. Duis ac tellus et risus vulputate vehicula. Donec lobortis risus a elit. Etiam tempor. Ut ullamcorper, ligula eu tempor congue, eros est euismod turpis, id tincidunt sapien risus a quam. Maecenas fermentum consequat mi. Donec fermentum. Pellentesque malesuada nulla a mi. Duis sapien sem, aliquet nec, commodo eget, consequat quis, neque. Aliquam faucibus, elit ut dictum aliquet, felis nisl adipiscing sapien, sed malesuada diam lacus eget erat. Cras mollis scelerisque nunc. Nullam arcu. Aliquam consequat.</p>
+<p>Vivamus consequat lorem vitae tortor. Ut consectetuer est.</p>
+<ul>
+    <li>Service A: Description of Service A. Deliverables include X, Y, Z.</li>
+    <li>Service B: Description of Service B. This service has specific performance metrics.</li>
+    <li>Service C: Support services related to A and B.</li>
+</ul>
+
+<h2>3. Term and Termination</h2>
+<p>Vestibulum subit publica vulg Bemદાવાદ est terminalis processus. Quis vestrum agmen agitaret, nemo scit; sed si me frater. Accipite equidem paucis perennials planta processus gradibus. Nam faucibus, tellus nec dapibus ullamcorper, odio lorem luctus erat, vitae porta lectus justo et massa. Cras volutpat facilisis nunc. Ut id enim. Quisque molestie varius nulla. Donec vulputate feugiat felis. Nulla facilisi.</p>
+<p>Morbi pellentesque, mauris interdum porta tincidunt, neque neque ultricies massa, at aliquam magna ligula ut enim. Duis ut magna. Nullam eu tellus. Integer varius, nisi et convallis ultricies, turpis lacus volutpat urna, vitae laoreet turpis justo vitae tellus. Phasellus ac nisl. Aeneam tincidunt aliquam tortor. Quisque nonummy, metus vitae tempus consectetuer, arcu diam consectetuer nibh, quis pharetra nulla elit et sem. Integer et ante. Aliquam ante. Vivamus ac leo. Aliquam sollicitudin, turpis eget vestibulum congue, justo nunc nonummy pede, et varius lacus lacus quis magna.</p>
+
+<h2>4. Fees and Payment</h2>
+<p>Nunc tincidunt, enim in commodo tempor, nisi tellus consequat purus, nec lacinia quam metus nec lorem. Praesent id quam. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos hymenaeos. In hac habitasse platea dictumst. Nullam id justo vitae velit varius pellentesque. Quisque dictum, justo nec consequat pharetra, sapien odio mattis tellus, et fermentum nibh nisl ut dolor. Integer in enim. Phasellus vitae leo. Sed tempus ornare purus. Nunc pellentesque, magna in cursus imperdiet, nibh risus lacinia massa, quis blandit eros urna quis risus. Phasellus pulvinar scelerisque lorem. Cras commodo, ante nec suscipit pharetra, est nisl consequat nulla, ac laoreet mi nunc et dolor.</p>
+<p>Aenean dapibus sapien non magna. Pellentesque metus. Proin euismod consectetuer dolor. Etiam commodo nibh sed diam. Maecenas vitae dolor. Nam eu neque. Aliquam libero. Aliquam et tellus. Suspendisse nonummy, nibh in tincidunt tempor, quam tortor consectetuer lorem, quis sodales mauris pede et pede. Aenean sit amet metus. Donec laoreet, pede quis pharetra sagittis, turpis magna laoreet nibh, ac venenatis diam nulla in arcu.</p>
+<p>{{signaturePanel}}</p>
+`;
+
+
 let mockMsaTemplates: MsaTemplate[] = [
   {
     id: 'msa_tpl_1',
-    name: 'General Services MSA',
-    content: '<h1>Master Service Agreement</h1><p>This Master Service Agreement (MSA) is entered into by and between Your Awesome Company LLC and {{customerName}} ("Client").</p><h2>1. Services</h2><p>Company agrees to provide services as described in applicable Order Forms or Invoices.</p>',
+    name: 'General Services MSA (Long)',
+    content: longMSALoremIpsum,
     coverPageTemplateId: 'cpt_1',
     createdAt: new Date(),
   },
   {
     id: 'msa_tpl_2',
-    name: 'Consulting MSA (No Cover)',
-    content: '<h1>Consulting Master Service Agreement</h1><p>This agreement governs all consulting services provided by Your Awesome Company LLC to {{customerName}}.</p><h2>Scope of Work</h2><p>Specific services and deliverables will be detailed in separate Statements of Work (SOWs) or Order Forms, which will reference this MSA.</p>',
+    name: 'Consulting MSA (Short)',
+    content: '<h1>Consulting Master Service Agreement</h1><p>This agreement governs all consulting services provided by Your Awesome Company LLC to {{customerName}}.</p><h2>Scope of Work</h2><p>Specific services and deliverables will be detailed in separate Statements of Work (SOWs) or Order Forms, which will reference this MSA.</p><p>{{signaturePanel}}</p>',
     createdAt: new Date(),
   }
 ];
@@ -764,12 +791,10 @@ export const updateMsaTemplate = async (id: string, data: Partial<Omit<MsaTempla
   if (index === -1) return null;
 
   const currentTemplate = mockMsaTemplates[index];
-  // Create a new object with existing properties, then spread new data over it
   const updatedTemplate: MsaTemplate = { ...currentTemplate, ...data };
 
-  // If coverPageTemplateId is explicitly passed in data (even as undefined), use that value
   if (data.hasOwnProperty('coverPageTemplateId')) {
-    updatedTemplate.coverPageTemplateId = data.coverPageTemplateId;
+    updatedTemplate.coverPageTemplateId = data.coverPageTemplateId === '' ? undefined : data.coverPageTemplateId;
   }
 
   mockMsaTemplates[index] = updatedTemplate;
@@ -843,7 +868,7 @@ export const createRepositoryItem = async (data: Omit<RepositoryItem, 'id' | 'cr
     createdAt: new Date(),
   };
   mockRepositoryItems.push(newItem);
-  console.log("[CREATE REPO ITEM]", newItem);
+  console.log("[DATA: CREATE REPO ITEM]", JSON.parse(JSON.stringify(newItem)));
   return { ...newItem };
 };
 
@@ -851,7 +876,7 @@ export const updateRepositoryItem = async (id: string, data: Partial<Omit<Reposi
   const index = mockRepositoryItems.findIndex(item => item.id === id);
   if (index === -1) return null;
   mockRepositoryItems[index] = { ...mockRepositoryItems[index], ...data };
-  console.log("[UPDATE REPO ITEM]", mockRepositoryItems[index]);
+  console.log("[DATA: UPDATE REPO ITEM]", JSON.parse(JSON.stringify(mockRepositoryItems[index])));
   return { ...mockRepositoryItems[index] };
 };
 
@@ -871,8 +896,12 @@ export const upsertRepositoryItemFromOrderForm = async (
   const isOrderFormItem = 'procurementPrice' in itemFromDocument || 'vendorName' in itemFromDocument;
   
   console.log(
-    `[UPSERT REPO ITEM] Processing item: "${itemFromDocument.description}" for customer: "${documentCustomerName}" (ID: ${documentCustomerId}). Is OrderForm Item: ${isOrderFormItem}`
+    `[DATA UPSERT REPO ITEM] Processing item: "${itemFromDocument.description}" for customer: "${documentCustomerName}" (ID: ${documentCustomerId}). Currency: ${documentCurrencyCode}. Is OrderForm Item: ${isOrderFormItem}`
   );
+  if (isOrderFormItem) {
+    console.log(`[DATA UPSERT REPO ITEM] Procurement Price: ${(itemFromDocument as OrderFormItem).procurementPrice}, Vendor: ${(itemFromDocument as OrderFormItem).vendorName}`);
+  }
+
 
   const itemIndex = mockRepositoryItems.findIndex(
     (repoItem) =>
@@ -881,7 +910,7 @@ export const upsertRepositoryItemFromOrderForm = async (
   );
 
   if (itemIndex !== -1) {
-    console.log(`[UPSERT REPO ITEM] Found existing client-specific item to update. ID: ${mockRepositoryItems[itemIndex].id}`);
+    console.log(`[DATA UPSERT REPO ITEM] Found existing client-specific item to update. ID: ${mockRepositoryItems[itemIndex].id}`);
     const repoItemToUpdate = { ...mockRepositoryItems[itemIndex] };
     
     repoItemToUpdate.defaultRate = itemFromDocument.rate;
@@ -889,18 +918,21 @@ export const upsertRepositoryItemFromOrderForm = async (
 
     if (isOrderFormItem) {
         const orderItem = itemFromDocument as OrderFormItem;
+        // Only update if procurementPrice is explicitly provided (not undefined)
         if (orderItem.procurementPrice !== undefined) {
             repoItemToUpdate.defaultProcurementPrice = orderItem.procurementPrice;
         }
+        // Only update if vendorName is explicitly provided (not undefined)
+        // An empty string '' is a valid value to clear the vendor.
         if (orderItem.vendorName !== undefined) {
             repoItemToUpdate.defaultVendorName = orderItem.vendorName;
         }
     }
     mockRepositoryItems[itemIndex] = repoItemToUpdate;
-    console.log(`[UPSERT REPO ITEM] Updated to:`, JSON.parse(JSON.stringify(repoItemToUpdate)));
+    console.log(`[DATA UPSERT REPO ITEM] Updated to:`, JSON.parse(JSON.stringify(repoItemToUpdate)));
     return { ...mockRepositoryItems[itemIndex] };
   } else {
-    console.log(`[UPSERT REPO ITEM] No existing client-specific item found for name: "${itemFromDocument.description}" and customer: "${documentCustomerName}". Creating new.`);
+    console.log(`[DATA UPSERT REPO ITEM] No existing client-specific item found for name: "${itemFromDocument.description}" and customer: "${documentCustomerName}". Creating new.`);
     const newItemData: Omit<RepositoryItem, 'id' | 'createdAt'> = {
       name: itemFromDocument.description,
       defaultRate: itemFromDocument.rate,
@@ -914,8 +946,9 @@ export const upsertRepositoryItemFromOrderForm = async (
         newItemData.defaultVendorName = orderItem.vendorName;
     }
 
-    const newItem = await createRepositoryItem(newItemData); // createRepositoryItem already logs creation
-    return { ...newItem };
+    // Call the createRepositoryItem to ensure it's added to the mock array
+    const createdItem = await createRepositoryItem(newItemData); 
+    return { ...createdItem };
   }
 };
 
@@ -1007,4 +1040,28 @@ export const getNextPoNumber = async (): Promise<string> => {
         // Fallback for safety, though should not happen if PO numbers are consistent
         return `${prefix}${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
     }
+};
+
+// Reset function for testing if needed
+export const resetAllMockData = () => {
+  mockCustomers = [ /* initial customers */ ];
+  mockInvoices = [ /* initial invoices */ ];
+  mockOrderForms = [ /* initial order forms */ ];
+  mockTermsTemplates = [ /* initial terms templates */ ];
+  mockMsaTemplates = [ /* initial msa templates */ ];
+  mockCoverPageTemplates = [ /* initial cover page templates */ ];
+  mockRepositoryItems = [ /* initial repository items */ ];
+  mockPurchaseOrders = [ /* initial purchase orders */ ];
+};
+
+// Function to log all data for debugging
+export const logAllData = () => {
+  console.log("Mock Customers:", JSON.parse(JSON.stringify(mockCustomers)));
+  console.log("Mock Invoices:", JSON.parse(JSON.stringify(mockInvoices)));
+  console.log("Mock Order Forms:", JSON.parse(JSON.stringify(mockOrderForms)));
+  console.log("Mock Terms Templates:", JSON.parse(JSON.stringify(mockTermsTemplates)));
+  console.log("Mock MSA Templates:", JSON.parse(JSON.stringify(mockMsaTemplates)));
+  console.log("Mock Cover Page Templates:", JSON.parse(JSON.stringify(mockCoverPageTemplates)));
+  console.log("Mock Repository Items:", JSON.parse(JSON.stringify(mockRepositoryItems)));
+  console.log("Mock Purchase Orders:", JSON.parse(JSON.stringify(mockPurchaseOrders)));
 };

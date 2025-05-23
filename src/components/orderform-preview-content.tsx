@@ -27,15 +27,15 @@ const COMPANY_INFO_KEYS = {
 interface OrderFormPreviewContentProps {
   document: OrderForm;
   customer?: Customer;
-  coverPageTemplate?: CoverPageTemplate; // Added prop
+  coverPageTemplate?: CoverPageTemplate;
 }
 
 function replacePlaceholders(
   content: string | undefined,
   doc: OrderForm,
   customer?: Customer
-): string {
-  if (!content) return '';
+): string | undefined { // Return undefined if empty
+  if (!content?.trim()) return undefined;
   let processedContent = content;
 
   const currencySymbol = getCurrencySymbol(customer?.currency || doc.currencyCode);
@@ -104,7 +104,7 @@ function replacePlaceholders(
     </div>
   `;
   processedContent = processedContent.replace(/{{signaturePanel}}/g, signaturePanelHtml);
-
+  if (!processedContent.trim()) return undefined;
   return processedContent;
 }
 
@@ -121,6 +121,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
   });
 
   _React.useEffect(() => {
+    console.log("[OrderFormPreviewContent] Received document.msaContent:", orderForm.msaContent);
     const isClient = typeof window !== 'undefined';
     if (isClient) {
         const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
@@ -154,7 +155,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
             email,
         });
     }
-  }, [yourCompany.name, yourCompany.email, yourCompany.phone]);
+  }, [orderForm.msaContent, yourCompany.name, yourCompany.email, yourCompany.phone]); // Added orderForm.msaContent to deps
 
    const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
     name: orderForm.customerName || customer?.name || 'N/A',
@@ -184,7 +185,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
       )}
       {processedMsaContent && (
         <>
-          <div className="mb-4 prose prose-sm max-w-none">
+          <div className="mb-4 prose prose-sm max-w-none break-words"> 
             <ReactMarkdown rehypePlugins={[rehypeRaw]}>{processedMsaContent}</ReactMarkdown>
           </div>
           <hr className="my-6 border-border" />
@@ -317,7 +318,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
       </div>
 
       {processedTermsAndConditions && (
-        <div className="mb-8 prose prose-sm max-w-none">
+        <div className="mb-8 prose prose-sm max-w-none break-words">
           <h3 className="font-semibold mb-2 text-muted-foreground">Terms & Conditions:</h3>
           <ReactMarkdown rehypePlugins={[rehypeRaw]}>{processedTermsAndConditions}</ReactMarkdown>
         </div>
@@ -346,3 +347,4 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
 }
 
 OrderFormPreviewContent.displayName = "OrderFormPreviewContent";
+

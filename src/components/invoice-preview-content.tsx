@@ -27,15 +27,15 @@ const COMPANY_INFO_KEYS = {
 interface InvoicePreviewContentProps {
   document: Invoice;
   customer?: Customer;
-  coverPageTemplate?: CoverPageTemplate; // Added prop
+  coverPageTemplate?: CoverPageTemplate; 
 }
 
 function replacePlaceholders(
   content: string | undefined,
   doc: Invoice,
   customer?: Customer
-): string {
-  if (!content) return '';
+): string | undefined {
+  if (!content?.trim()) return undefined;
   let processedContent = content;
 
   const currencySymbol = getCurrencySymbol(customer?.currency || doc.currencyCode);
@@ -104,7 +104,7 @@ function replacePlaceholders(
     </div>
   `;
   processedContent = processedContent.replace(/{{signaturePanel}}/g, signaturePanelHtml);
-
+  if (!processedContent.trim()) return undefined;
   return processedContent;
 }
 
@@ -121,6 +121,7 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
   });
 
    _React.useEffect(() => {
+    console.log("[InvoicePreviewContent] Received document.msaContent:", invoice.msaContent);
     const isClient = typeof window !== 'undefined';
     if (isClient) {
       const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
@@ -154,7 +155,7 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
         email,
       });
     }
-  }, [yourCompany.name, yourCompany.email, yourCompany.phone]);
+  }, [invoice.msaContent, yourCompany.name, yourCompany.email, yourCompany.phone]); // Added invoice.msaContent to deps to see if it triggers re-log
 
 
   const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
@@ -186,7 +187,7 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
       )}
       {processedMsaContent && (
         <>
-          <div className="mb-4 prose prose-sm max-w-none">
+          <div className="mb-4 prose prose-sm max-w-none break-words">
             <ReactMarkdown rehypePlugins={[rehypeRaw]}>{processedMsaContent}</ReactMarkdown>
           </div>
           <hr className="my-6 border-border" />
@@ -236,7 +237,7 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
         <div className={`text-left ${hasShippingAddress ? 'md:text-right md:col-span-1' : 'md:text-right md:col-start-3 md:col-span-1'}`}>
           <p><span className="font-semibold text-muted-foreground">Issue Date:</span> {format(new Date(invoice.issueDate), 'PPP')}</p>
           <p><span className="font-semibold text-muted-foreground">Due Date:</span> {format(new Date(invoice.dueDate), 'PPP')}</p>
-          <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.status === 'Paid' ? 'bg-primary/10 text-primary' : invoice.status === 'Overdue' ? 'bg-status-overdue text-status-overdue-foreground' : invoice.status === 'Sent' ? 'bg-destructive/10 text-destructive-foreground' : 'bg-secondary text-secondary-foreground'}`}>{invoice.status}</span></p>
+          <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${invoice.status === 'Paid' ? 'bg-primary/10 text-primary' : invoice.status === 'Overdue' ? 'bg-status-overdue-DEFAULT text-status-overdue-foreground' : invoice.status === 'Sent' ? 'bg-destructive/10 text-destructive-foreground' : 'bg-secondary text-secondary-foreground'}`}>{invoice.status}</span></p>
            {customerToDisplay.currency && <p><span className="font-semibold text-muted-foreground">Currency:</span> {customerToDisplay.currency}</p>}
         </div>
       </div>
@@ -318,7 +319,7 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
       </div>
 
       {processedTermsAndConditions && (
-        <div className="mb-8 prose prose-sm max-w-none">
+        <div className="mb-8 prose prose-sm max-w-none break-words">
           <h3 className="font-semibold mb-2 text-muted-foreground">Terms & Conditions:</h3>
            <ReactMarkdown rehypePlugins={[rehypeRaw]}>{processedTermsAndConditions}</ReactMarkdown>
         </div>
@@ -347,3 +348,4 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
 }
 
 InvoicePreviewContent.displayName = "InvoicePreviewContent";
+
