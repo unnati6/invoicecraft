@@ -15,7 +15,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import { FileText, Users, Settings, LogOut, FileSignature as OrderFormIcon, Image as ImageIconLucide, LayoutDashboard, ClipboardList, FileCheck2, BookCopy, Archive, ShoppingCart } from 'lucide-react';
+import { FileText, Users, LogOut, FileSignature as OrderFormIcon, Edit3, LayoutDashboard, ClipboardList, FileCheck2, BookCopy, Archive, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
@@ -54,7 +54,7 @@ export function AppSidebar() {
   ];
 
   const brandingAndTemplatesMenuItems = [
-    { href: '/branding', label: 'Branding & Numbering', icon: ImageIconLucide },
+    { href: '/branding', label: 'Branding & Numbering', icon: Edit3 },
     { href: '/templates/terms', label: 'T&C Templates', icon: ClipboardList },
     { href: '/templates/msa', label: 'MSA Templates', icon: FileCheck2 },
     { href: '/templates/coverpages', label: 'Cover Pages', icon: BookCopy },
@@ -105,8 +105,8 @@ export function AppSidebar() {
 
         <SidebarGroup>
             <SidebarGroupLabel className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-                <span className="group-data-[collapsible=icon]:hidden">Branding & Templates</span>
-                <ImageIconLucide className="hidden group-data-[collapsible=icon]:block h-5 w-5"/>
+                <span className="group-data-[collapsible=icon]:hidden">Branding &amp; Templates</span>
+                <Edit3 className="hidden group-data-[collapsible=icon]:block h-5 w-5"/>
             </SidebarGroupLabel>
             <SidebarMenu>
                 {brandingAndTemplatesMenuItems.map((item) => (
@@ -157,3 +157,4 @@ export function AppSidebar() {
 }
 
 AppSidebar.displayName = "AppSidebar";
+

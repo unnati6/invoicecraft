@@ -52,6 +52,39 @@ const longMSALoremIpsum = `
 <p>{{signaturePanel}}</p>
 `;
 
+const longTermsAndConditions = `
+<h2>1. Scope of Services</h2>
+<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam. Sed nisi. Nulla quis sem at nibh elementum imperdiet. Duis sagittis ipsum. Praesent mauris. Fusce nec tellus sed augue semper porta. Mauris massa. Vestibulum lacinia arcu eget nulla. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
+<p>Curabitur sodales ligula in libero. Sed dignissim lacinia nunc. Curabitur tortor. Pellentesque nibh. Aenean quam. In scelerisque sem at dolor. Maecenas mattis. Sed convallis tristique sem. Proin ut ligula vel nunc egestas porttitor. Morbi lectus risus, iaculis vel, suscipit quis, luctus non, massa. Fusce ac turpis quis ligula lacinia aliquet. Mauris ipsum. Nulla metus metus, ullamcorper vel, tincidunt sed, euismod in, nibh.</p>
+
+<h2>2. Payment Terms</h2>
+<p>Quisque volutpat condimentum velit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Nam nec ante. Sed lacinia, urna non tincidunt mattis, tortor neque adipiscing diam, a cursus ipsum ante quis turpis. Nulla facilisi. Ut fringilla. Suspendisse potenti. Nunc feugiat mi a tellus consequat imperdiet. Vestibulum sapien. Proin quam. Etiam ultrices. Suspendisse in justo eu magna luctus suscipit.</p>
+<ul>
+    <li>Payment is due within <strong>{{paymentTerms}}</strong> from the invoice date.</li>
+    <li>A late fee of 1.5% per month may be applied to all overdue balances.</li>
+    <li>All payments shall be made in {{currencyCode}}.</li>
+</ul>
+
+<h2>3. Confidentiality</h2>
+<p>Sed lectus. Integer euismod lacus luctus magna. Quisque cursus, metus vitae pharetra auctor, sem massa mattis sem, at interdum magna augue eget diam. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Morbi lacinia molestie dui. Praesent blandit dolor. Sed non quam. In vel mi sit amet augue congue elementum. Morbi in ipsum sit amet pede facilisis laoreet. Donec lacus nunc, viverra nec, blandit vel, egestas et, augue. Vestibulum tincidunt malesuada tellus. Ut ultrices ultrices enim. Curabitur sit amet mauris. Morbi in dui quis est pulvinar ullamcorper. Nulla facilisi. Integer lacinia sollicitudin massa. Cras metus. Sed aliquet risus a tortor.</p>
+
+<h2>4. Term and Termination</h2>
+<p>Integer id quam. Morbi mi. Quisque nisl felis, venenatis tristique, dignissim in, ultrices sit amet, augue. Proin sodales libero eget ante. Nulla quam. Aenean laoreet. Vestibulum nisi lectus, commodo ac, facilisis ac, ultricies eu, pede. Ut orci risus, accumsan porttitor, cursus quis, aliquet eget, justo. Sed pretium blandit orci. Ut eu diam at pede suscipit sodales. Aenean lectus elit, fermentum non, convallis id, sagittis at, neque. Nullam mauris orci, aliquet et, iaculis et, viverra vitae, ligula. Nulla ut felis in purus aliquam imperdiet. Maecenas aliquet mollis lectus. Vivamus consectetuer risus et tortor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam. Sed nisi. Nulla quis sem at nibh elementum imperdiet. Duis sagittis ipsum. Praesent mauris.</p>
+
+<h2>5. Limitation of Liability</h2>
+<p>Fusce nec tellus sed augue semper porta. Mauris massa. Vestibulum lacinia arcu eget nulla. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Curabitur sodales ligula in libero. Sed dignissim lacinia nunc. Curabitur tortor. Pellentesque nibh. Aenean quam. In scelerisque sem at dolor. Maecenas mattis. Sed convallis tristique sem. Proin ut ligula vel nunc egestas porttitor.</p>
+
+<h2>6. Governing Law</h2>
+<p>Morbi lectus risus, iaculis vel, suscipit quis, luctus non, massa. Fusce ac turpis quis ligula lacinia aliquet. Mauris ipsum. Nulla metus metus, ullamcorper vel, tincidunt sed, euismod in, nibh. Quisque volutpat condimentum velit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Nam nec ante. Sed lacinia, urna non tincidunt mattis, tortor neque adipiscing diam, a cursus ipsum ante quis turpis. Nulla facilisi. Ut fringilla. Suspendisse potenti. Nunc feugiat mi a tellus consequat imperdiet.</p>
+
+<h2>7. Entire Agreement</h2>
+<p>Vestibulum sapien. Proin quam. Etiam ultrices. Suspendisse in justo eu magna luctus suscipit. Sed lectus. Integer euismod lacus luctus magna. Quisque cursus, metus vitae pharetra auctor, sem massa mattis sem, at interdum magna augue eget diam. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Morbi lacinia molestie dui. Praesent blandit dolor. Sed non quam. In vel mi sit amet augue congue elementum. Morbi in ipsum sit amet pede facilisis laoreet. Donec lacus nunc, viverra nec, blandit vel, egestas et, augue. Vestibulum tincidunt malesuada tellus. Ut ultrices ultrices enim. Curabitur sit amet mauris. Morbi in dui quis est pulvinar ullamcorper. Nulla facilisi. Integer lacinia sollicitudin massa. Cras metus. Sed aliquet risus a tortor. Integer id quam. Morbi mi. Quisque nisl felis, venenatis tristique, dignissim in, ultrices sit amet, augue.</p>
+<p>For any queries regarding this agreement, please contact us at company_email@example.com.</p>
+<p>This agreement is made with {{customerName}} on {{issueDate}}.</p>
+<p>Please find the signature panel below:</p>
+<p>{{signaturePanel}}</p>
+`;
+
 
 let mockMsaTemplates: MsaTemplate[] = [
   {
@@ -180,8 +213,8 @@ let mockTermsTemplates: TermsTemplate[] = [
   },
   {
     id: 'terms_tpl_2',
-    name: 'Software Development Contract Terms',
-    content: '<h2>Project Scope</h2><p>The scope of work is defined in Appendix A.</p><h2>Payment Schedule</h2><ul><li>50% upfront</li><li>25% upon milestone 1 completion</li><li>25% upon final delivery</li></ul><p>This agreement is made with {{customerName}}.</p><p>Please sign below:</p>{{signaturePanel}}',
+    name: 'Software Development Contract Terms (Extended)',
+    content: longTermsAndConditions,
     createdAt: new Date(),
   }
 ];
@@ -791,8 +824,14 @@ export const updateMsaTemplate = async (id: string, data: Partial<Omit<MsaTempla
   if (index === -1) return null;
 
   const currentTemplate = mockMsaTemplates[index];
-  const updatedTemplate: MsaTemplate = { ...currentTemplate, ...data };
+  const updatedTemplate: MsaTemplate = { ...currentTemplate };
 
+  if (data.hasOwnProperty('name')) {
+    updatedTemplate.name = data.name!;
+  }
+  if (data.hasOwnProperty('content')) {
+    updatedTemplate.content = data.content!;
+  }
   if (data.hasOwnProperty('coverPageTemplateId')) {
     updatedTemplate.coverPageTemplateId = data.coverPageTemplateId === '' ? undefined : data.coverPageTemplateId;
   }
@@ -887,54 +926,47 @@ export const deleteRepositoryItem = async (id: string): Promise<boolean> => {
 };
 
 export const upsertRepositoryItemFromOrderForm = async (
-  itemFromDocument: OrderFormItem | InvoiceItem, 
+  itemFromDocument: OrderFormItem | InvoiceItem,
   documentCustomerId: string,
   documentCustomerName: string,
   documentCurrencyCode: string
 ): Promise<RepositoryItem | null> => {
-  
   const isOrderFormItem = 'procurementPrice' in itemFromDocument || 'vendorName' in itemFromDocument;
-  
-  console.log(
-    `[DATA UPSERT REPO ITEM] Processing item: "${itemFromDocument.description}" for customer: "${documentCustomerName}" (ID: ${documentCustomerId}). Currency: ${documentCurrencyCode}. Is OrderForm Item: ${isOrderFormItem}`
-  );
-  if (isOrderFormItem) {
-    console.log(`[DATA UPSERT REPO ITEM] Procurement Price: ${(itemFromDocument as OrderFormItem).procurementPrice}, Vendor: ${(itemFromDocument as OrderFormItem).vendorName}`);
-  }
+  const description = itemFromDocument.description;
 
+  console.log(
+    `[UPSERT REPO] Processing item: "${description}" for customer: "${documentCustomerName}" (ID: ${documentCustomerId}). Currency: ${documentCurrencyCode}. From OrderForm: ${isOrderFormItem}`
+  );
 
   const itemIndex = mockRepositoryItems.findIndex(
     (repoItem) =>
-      repoItem.name.toLowerCase() === itemFromDocument.description.toLowerCase() &&
-      repoItem.customerId === documentCustomerId 
+      repoItem.name.toLowerCase() === description.toLowerCase() &&
+      repoItem.customerId === documentCustomerId
   );
 
   if (itemIndex !== -1) {
-    console.log(`[DATA UPSERT REPO ITEM] Found existing client-specific item to update. ID: ${mockRepositoryItems[itemIndex].id}`);
     const repoItemToUpdate = { ...mockRepositoryItems[itemIndex] };
+    console.log(`[UPSERT REPO] Found existing client-specific item to update. ID: ${repoItemToUpdate.id}, Name: ${repoItemToUpdate.name}`);
     
     repoItemToUpdate.defaultRate = itemFromDocument.rate;
     repoItemToUpdate.currencyCode = documentCurrencyCode;
 
     if (isOrderFormItem) {
         const orderItem = itemFromDocument as OrderFormItem;
-        // Only update if procurementPrice is explicitly provided (not undefined)
         if (orderItem.procurementPrice !== undefined) {
             repoItemToUpdate.defaultProcurementPrice = orderItem.procurementPrice;
         }
-        // Only update if vendorName is explicitly provided (not undefined)
-        // An empty string '' is a valid value to clear the vendor.
-        if (orderItem.vendorName !== undefined) {
+        if (orderItem.vendorName !== undefined) { // Allow empty string to clear vendor
             repoItemToUpdate.defaultVendorName = orderItem.vendorName;
         }
     }
     mockRepositoryItems[itemIndex] = repoItemToUpdate;
-    console.log(`[DATA UPSERT REPO ITEM] Updated to:`, JSON.parse(JSON.stringify(repoItemToUpdate)));
+    console.log(`[UPSERT REPO] Updated to:`, JSON.parse(JSON.stringify(repoItemToUpdate)));
     return { ...mockRepositoryItems[itemIndex] };
   } else {
-    console.log(`[DATA UPSERT REPO ITEM] No existing client-specific item found for name: "${itemFromDocument.description}" and customer: "${documentCustomerName}". Creating new.`);
+    console.log(`[UPSERT REPO] No existing client-specific item for "${description}" & customer "${documentCustomerName}". Creating new.`);
     const newItemData: Omit<RepositoryItem, 'id' | 'createdAt'> = {
-      name: itemFromDocument.description,
+      name: description,
       defaultRate: itemFromDocument.rate,
       currencyCode: documentCurrencyCode,
       customerId: documentCustomerId,
@@ -945,9 +977,7 @@ export const upsertRepositoryItemFromOrderForm = async (
         newItemData.defaultProcurementPrice = orderItem.procurementPrice;
         newItemData.defaultVendorName = orderItem.vendorName;
     }
-
-    // Call the createRepositoryItem to ensure it's added to the mock array
-    const createdItem = await createRepositoryItem(newItemData); 
+    const createdItem = await createRepositoryItem(newItemData);
     return { ...createdItem };
   }
 };
@@ -1065,3 +1095,4 @@ export const logAllData = () => {
   console.log("Mock Repository Items:", JSON.parse(JSON.stringify(mockRepositoryItems)));
   console.log("Mock Purchase Orders:", JSON.parse(JSON.stringify(mockPurchaseOrders)));
 };
+

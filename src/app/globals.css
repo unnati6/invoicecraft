@@ -28,9 +28,11 @@ body {
     
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --warning: 38 92% 50%; /* Yellow for warning background */
-    --warning-foreground: 38 92% 25%; /* Dark Yellow for warning text */
-    --warning-border: 38 92% 45%; /* Slightly darker yellow for border */
+    
+    /* Light Yellow for Warning Toasts */
+    --warning: 50 100% 95%; /* Very light, soft yellow background */
+    --warning-foreground: 50 100% 20%; /* Darker yellow text */
+    --warning-border: 50 100% 88%; /* Soft yellow border */
 
     --status-overdue-background: 28 100% 95%; /* Light Orange for overdue status background */
     --status-overdue-foreground: 28 100% 30%; /* Dark Orange for overdue status text */
@@ -76,9 +78,11 @@ body {
     
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 98%;
-    --warning: 38 95% 30%; /* Darker Yellow for warning background in dark mode */
-    --warning-foreground: 38 90% 85%; /* Light Yellow for warning text in dark mode */
-    --warning-border: 38 95% 25%; /* Slightly lighter yellow for border in dark mode */
+
+    /* Dark Yellow for Warning Toasts in dark mode */
+    --warning: 50 60% 15%; /* Dark, muted yellow background */
+    --warning-foreground: 50 100% 90%; /* Light yellow text */
+    --warning-border: 50 60% 25%; /* Slightly darker yellow border */
     
     --status-overdue-background: 28 100% 20%; /* Dark Orange for overdue status background in dark mode */
     --status-overdue-foreground: 28 100% 80%; /* Light Orange for overdue status text in dark mode */
@@ -150,3 +154,4 @@ body {
     animation: animatedGradient 20s ease infinite;
   }
 }
+
