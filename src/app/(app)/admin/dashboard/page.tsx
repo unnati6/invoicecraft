@@ -202,7 +202,7 @@ export default function AdminDashboardPage() {
               <form onSubmit={smtpForm.handleSubmit(handleSaveSmtpSettings)}>
                 <CardHeader>
                   <CardTitle className="flex items-center"><Settings className="mr-2 h-5 w-5" /> SMTP Configuration</CardTitle>
-                  <CardDescription>Configure your email server settings for sending reminders. Settings saved to browser storage.</CardDescription>
+                  <CardDescription>{"Configure your email server settings for sending reminders. Settings saved to browser storage."}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <FormField control={smtpForm.control} name="host" render={({ field }) => (
@@ -239,7 +239,7 @@ export default function AdminDashboardPage() {
               <form onSubmit={emailTemplateForm.handleSubmit(handleSaveEmailTemplate)}>
                 <CardHeader>
                   <CardTitle className="flex items-center"><Mail className="mr-2 h-5 w-5"/> Configure Reminder Email</CardTitle>
-                  <CardDescription>Set the subject and body for payment reminder emails. Template saved to browser storage. Use placeholders like '{{userName}}', '{{invoiceNumber}}', '{{pendingAmount}}', '{{dueDate}}', '{{currencySymbol}}'.</CardDescription>
+                  <CardDescription>{"Set the subject and body for payment reminder emails. Template saved to browser storage. Use placeholders like '{{userName}}', '{{invoiceNumber}}', '{{pendingAmount}}', '{{dueDate}}', '{{currencySymbol}}'."}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <FormField control={emailTemplateForm.control} name="subject" render={({ field }) => (
@@ -262,7 +262,7 @@ export default function AdminDashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>User List</CardTitle>
-              <CardDescription>Overview of all registered users. Reminder status is a placeholder.</CardDescription>
+              <CardDescription>{"Overview of all registered users. Reminder status is a placeholder."}</CardDescription>
             </CardHeader>
             <CardContent>
               {users.length > 0 ? (
