@@ -82,6 +82,9 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     serviceEndDate: data.serviceEndDate,
   };
 
+  console.log("[Action: saveInvoice] Invoice Data Core:", JSON.parse(JSON.stringify(invoiceDataCore)));
+
+
   let savedInvoice: Invoice | null = null;
 
   if (id) {
@@ -99,36 +102,30 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
       paymentFrequency: data.paymentFrequency !== undefined ? data.paymentFrequency : existingInvoice.paymentFrequency,
       customPaymentFrequency: data.customPaymentFrequency !== undefined ? data.customPaymentFrequency : existingInvoice.customPaymentFrequency,
     };
-
+    console.log("[Action: saveInvoice] Final Data for Update:", JSON.parse(JSON.stringify(finalData)));
     savedInvoice = await Data.updateInvoice(id, finalData);
-    if (savedInvoice) {
-      revalidatePath('/invoices');
-      revalidatePath(`/invoices/${savedInvoice.id}`);
-      revalidatePath(`/invoices/${savedInvoice.id}/terms`);
-      revalidatePath('/(app)/dashboard', 'page');
-    }
   } else {
     savedInvoice = await Data.createInvoice(invoiceDataCore);
-    if (savedInvoice) {
-      revalidatePath('/invoices');
-      revalidatePath(`/invoices/${savedInvoice.id}`);
-      revalidatePath('/(app)/dashboard', 'page');
-    }
   }
 
   if (savedInvoice) {
+    console.log("[Action: saveInvoice] Saved Invoice:", JSON.parse(JSON.stringify(savedInvoice)));
     const customer = await fetchCustomerById(savedInvoice.customerId);
     const invoiceCurrency = customer?.currency || savedInvoice.currencyCode || 'USD';
     for (const item of savedInvoice.items) {
-      await Data.upsertRepositoryItemFromOrderForm( // Using the more generic upsert function
-        item,
+       await Data.upsertRepositoryItemFromOrderForm(
+        item as any, // Cast as OrderFormItem for the upsert function, it handles missing fields
         savedInvoice.customerId,
         customer?.name || 'Unknown Customer',
         invoiceCurrency,
-        undefined, // procurementPrice (not applicable for invoice items)
-        undefined  // vendorName (not applicable for invoice items)
+        undefined, // procurementPrice not on InvoiceItem
+        undefined  // vendorName not on InvoiceItem
       );
     }
+    revalidatePath('/invoices');
+    revalidatePath(`/invoices/${savedInvoice.id}`);
+    revalidatePath(`/invoices/${savedInvoice.id}/terms`);
+    revalidatePath('/(app)/dashboard', 'page');
     revalidatePath('/item-repository');
   }
 
@@ -224,6 +221,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     serviceStartDate: data.serviceStartDate,
     serviceEndDate: data.serviceEndDate,
   };
+  console.log("[Action: saveOrderForm] Order Form Data Core:", JSON.parse(JSON.stringify(orderFormDataCore)));
 
   let savedOrderForm: OrderForm | null = null;
 
@@ -242,22 +240,14 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       paymentFrequency: data.paymentFrequency !== undefined ? data.paymentFrequency : existingOrderForm.paymentFrequency,
       customPaymentFrequency: data.customPaymentFrequency !== undefined ? data.customPaymentFrequency : existingOrderForm.customPaymentFrequency,
     };
-
+    console.log("[Action: saveOrderForm] Final Data for Update:", JSON.parse(JSON.stringify(finalData)));
     savedOrderForm = await Data.updateOrderForm(id, finalData);
-    if (savedOrderForm) {
-      revalidatePath('/orderforms');
-      revalidatePath(`/orderforms/${savedOrderForm.id}`);
-      revalidatePath(`/orderforms/${savedOrderForm.id}/terms`);
-    }
   } else {
     savedOrderForm = await Data.createOrderForm(orderFormDataCore);
-    if(savedOrderForm) {
-      revalidatePath('/orderforms');
-      revalidatePath(`/orderforms/${savedOrderForm.id}`);
-    }
   }
 
   if (savedOrderForm) {
+    console.log("[Action: saveOrderForm] Saved Order Form:", JSON.parse(JSON.stringify(savedOrderForm)));
     const customer = await fetchCustomerById(savedOrderForm.customerId);
     const orderFormCurrency = customer?.currency || savedOrderForm.currencyCode || 'USD';
     const customerNameForRepo = customer?.name || 'Unknown Customer';
@@ -267,44 +257,14 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
         item,
         savedOrderForm.customerId,
         customerNameForRepo,
-        orderFormCurrency,
-        item.procurementPrice,
-        item.vendorName
+        orderFormCurrency
       );
     }
+    revalidatePath('/orderforms');
+    revalidatePath(`/orderforms/${savedOrderForm.id}`);
+    revalidatePath(`/orderforms/${savedOrderForm.id}/terms`);
     revalidatePath('/item-repository');
-
-    // PO Generation Logic
-    await Data.deletePurchaseOrdersByOrderFormId(savedOrderForm.id);
-    const vendorItems: Record<string, OrderFormItem[]> = {};
-    savedOrderForm.items.forEach(item => {
-      if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice > 0) {
-        if (!vendorItems[item.vendorName]) {
-          vendorItems[item.vendorName] = [];
-        }
-        vendorItems[item.vendorName].push(item);
-      }
-    });
-
-    for (const vendorName in vendorItems) {
-      const poNumber = await Data.getNextPoNumber();
-      const poItemsForVendor = vendorItems[vendorName].map(ofItem => ({
-        description: ofItem.description,
-        quantity: ofItem.quantity,
-        procurementPrice: ofItem.procurementPrice as number,
-      }));
-
-      await Data.createPurchaseOrder({
-        poNumber,
-        vendorName,
-        orderFormId: savedOrderForm.id,
-        orderFormNumber: savedOrderForm.orderFormNumber,
-        issueDate: new Date(),
-        items: poItemsForVendor,
-        status: 'Draft',
-      });
-    }
-    revalidatePath('/purchase-orders');
+    revalidatePath('/purchase-orders'); // POs are generated from OFs
   }
 
   return savedOrderForm;
@@ -346,7 +306,7 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
     customerId: orderForm.customerId,
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
-    dueDate: addDays(new Date(), 30),
+    dueDate: addDays(new Date(), 30), // Default due date
     items: orderForm.items.map(item => ({
       description: item.description,
       quantity: item.quantity,
@@ -684,15 +644,18 @@ export async function saveRepositoryItem(data: RepositoryItemFormData, id?: stri
     defaultProcurementPrice: data.defaultProcurementPrice,
     defaultVendorName: data.defaultVendorName,
     currencyCode: data.currencyCode,
-    customerId: data.customerId,
-    customerName: data.customerName,
+    customerId: data.customerId, // This field is part of the form data but typically not edited directly
+    customerName: data.customerName, // Same as above
   };
+  console.log("[Action: saveRepositoryItem] Data to save:", itemDataToSave);
+
 
   if (id) {
     const updated = await Data.updateRepositoryItem(id, itemDataToSave);
     if (updated) revalidatePath('/item-repository');
     return updated;
   } else {
+    // Direct creation of repository items (if a dedicated form for it existed)
     const newItem = await Data.createRepositoryItem(itemDataToSave as Omit<RepositoryItem, 'id' | 'createdAt'>);
     if (newItem) revalidatePath('/item-repository');
     return newItem;
@@ -719,12 +682,10 @@ export async function savePurchaseOrder(data: Partial<Omit<PurchaseOrder, 'id' |
     const updated = await Data.updatePurchaseOrder(id, data);
     if (updated) {
       revalidatePath('/purchase-orders');
-      revalidatePath(`/purchase-orders/${id}`); // Assuming a detail page might exist
+      revalidatePath(`/purchase-orders/${id}`);
     }
     return updated;
   } else {
-    // For creating, we expect more complete data, typically handled by PO generation from OrderForm
-    // This direct save might be for manual PO creation in the future
     console.warn("Direct creation of Purchase Orders via savePurchaseOrder is not the primary flow yet.");
     return null;
   }
@@ -737,4 +698,3 @@ export async function removePurchaseOrder(id: string): Promise<boolean> {
   }
   return success;
 }
-

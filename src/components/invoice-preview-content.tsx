@@ -41,9 +41,18 @@ function replacePlaceholders(
 
   const currencySymbol = getCurrencySymbol(customer?.currency || doc.currencyCode);
 
-  const paymentTermsDisplay = (doc.paymentTerms === 'Custom' && doc.customPaymentTerms) ? doc.customPaymentTerms : doc.paymentTerms;
-  const commitmentPeriodDisplay = (doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod) ? doc.customCommitmentPeriod : doc.commitmentPeriod;
-  const paymentFrequencyDisplay = (doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency) ? doc.customPaymentFrequency : doc.paymentFrequency;
+  const paymentTermsDisplay = (doc.paymentTerms === 'Custom' && doc.customPaymentTerms?.trim())
+    ? doc.customPaymentTerms
+    : (doc.paymentTerms === 'Custom' ? 'Custom (Details in document)' : doc.paymentTerms);
+
+  const commitmentPeriodDisplay = (doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod?.trim())
+    ? doc.customCommitmentPeriod
+    : (doc.commitmentPeriod === 'Custom' ? 'Custom (Details in document)' : doc.commitmentPeriod);
+
+  const paymentFrequencyDisplay = (doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency?.trim())
+    ? doc.customPaymentFrequency
+    : (doc.paymentFrequency === 'Custom' ? 'Custom (Details in document)' : doc.paymentFrequency);
+
 
   const placeholders: Record<string, () => string | undefined | null> = {
     '{{customerName}}': () => customer?.name,
@@ -62,7 +71,7 @@ function replacePlaceholders(
     '{{documentNumber}}': () => doc.invoiceNumber,
     '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
     '{{dueDate}}': () => format(new Date(doc.dueDate), 'PPP'),
-    '{{totalAmount}}': () => `${currencySymbol}${doc.total.toFixed(2)}`,
+    '{{totalAmount}}': () => `${currencySymbol}${(doc.total || 0).toFixed(2)}`,
     '{{paymentTerms}}': () => paymentTermsDisplay,
     '{{commitmentPeriod}}': () => commitmentPeriodDisplay,
     '{{paymentFrequency}}': () => paymentFrequencyDisplay,
@@ -117,6 +126,10 @@ function replacePlaceholders(
 
 
 export function InvoicePreviewContent({ document: invoice, customer, coverPageTemplate }: InvoicePreviewContentProps) {
+  console.log("[InvoicePreviewContent] Received document:", JSON.parse(JSON.stringify(invoice)));
+  console.log("[InvoicePreviewContent] Received customer:", JSON.parse(JSON.stringify(customer)));
+  console.log("[InvoicePreviewContent] Received coverPageTemplate:", JSON.parse(JSON.stringify(coverPageTemplate)));
+
   const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
   const [companySignatureUrl, setCompanySignatureUrl] = _React.useState<string | null>(null);
   const [yourCompany, setYourCompany] = _React.useState({
@@ -128,7 +141,6 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
   });
 
   _React.useEffect(() => {
-    console.log("[InvoicePreviewContent] Received document.msaContent:", invoice.msaContent);
     const isClient = typeof window !== 'undefined';
     if (isClient) {
       const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
@@ -162,7 +174,7 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
         email,
       });
     }
-  }, [invoice.msaContent, yourCompany.name, yourCompany.email, yourCompany.phone]);
+  }, [yourCompany.name, yourCompany.email, yourCompany.phone]); // Removed invoice.msaContent as it's not directly used here
 
 
   const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
@@ -182,20 +194,19 @@ export function InvoicePreviewContent({ document: invoice, customer, coverPageTe
                               customerToDisplay.shippingAddress.city);
   
   const processedMsaContent = invoice.msaContent ? replacePlaceholders(invoice.msaContent, invoice, customer) : undefined;
-  const processedTermsAndConditions = replacePlaceholders(invoice.termsAndConditions, invoice, customer);
+  const processedTermsAndConditions = invoice.termsAndConditions ? replacePlaceholders(invoice.termsAndConditions, invoice, customer) : undefined;
 
-  const paymentTermsText = (invoice.paymentTerms === 'Custom' && invoice.customPaymentTerms) 
-    ? invoice.customPaymentTerms 
-    : (invoice.paymentTerms === 'Custom' ? 'Custom (Not specified)' : invoice.paymentTerms);
+  const paymentTermsText = (invoice.paymentTerms === 'Custom')
+    ? (invoice.customPaymentTerms?.trim() ? invoice.customPaymentTerms : 'Custom (Not specified)')
+    : invoice.paymentTerms;
 
-  const commitmentPeriodText = (invoice.commitmentPeriod === 'Custom' && invoice.customCommitmentPeriod) 
-    ? invoice.customCommitmentPeriod 
-    : (invoice.commitmentPeriod === 'Custom' ? 'Custom (Not specified)' : invoice.commitmentPeriod);
+  const commitmentPeriodText = (invoice.commitmentPeriod === 'Custom')
+    ? (invoice.customCommitmentPeriod?.trim() ? invoice.customCommitmentPeriod : 'Custom (Not specified)')
+    : invoice.commitmentPeriod;
   
-  const paymentFrequencyText = (invoice.paymentFrequency === 'Custom' && invoice.customPaymentFrequency) 
-    ? invoice.customPaymentFrequency 
-    : (invoice.paymentFrequency === 'Custom' ? 'Custom (Not specified)' : invoice.paymentFrequency);
-
+  const paymentFrequencyText = (invoice.paymentFrequency === 'Custom')
+    ? (invoice.customPaymentFrequency?.trim() ? invoice.customPaymentFrequency : 'Custom (Not specified)')
+    : invoice.paymentFrequency;
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">

@@ -40,9 +40,18 @@ function replacePlaceholders(
 
   const currencySymbol = getCurrencySymbol(customer?.currency || doc.currencyCode);
 
-  const paymentTermsDisplay = (doc.paymentTerms === 'Custom' && doc.customPaymentTerms) ? doc.customPaymentTerms : doc.paymentTerms;
-  const commitmentPeriodDisplay = (doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod) ? doc.customCommitmentPeriod : doc.commitmentPeriod;
-  const paymentFrequencyDisplay = (doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency) ? doc.customPaymentFrequency : doc.paymentFrequency;
+  const paymentTermsDisplay = (doc.paymentTerms === 'Custom' && doc.customPaymentTerms?.trim())
+    ? doc.customPaymentTerms
+    : (doc.paymentTerms === 'Custom' ? 'Custom (Details in document)' : doc.paymentTerms);
+
+  const commitmentPeriodDisplay = (doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod?.trim())
+    ? doc.customCommitmentPeriod
+    : (doc.commitmentPeriod === 'Custom' ? 'Custom (Details in document)' : doc.commitmentPeriod);
+
+  const paymentFrequencyDisplay = (doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency?.trim())
+    ? doc.customPaymentFrequency
+    : (doc.paymentFrequency === 'Custom' ? 'Custom (Details in document)' : doc.paymentFrequency);
+
 
   const placeholders: Record<string, () => string | undefined | null> = {
     '{{customerName}}': () => customer?.name,
@@ -61,7 +70,7 @@ function replacePlaceholders(
     '{{documentNumber}}': () => doc.orderFormNumber,
     '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
     '{{validUntilDate}}': () => format(new Date(doc.validUntilDate), 'PPP'), 
-    '{{totalAmount}}': () => `${currencySymbol}${doc.total.toFixed(2)}`,
+    '{{totalAmount}}': () => `${currencySymbol}${(doc.total || 0).toFixed(2)}`,
     '{{paymentTerms}}': () => paymentTermsDisplay,
     '{{commitmentPeriod}}': () => commitmentPeriodDisplay,
     '{{paymentFrequency}}': () => paymentFrequencyDisplay,
@@ -115,6 +124,10 @@ function replacePlaceholders(
 
 
 export function OrderFormPreviewContent({ document: orderForm, customer, coverPageTemplate }: OrderFormPreviewContentProps) {
+  console.log("[OrderFormPreviewContent] Received document:", JSON.parse(JSON.stringify(orderForm)));
+  console.log("[OrderFormPreviewContent] Received customer:", JSON.parse(JSON.stringify(customer)));
+  console.log("[OrderFormPreviewContent] Received coverPageTemplate:", JSON.parse(JSON.stringify(coverPageTemplate)));
+
   const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
   const [companySignatureUrl, setCompanySignatureUrl] = _React.useState<string | null>(null);
   const [yourCompany, setYourCompany] = _React.useState({
@@ -126,7 +139,6 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
   });
 
   _React.useEffect(() => {
-    console.log("[OrderFormPreviewContent] Received document.msaContent:", orderForm.msaContent);
     const isClient = typeof window !== 'undefined';
     if (isClient) {
         const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
@@ -160,7 +172,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
             email,
         });
     }
-  }, [orderForm.msaContent, yourCompany.name, yourCompany.email, yourCompany.phone]);
+  }, [yourCompany.name, yourCompany.email, yourCompany.phone]); // Removed orderForm.msaContent as it's not directly used here
 
    const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
     name: orderForm.customerName || customer?.name || 'N/A',
@@ -178,19 +190,19 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
                               customerToDisplay.shippingAddress.city);
   
   const processedMsaContent = orderForm.msaContent ? replacePlaceholders(orderForm.msaContent, orderForm, customer) : undefined;
-  const processedTermsAndConditions = replacePlaceholders(orderForm.termsAndConditions, orderForm, customer);
+  const processedTermsAndConditions = orderForm.termsAndConditions ? replacePlaceholders(orderForm.termsAndConditions, orderForm, customer) : undefined;
 
-  const paymentTermsText = (orderForm.paymentTerms === 'Custom' && orderForm.customPaymentTerms) 
-    ? orderForm.customPaymentTerms 
-    : (orderForm.paymentTerms === 'Custom' ? 'Custom (Not specified)' : orderForm.paymentTerms);
+  const paymentTermsText = (orderForm.paymentTerms === 'Custom')
+    ? (orderForm.customPaymentTerms?.trim() ? orderForm.customPaymentTerms : 'Custom (Not specified)')
+    : orderForm.paymentTerms;
 
-  const commitmentPeriodText = (orderForm.commitmentPeriod === 'Custom' && orderForm.customCommitmentPeriod) 
-    ? orderForm.customCommitmentPeriod 
-    : (orderForm.commitmentPeriod === 'Custom' ? 'Custom (Not specified)' : orderForm.commitmentPeriod);
+  const commitmentPeriodText = (orderForm.commitmentPeriod === 'Custom')
+    ? (orderForm.customCommitmentPeriod?.trim() ? orderForm.customCommitmentPeriod : 'Custom (Not specified)')
+    : orderForm.commitmentPeriod;
   
-  const paymentFrequencyText = (orderForm.paymentFrequency === 'Custom' && orderForm.customPaymentFrequency) 
-    ? orderForm.customPaymentFrequency 
-    : (orderForm.paymentFrequency === 'Custom' ? 'Custom (Not specified)' : orderForm.paymentFrequency);
+  const paymentFrequencyText = (orderForm.paymentFrequency === 'Custom')
+    ? (orderForm.customPaymentFrequency?.trim() ? orderForm.customPaymentFrequency : 'Custom (Not specified)')
+    : orderForm.paymentFrequency;
   
 
   return (
