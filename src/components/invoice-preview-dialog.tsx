@@ -3,6 +3,7 @@
 
 import * as React from 'react';
 import type { ReactNode } from 'react';
+import { useRouter } from 'next/navigation'; // Added
 import {
   Dialog,
   DialogContent,
@@ -16,11 +17,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Invoice, Customer, CoverPageTemplate } from '@/types';
-import { Download, Printer, FileSpreadsheet } from 'lucide-react';
+import { Download, Printer, FileSpreadsheet, FileSignature } from 'lucide-react'; // Added FileSignature
 import { useToast } from '@/hooks/use-toast';
 import { downloadInvoiceAsExcel, fetchCustomerById, fetchCoverPageTemplateById } from '@/lib/actions';
 import { useState, useEffect } from 'react';
-import { downloadPdfForDocument } from '@/lib/pdf-utils'; // Updated import for consistency
+import { downloadPdfForDocument } from '@/lib/pdf-utils';
 import { InvoicePreviewContent } from './invoice-preview-content';
 
 interface InvoicePreviewDialogProps {
@@ -30,6 +31,7 @@ interface InvoicePreviewDialogProps {
 }
 
 export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initialCustomer, trigger }: InvoicePreviewDialogProps) {
+  const router = useRouter(); // Added
   const { toast } = useToast();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
@@ -46,7 +48,7 @@ export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initia
 
   useEffect(() => {
     const loadCustomerDetails = async () => {
-      if (invoice.customerId && !customer) {
+      if (invoice.customerId && (!customer || customer.id !== invoice.customerId)) {
         setIsLoadingCustomer(true);
         try {
           const fetchedCustomer = await fetchCustomerById(invoice.customerId);
@@ -57,19 +59,21 @@ export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initia
         } finally {
           setIsLoadingCustomer(false);
         }
+      } else if (!invoice.customerId) {
+        setCustomer(undefined); // Clear customer if invoice has no customerId
+        setIsLoadingCustomer(false);
+      } else {
+        setIsLoadingCustomer(false); // Already have the correct customer or no customerId
       }
     };
-
-    if (invoice.customerId && (!customer || customer.id !== invoice.customerId)) {
-        loadCustomerDetails();
-    }
+    loadCustomerDetails();
   }, [invoice.customerId, customer, toast]);
 
   useEffect(() => {
     const loadCoverPageTemplate = async () => {
-      if (invoice.msaCoverPageTemplateId) {
+      if (invoice.msaContent && invoice.msaCoverPageTemplateId) {
         setIsLoadingCoverPage(true);
-        console.log(`[InvoicePreviewDialog] Attempting to fetch cover page template ID: ${invoice.msaCoverPageTemplateId}`);
+        console.log(`[InvoicePreviewDialog] Attempting to fetch cover page template ID: ${invoice.msaCoverPageTemplateId} for invoice ${invoice.id}`);
         try {
           const cpt = await fetchCoverPageTemplateById(invoice.msaCoverPageTemplateId);
           setCoverPageTemplate(cpt);
@@ -81,14 +85,14 @@ export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initia
           setIsLoadingCoverPage(false);
         }
       } else {
+        console.log(`[InvoicePreviewDialog] No msaCoverPageTemplateId or no msaContent for invoice ${invoice.id}. ID: ${invoice.msaCoverPageTemplateId}, HasMSA: ${!!invoice.msaContent}`);
         setCoverPageTemplate(undefined);
         setIsLoadingCoverPage(false);
-         console.log(`[InvoicePreviewDialog] No msaCoverPageTemplateId for invoice ${invoice.id}`);
       }
     };
 
     loadCoverPageTemplate();
-  }, [invoice.id, invoice.msaCoverPageTemplateId]);
+  }, [invoice.id, invoice.msaContent, invoice.msaCoverPageTemplateId]);
 
 
   const handleDownload = async (type: 'pdf' | 'excel') => {
@@ -100,7 +104,7 @@ export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initia
     
     try {
       if (type === 'pdf') {
-        await downloadPdfForDocument(invoice, customer); // Use the utility
+        await downloadPdfForDocument(invoice, customer);
       } else if (type === 'excel') {
         const result = await downloadInvoiceAsExcel(invoice.id);
         if (result.success && result.fileData && result.mimeType && result.fileName) {
@@ -123,6 +127,14 @@ export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initia
       setLoading(false);
     }
   };
+
+  const handleFinalizeForSignature = () => {
+    if (invoice.id) {
+      router.push(`/e-signature/configure/invoice/${invoice.id}`);
+    } else {
+      toast({ title: "Error", description: "Invoice ID is missing, cannot proceed.", variant: "destructive" });
+    }
+  };
   
   return (
     <Dialog>
@@ -138,12 +150,19 @@ export function InvoicePreviewDialog({ invoice: initialInvoice, customer: initia
               <p>Loading preview data...</p>
             </div>
           ) : (
-            <div id={`invoicePrintAreaDialog-${invoice.id}`}> {/* Unique ID for PDF generation target */}
+            <div id={`invoicePrintAreaDialog-${invoice.id}`}>
               <InvoicePreviewContent document={invoice} customer={customer} coverPageTemplate={coverPageTemplate} />
             </div>
           )}
         </ScrollArea>
         <DialogFooter className="sm:justify-start gap-2 pt-4">
+          <Button 
+            onClick={handleFinalizeForSignature} 
+            disabled={isDownloadingPdf || isDownloadingExcel || isLoadingCustomer || isLoadingCoverPage || invoice.status === 'Draft'}
+            className="bg-primary hover:bg-primary/90"
+          >
+            <FileSignature className="mr-2 h-4 w-4" /> Finalize for Signature
+          </Button>
           <Button onClick={() => handleDownload('pdf')} disabled={isDownloadingPdf || isLoadingCustomer || isLoadingCoverPage}>
             <Download className="mr-2 h-4 w-4" /> {isDownloadingPdf ? 'Downloading...' : 'Download PDF'}
           </Button>
