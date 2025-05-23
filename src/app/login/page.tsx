@@ -9,16 +9,37 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mail, Lock } from 'lucide-react';
 import Image from 'next/image';
+import { useState } from 'react';
+import { auth } from "@/lib/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLoading(true);
+    setError(null); 
     // For a real app, you would handle authentication here
-    console.log('Login submitted');
-    // On successful login, redirect to the app's dashboard page
-    router.push('/dashboard'); 
+
+    try{
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      const idToken = await user.getIdToken();
+      console.log("Firebase ID Token:", idToken);
+      localStorage.setItem("firebaseIdToken", idToken);
+      router.push('/dashboard');
+    }catch (err: any) {
+      console.error("Login error:", err.message); 
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+   
   };
 
   return (
@@ -44,14 +65,20 @@ export default function LoginPage() {
                 <Label htmlFor="email" className="text-card-foreground/90">Email</Label>
                 <div className="relative" suppressHydrationWarning={true}>
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="email" type="email" placeholder="name@example.com" required className="pl-10 bg-background/80 text-foreground placeholder:text-muted-foreground/70" />
+                  <Input id="email" type="email" placeholder="name@example.com" required className="pl-10 bg-background/80 text-foreground placeholder:text-muted-foreground/70" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-card-foreground/90">Password</Label>
                 <div className="relative" suppressHydrationWarning={true}>
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="password" type="password" required className="pl-10 placeholder:text-muted-foreground/70 bg-background/80 text-foreground" placeholder="••••••••" />
+                  <Input id="password" type="password" required className="pl-10 placeholder:text-muted-foreground/70 bg-background/80 text-foreground" placeholder="••••••••" 
+                   value={password}
+                   onChange={(e) => setPassword(e.target.value)}
+                  />
                 </div>
               </div>
               <div className="flex items-center justify-end">
@@ -61,7 +88,7 @@ export default function LoginPage() {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full" disabled={loading}>
                 Login
               </Button>
               <p className="text-center text-sm text-card-foreground/80">

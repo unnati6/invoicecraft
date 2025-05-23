@@ -60,12 +60,6 @@ export default function AdminLoginPage() {
               <Button type="submit" className="w-full">
                 Login to Admin
               </Button>
-               <p className="text-center text-sm text-card-foreground/80">
-                Not an admin?{' '}
-                <Link href="/login" className="font-semibold text-primary hover:underline">
-                  User Login
-                </Link>
-              </p>
             </CardFooter>
           </form>
         </Card>
