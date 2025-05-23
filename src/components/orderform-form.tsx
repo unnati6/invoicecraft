@@ -22,7 +22,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription a
 import { orderFormSchema, type OrderFormFormData, type AdditionalChargeFormData } from '@/lib/schemas';
 import type { OrderForm, Customer, TermsTemplate, MsaTemplate, RepositoryItem } from '@/types';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, addMonths } from 'date-fns';
 import { CalendarIcon, PlusCircle, Save, Trash2, ExternalLink, FileCheck2, Percent, Tag, Library, CircleDollarSign } from 'lucide-react';
 import { getAllCustomers, fetchNextOrderFormNumber, getAllTermsTemplates, saveOrderFormTerms, getAllMsaTemplates, getAllRepositoryItems } from '@/lib/actions';
 import Link from 'next/link';
@@ -68,7 +68,15 @@ const commitmentPeriodOptions = [
   { value: "Custom", label: "Custom" },
 ];
 
-const NO_MSA_TEMPLATE_SELECTED = "_no_msa_template_"; 
+const paymentFrequencyOptions = [
+    { value: "Monthly", label: "Monthly" },
+    { value: "Quarterly", label: "Quarterly" },
+    { value: "Biannual", label: "Biannual (Once every 6 months)" },
+    { value: "Annual", label: "Annual" },
+    { value: "Custom", label: "Custom" },
+];
+
+const NO_MSA_TEMPLATE_SELECTED = "_no_msa_template_";
 
 export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmitting = false }: OrderFormFormProps) {
   const [customers, setCustomers] = React.useState<Customer[]>([]);
@@ -91,7 +99,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
           ...initialData,
           issueDate: new Date(initialData.issueDate),
           validUntilDate: new Date(initialData.validUntilDate),
-          items: initialData.items.map(item => ({ 
+          items: initialData.items.map(item => ({
             id: item.id,
             description: item.description,
             quantity: item.quantity,
@@ -114,14 +122,18 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
           msaCoverPageTemplateId: initialData.msaCoverPageTemplateId || '',
           termsAndConditions: initialData.termsAndConditions || '<p></p>',
           paymentTerms: initialData.paymentTerms || "Net 30 Days",
+          customPaymentTerms: initialData.customPaymentTerms || '',
           commitmentPeriod: initialData.commitmentPeriod || "N/A",
+          customCommitmentPeriod: initialData.customCommitmentPeriod || '',
+          paymentFrequency: initialData.paymentFrequency || "Monthly",
+          customPaymentFrequency: initialData.customPaymentFrequency || '',
           serviceStartDate: initialData.serviceStartDate ? new Date(initialData.serviceStartDate) : null,
           serviceEndDate: initialData.serviceEndDate ? new Date(initialData.serviceEndDate) : null,
         }
       : {
           orderFormNumber: '',
           issueDate: new Date(),
-          validUntilDate: new Date(new Date().setDate(new Date().getDate() + 30)), 
+          validUntilDate: new Date(new Date().setDate(new Date().getDate() + 30)),
           items: [{ description: '', quantity: 1, rate: 0, procurementPrice: undefined, vendorName: '' }],
           additionalCharges: [],
           discountEnabled: false,
@@ -132,11 +144,15 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
           linkedMsaTemplateId: NO_MSA_TEMPLATE_SELECTED,
           msaContent: '',
           msaCoverPageTemplateId: '',
-          termsAndConditions: '<p></p>', 
+          termsAndConditions: '<p></p>',
           status: 'Draft',
           customerId: '',
           paymentTerms: "Net 30 Days",
+          customPaymentTerms: '',
           commitmentPeriod: "N/A",
+          customCommitmentPeriod: '',
+          paymentFrequency: "Monthly",
+          customPaymentFrequency: '',
           serviceStartDate: null,
           serviceEndDate: null,
         },
@@ -187,10 +203,10 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
     }
     loadInitialData();
   }, [toast]);
-  
+
   React.useEffect(() => {
     async function loadNextOrderFormNumber() {
-      if (!initialData) { 
+      if (!initialData) {
         setIsLoadingOFNumber(true);
         try {
           const nextOFNum = await fetchNextOrderFormNumber();
@@ -209,7 +225,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
   const watchedCustomerId = form.watch('customerId');
 
   React.useEffect(() => {
-    let custCurrencyCode: string | undefined = 'USD'; 
+    let custCurrencyCode: string | undefined = 'USD';
     const determineCurrency = () => {
       const currentFormCustomerId = form.getValues('customerId');
       if (currentFormCustomerId && customers.length > 0) {
@@ -261,7 +277,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
         currentDiscountAmount = preDiscSubtotal * (discVal / 100);
       }
     }
-    
+
     const finalTaxableAmount = preDiscSubtotal - currentDiscountAmount;
     const finalTaxAmount = finalTaxableAmount * ((Number(watchedTaxRate) || 0) / 100);
     const grandTotal = finalTaxableAmount + finalTaxAmount;
@@ -280,7 +296,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
 
   const handleTermsTemplateSelect = (templateId: string) => {
     if (templateId === "none" || !templateId) {
-      form.setValue('termsAndConditions', '<p></p>', { shouldDirty: true, shouldValidate: true }); 
+      form.setValue('termsAndConditions', '<p></p>', { shouldDirty: true, shouldValidate: true });
       return;
     }
     const selectedTemplate = termsTemplates.find(t => t.id === templateId);
@@ -316,7 +332,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
         setIsAutoSavingTerms(false);
       }
     }, 1500),
-    [toast, formIsSubmitting] 
+    [toast, formIsSubmitting]
   );
 
   const handleRepositoryItemSelect = (itemId: string, itemIndex: number) => {
@@ -333,6 +349,31 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
         form.setValue(`items.${itemIndex}.vendorName`, '', { shouldDirty: true });
     }
   };
+
+  const watchedServiceStartDate = form.watch('serviceStartDate');
+  const watchedCommitmentPeriod = form.watch('commitmentPeriod');
+
+  React.useEffect(() => {
+    if (watchedServiceStartDate && watchedCommitmentPeriod && watchedCommitmentPeriod !== "N/A" && watchedCommitmentPeriod !== "Custom") {
+      const parts = watchedCommitmentPeriod.split(" ");
+      const value = parseInt(parts[0]);
+      const unit = parts[1]; // "Month" or "Months"
+
+      if (!isNaN(value) && (unit === "Month" || unit === "Months")) {
+        const newEndDate = addMonths(new Date(watchedServiceStartDate), value);
+        form.setValue('serviceEndDate', newEndDate, { shouldValidate: true });
+      } else {
+         form.setValue('serviceEndDate', null, { shouldValidate: true });
+      }
+    } else {
+      // If no start date, or commitment is N/A or Custom, clear the auto-calculated end date.
+      form.setValue('serviceEndDate', null, { shouldValidate: true });
+    }
+  }, [watchedServiceStartDate, watchedCommitmentPeriod, form]);
+
+  const watchPaymentTerms = form.watch('paymentTerms');
+  const watchCommitmentPeriod = form.watch('commitmentPeriod');
+  const watchPaymentFrequency = form.watch('paymentFrequency');
 
   return (
     <Form {...form}>
@@ -352,7 +393,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                       <FormItem>
                         <FormLabel>Customer *</FormLabel>
                         <div className="flex items-center gap-2">
-                        <Select 
+                        <Select
                             onValueChange={field.onChange}
                             value={field.value}
                             disabled={isLoadingCustomers}
@@ -463,7 +504,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
             <Card>
               <CardHeader><CardTitle>Payment &amp; Service Details</CardTitle></CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
                     name="paymentTerms"
@@ -480,6 +521,19 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                       </FormItem>
                     )}
                   />
+                  {watchPaymentTerms === 'Custom' && (
+                    <FormField
+                      control={form.control}
+                      name="customPaymentTerms"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Custom Payment Terms</FormLabel>
+                          <FormControl><Input placeholder="Specify custom terms" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <FormField
                     control={form.control}
                     name="commitmentPeriod"
@@ -496,6 +550,48 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                       </FormItem>
                     )}
                   />
+                   {watchCommitmentPeriod === 'Custom' && (
+                     <FormField
+                      control={form.control}
+                      name="customCommitmentPeriod"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Custom Commitment Period</FormLabel>
+                          <FormControl><Input placeholder="Specify custom period" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                   <FormField
+                    control={form.control}
+                    name="paymentFrequency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Payment Frequency</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl><SelectTrigger><SelectValue placeholder="Select payment frequency" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {paymentFrequencyOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                   {watchPaymentFrequency === 'Custom' && (
+                     <FormField
+                      control={form.control}
+                      name="customPaymentFrequency"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Custom Payment Frequency</FormLabel>
+                          <FormControl><Input placeholder="Specify custom frequency" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
@@ -508,13 +604,13 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
-                                {field.value ? format(field.value, 'PPP') : <span>Pick a date (Optional)</span>}
+                                {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a date (Optional)</span>}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>
                             </FormControl>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={field.value || undefined} onSelect={field.onChange} initialFocus />
+                            <Calendar mode="single" selected={field.value ? new Date(field.value) : undefined} onSelect={field.onChange} initialFocus />
                           </PopoverContent>
                         </Popover>
                         <FormMessage />
@@ -531,13 +627,13 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
-                                {field.value ? format(field.value, 'PPP') : <span>Pick a date (Optional)</span>}
+                                {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a date (Optional)</span>}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>
                             </FormControl>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={field.value || undefined} onSelect={field.onChange} disabled={(date) => form.getValues("serviceStartDate") ? date < form.getValues("serviceStartDate")! : false} initialFocus />
+                            <Calendar mode="single" selected={field.value ? new Date(field.value) : undefined} onSelect={field.onChange} disabled={(date) => form.getValues("serviceStartDate") ? date < new Date(form.getValues("serviceStartDate")!) : false} initialFocus />
                           </PopoverContent>
                         </Popover>
                         <FormMessage />
@@ -723,9 +819,9 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Apply MSA Template</FormLabel>
-                                    <Select 
+                                    <Select
                                         onValueChange={(value) => {
-                                            field.onChange(value); 
+                                            field.onChange(value);
                                             handleMsaTemplateSelect(value);
                                         }}
                                         value={field.value || NO_MSA_TEMPLATE_SELECTED}
@@ -745,7 +841,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                         control={form.control}
                         name="msaContent"
                         render={({ field }) => (
-                            <FormItem className="hidden"> 
+                            <FormItem className="hidden">
                             <FormControl><Input {...field} /></FormControl>
                             <FormMessage />
                             </FormItem>
@@ -754,7 +850,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                     <FormField
                         control={form.control}
                         name="msaCoverPageTemplateId"
-                        render={({ field }) => ( 
+                        render={({ field }) => (
                             <FormItem className="hidden">
                             <FormControl><Input {...field} /></FormControl>
                             <FormMessage />
@@ -763,7 +859,7 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
                     />
                 </CardContent>
             </Card>
-            
+
             <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
@@ -849,3 +945,4 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
 }
 
 OrderFormForm.displayName = "OrderFormForm";
+
