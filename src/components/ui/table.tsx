@@ -62,6 +62,7 @@ const TableRow = React.forwardRef<
       className
     )}
     {...props}
+    suppressHydrationWarning={true} // Added this line
   />
 ))
 TableRow.displayName = "TableRow"
