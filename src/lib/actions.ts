@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as Data from './data';
-import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, PurchaseOrderItem } from '@/types';
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, PurchaseOrderItem, User } from '@/types';
 import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData, BrandingSettingsFormData, RepositoryItemFormData } from './schemas';
 import { format, addDays } from 'date-fns';
 import { Buffer } from 'buffer';
@@ -85,17 +85,14 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
 
   console.log("[Action: saveInvoice] Invoice Data Core for Save/Update:", JSON.parse(JSON.stringify(invoiceDataCore)));
 
-
   let savedInvoice: Invoice | null = null;
 
   if (id) {
     const existingInvoice = await Data.getInvoiceById(id);
     if (!existingInvoice) return null;
-
-    // Ensure all fields, including custom ones, are passed for update if present in form data
+    
     const finalData = {
-      ...invoiceDataCore, // This already has most fields from data
-      // Explicitly ensure potentially undefined but important fields are handled
+      ...invoiceDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
@@ -228,11 +225,9 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
   if (id) {
     const existingOrderForm = await Data.getOrderFormById(id);
     if (!existingOrderForm) return null;
-
-    // Ensure all fields, including custom ones, are passed for update if present in form data
+    
     const finalData = {
-      ...orderFormDataCore, // This already has most fields from data
-      // Explicitly ensure potentially undefined but important fields are handled
+      ...orderFormDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
@@ -246,10 +241,14 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
 
   if (savedOrderForm) {
     console.log("[Action: saveOrderForm] Saved Order Form:", JSON.parse(JSON.stringify(savedOrderForm)));
+    
+    await Data.deletePurchaseOrdersByOrderFormId(savedOrderForm.id);
+
     const customer = await fetchCustomerById(savedOrderForm.customerId);
     const orderFormCurrency = customer?.currency || savedOrderForm.currencyCode || 'USD';
     const customerNameForRepo = customer?.name || 'Unknown Customer';
 
+    const itemsByVendor = new Map<string, OrderFormItem[]>();
     for (const item of savedOrderForm.items) {
       await Data.upsertRepositoryItemFromOrderForm(
         item,
@@ -257,12 +256,37 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
         customerNameForRepo,
         orderFormCurrency
       );
+      if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice > 0) {
+        if (!itemsByVendor.has(item.vendorName)) {
+          itemsByVendor.set(item.vendorName, []);
+        }
+        itemsByVendor.get(item.vendorName)!.push(item);
+      }
+    }
+
+    for (const [vendorName, vendorItems] of itemsByVendor) {
+      const poNumber = await Data.getNextPoNumber();
+      const poItems: Omit<PurchaseOrderItem, 'id' | 'totalVendorPayable'>[] = vendorItems.map(vi => ({
+        description: vi.description,
+        quantity: vi.quantity,
+        procurementPrice: vi.procurementPrice!, // We know it's defined due to the filter above
+      }));
+
+      await Data.createPurchaseOrder({
+        poNumber,
+        vendorName,
+        orderFormId: savedOrderForm.id,
+        orderFormNumber: savedOrderForm.orderFormNumber,
+        issueDate: new Date(), // Or savedOrderForm.issueDate
+        items: poItems,
+        status: 'Draft',
+      });
     }
     revalidatePath('/orderforms');
     revalidatePath(`/orderforms/${savedOrderForm.id}`);
     revalidatePath(`/orderforms/${savedOrderForm.id}/terms`);
     revalidatePath('/item-repository');
-    revalidatePath('/purchase-orders'); // POs are generated from OFs
+    revalidatePath('/purchase-orders');
   }
 
   return savedOrderForm;
@@ -270,7 +294,11 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
 
 export async function removeOrderForm(id: string): Promise<boolean> {
   const success = await Data.deleteOrderForm(id);
-  if (success) revalidatePath('/orderforms');
+  if (success) {
+    await Data.deletePurchaseOrdersByOrderFormId(id);
+    revalidatePath('/orderforms');
+    revalidatePath('/purchase-orders');
+  }
   return success;
 }
 
@@ -683,6 +711,8 @@ export async function savePurchaseOrder(data: Partial<Omit<PurchaseOrder, 'id' |
     }
     return updated;
   } else {
+    // For creating POs, we typically do it from an OrderForm.
+    // Direct creation might be added later if needed.
     console.warn("Direct creation of Purchase Orders via savePurchaseOrder is not the primary flow yet.");
     return null;
   }
@@ -696,4 +726,15 @@ export async function removePurchaseOrder(id: string): Promise<boolean> {
   return success;
 }
 
-    
+// --- User Actions (for Admin Prototype) ---
+export async function getAllUsers(): Promise<User[]> {
+  return Data.getUsers();
+}
+
+export async function toggleUserActiveStatus(userId: string, isActive: boolean): Promise<User | null> {
+  const updatedUser = await Data.updateUser(userId, { isActive });
+  if (updatedUser) {
+    revalidatePath('/admin/dashboard'); // Revalidate admin dashboard to show updated status
+  }
+  return updatedUser;
+}

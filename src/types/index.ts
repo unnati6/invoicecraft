@@ -86,9 +86,13 @@ export interface Invoice {
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
   paymentTerms?: string;
+  customPaymentTerms?: string;
   commitmentPeriod?: string;
-  serviceStartDate?: Date;
-  serviceEndDate?: Date;
+  customCommitmentPeriod?: string;
+  paymentFrequency?: string;
+  customPaymentFrequency?: string;
+  serviceStartDate?: Date | null;
+  serviceEndDate?: Date | null;
   createdAt: Date;
 }
 
@@ -127,9 +131,13 @@ export interface OrderForm {
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   paymentTerms?: string;
+  customPaymentTerms?: string;
   commitmentPeriod?: string;
-  serviceStartDate?: Date;
-  serviceEndDate?: Date;
+  customCommitmentPeriod?: string;
+  paymentFrequency?: string;
+  customPaymentFrequency?: string;
+  serviceStartDate?: Date | null;
+  serviceEndDate?: Date | null;
   createdAt: Date;
 }
 
@@ -171,4 +179,15 @@ export interface PurchaseOrder {
   grandTotalVendorPayable: number; // Sum of all item totalVendorPayable
   status: 'Draft' | 'Issued' | 'Fulfilled' | 'Cancelled';
   createdAt: Date;
+}
+
+export type PlanType = 'Free' | 'Basic' | 'Pro' | 'Enterprise';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  signupDate: Date;
+  planType: PlanType;
+  isActive: boolean;
 }
