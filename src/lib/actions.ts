@@ -73,7 +73,11 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     termsAndConditions: data.termsAndConditions,
     status: data.status,
     paymentTerms: data.paymentTerms,
+    customPaymentTerms: data.customPaymentTerms,
     commitmentPeriod: data.commitmentPeriod,
+    customCommitmentPeriod: data.customCommitmentPeriod,
+    paymentFrequency: data.paymentFrequency,
+    customPaymentFrequency: data.customPaymentFrequency,
     serviceStartDate: data.serviceStartDate,
     serviceEndDate: data.serviceEndDate,
   };
@@ -90,6 +94,10 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
       msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
       linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId),
+      customPaymentTerms: data.customPaymentTerms !== undefined ? data.customPaymentTerms : existingInvoice.customPaymentTerms,
+      customCommitmentPeriod: data.customCommitmentPeriod !== undefined ? data.customCommitmentPeriod : existingInvoice.customCommitmentPeriod,
+      paymentFrequency: data.paymentFrequency !== undefined ? data.paymentFrequency : existingInvoice.paymentFrequency,
+      customPaymentFrequency: data.customPaymentFrequency !== undefined ? data.customPaymentFrequency : existingInvoice.customPaymentFrequency,
     };
 
     savedInvoice = await Data.updateInvoice(id, finalData);
@@ -112,11 +120,13 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     const customer = await fetchCustomerById(savedInvoice.customerId);
     const invoiceCurrency = customer?.currency || savedInvoice.currencyCode || 'USD';
     for (const item of savedInvoice.items) {
-      await Data.upsertRepositoryItemFromOrderForm(
-        item, 
+      await Data.upsertRepositoryItemFromOrderForm( // Using the more generic upsert function
+        item,
         savedInvoice.customerId,
         customer?.name || 'Unknown Customer',
-        invoiceCurrency
+        invoiceCurrency,
+        undefined, // procurementPrice (not applicable for invoice items)
+        undefined  // vendorName (not applicable for invoice items)
       );
     }
     revalidatePath('/item-repository');
@@ -160,18 +170,18 @@ export async function markInvoiceAsPaid(invoiceId: string): Promise<Invoice | nu
 
   if (invoice.status === 'Paid') {
     console.warn(`Invoice ${invoiceId} is already paid.`);
-    return invoice; 
+    return invoice;
   }
 
   const updatedInvoice = await Data.updateInvoice(invoiceId, { status: 'Paid' });
 
   if (updatedInvoice) {
-    revalidatePath('/invoices'); 
-    revalidatePath(`/invoices/${invoiceId}`); 
+    revalidatePath('/invoices');
+    revalidatePath(`/invoices/${invoiceId}`);
     if (updatedInvoice.customerId) {
-        revalidatePath(`/customers/${updatedInvoice.customerId}/edit`); 
+        revalidatePath(`/customers/${updatedInvoice.customerId}/edit`);
     }
-    revalidatePath('/(app)/dashboard', 'page'); 
+    revalidatePath('/(app)/dashboard', 'page');
     return updatedInvoice;
   }
   return null;
@@ -206,11 +216,15 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     termsAndConditions: data.termsAndConditions,
     status: data.status,
     paymentTerms: data.paymentTerms,
+    customPaymentTerms: data.customPaymentTerms,
     commitmentPeriod: data.commitmentPeriod,
+    customCommitmentPeriod: data.customCommitmentPeriod,
+    paymentFrequency: data.paymentFrequency,
+    customPaymentFrequency: data.customPaymentFrequency,
     serviceStartDate: data.serviceStartDate,
     serviceEndDate: data.serviceEndDate,
   };
-  
+
   let savedOrderForm: OrderForm | null = null;
 
   if (id) {
@@ -223,6 +237,10 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
       linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId),
+      customPaymentTerms: data.customPaymentTerms !== undefined ? data.customPaymentTerms : existingOrderForm.customPaymentTerms,
+      customCommitmentPeriod: data.customCommitmentPeriod !== undefined ? data.customCommitmentPeriod : existingOrderForm.customCommitmentPeriod,
+      paymentFrequency: data.paymentFrequency !== undefined ? data.paymentFrequency : existingOrderForm.paymentFrequency,
+      customPaymentFrequency: data.customPaymentFrequency !== undefined ? data.customPaymentFrequency : existingOrderForm.customPaymentFrequency,
     };
 
     savedOrderForm = await Data.updateOrderForm(id, finalData);
@@ -249,10 +267,12 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
         item,
         savedOrderForm.customerId,
         customerNameForRepo,
-        orderFormCurrency
+        orderFormCurrency,
+        item.procurementPrice,
+        item.vendorName
       );
     }
-    revalidatePath('/item-repository'); 
+    revalidatePath('/item-repository');
 
     // PO Generation Logic
     await Data.deletePurchaseOrdersByOrderFormId(savedOrderForm.id);
@@ -271,9 +291,9 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       const poItemsForVendor = vendorItems[vendorName].map(ofItem => ({
         description: ofItem.description,
         quantity: ofItem.quantity,
-        procurementPrice: ofItem.procurementPrice as number, // Already checked it's defined and > 0
+        procurementPrice: ofItem.procurementPrice as number,
       }));
-      
+
       await Data.createPurchaseOrder({
         poNumber,
         vendorName,
@@ -326,7 +346,7 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
     customerId: orderForm.customerId,
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
-    dueDate: addDays(new Date(), 30), 
+    dueDate: addDays(new Date(), 30),
     items: orderForm.items.map(item => ({
       description: item.description,
       quantity: item.quantity,
@@ -348,7 +368,11 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
     termsAndConditions: orderForm.termsAndConditions,
     status: 'Draft' as Invoice['status'],
     paymentTerms: orderForm.paymentTerms,
+    customPaymentTerms: orderForm.customPaymentTerms,
     commitmentPeriod: orderForm.commitmentPeriod,
+    customCommitmentPeriod: orderForm.customCommitmentPeriod,
+    paymentFrequency: orderForm.paymentFrequency,
+    customPaymentFrequency: orderForm.customPaymentFrequency,
     serviceStartDate: orderForm.serviceStartDate,
     serviceEndDate: orderForm.serviceEndDate,
   };
@@ -409,9 +433,9 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
 
   const headers = [
     'Invoice Number', 'Customer Name', 'Issue Date', 'Due Date', 'Status',
-    'Payment Terms', 'Commitment Period', 'Service Start Date', 'Service End Date',
+    'Payment Terms', 'Custom Payment Terms', 'Commitment Period', 'Custom Commitment Period', 'Payment Frequency', 'Custom Payment Frequency', 'Service Start Date', 'Service End Date',
     'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
-    'Invoice Subtotal', 'Discount Description', 'Discount Type', 'Discount Value', 'Discount Amount', 
+    'Invoice Subtotal', 'Discount Description', 'Discount Type', 'Discount Value', 'Discount Amount',
     'Invoice Tax Rate (%)', 'Invoice Tax Amount', 'Invoice Total'
   ];
 
@@ -425,7 +449,11 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
       format(new Date(invoice.dueDate), 'yyyy-MM-dd'),
       invoice.status,
       invoice.paymentTerms,
+      invoice.customPaymentTerms,
       invoice.commitmentPeriod,
+      invoice.customCommitmentPeriod,
+      invoice.paymentFrequency,
+      invoice.customPaymentFrequency,
       invoice.serviceStartDate ? format(new Date(invoice.serviceStartDate), 'yyyy-MM-dd') : '',
       invoice.serviceEndDate ? format(new Date(invoice.serviceEndDate), 'yyyy-MM-dd') : '',
       item.description,
@@ -462,9 +490,9 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
 
   const headers = [
     'OrderForm Number', 'Customer Name', 'Issue Date', 'Valid Until Date', 'Status',
-    'Payment Terms', 'Commitment Period', 'Service Start Date', 'Service End Date',
+    'Payment Terms', 'Custom Payment Terms', 'Commitment Period', 'Custom Commitment Period', 'Payment Frequency', 'Custom Payment Frequency', 'Service Start Date', 'Service End Date',
     'Item Description', 'Item Quantity', 'Item Rate', 'Item Procurement Price', 'Item Vendor Name', 'Item Amount',
-    'OrderForm Subtotal', 'Discount Description', 'Discount Type', 'Discount Value', 'Discount Amount', 
+    'OrderForm Subtotal', 'Discount Description', 'Discount Type', 'Discount Value', 'Discount Amount',
     'OrderForm Tax Rate (%)', 'OrderForm Tax Amount', 'OrderForm Total'
   ];
 
@@ -478,7 +506,11 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
       format(new Date(orderForm.validUntilDate), 'yyyy-MM-dd'),
       orderForm.status,
       orderForm.paymentTerms,
+      orderForm.customPaymentTerms,
       orderForm.commitmentPeriod,
+      orderForm.customCommitmentPeriod,
+      orderForm.paymentFrequency,
+      orderForm.customPaymentFrequency,
       orderForm.serviceStartDate ? format(new Date(orderForm.serviceStartDate), 'yyyy-MM-dd') : '',
       orderForm.serviceEndDate ? format(new Date(orderForm.serviceEndDate), 'yyyy-MM-dd') : '',
       item.description,
@@ -641,7 +673,7 @@ export async function getAllRepositoryItems(): Promise<RepositoryItem[]> {
   return Data.getRepositoryItems();
 }
 
-export async function fetchRepositoryItemById(id: string): Promise<RepositoryItem | undefined> { 
+export async function fetchRepositoryItemById(id: string): Promise<RepositoryItem | undefined> {
   return Data.getRepositoryItemById(id);
 }
 
@@ -652,7 +684,7 @@ export async function saveRepositoryItem(data: RepositoryItemFormData, id?: stri
     defaultProcurementPrice: data.defaultProcurementPrice,
     defaultVendorName: data.defaultVendorName,
     currencyCode: data.currencyCode,
-    customerId: data.customerId, 
+    customerId: data.customerId,
     customerName: data.customerName,
   };
 
@@ -694,7 +726,7 @@ export async function savePurchaseOrder(data: Partial<Omit<PurchaseOrder, 'id' |
     // For creating, we expect more complete data, typically handled by PO generation from OrderForm
     // This direct save might be for manual PO creation in the future
     console.warn("Direct creation of Purchase Orders via savePurchaseOrder is not the primary flow yet.");
-    return null; 
+    return null;
   }
 }
 
@@ -705,3 +737,4 @@ export async function removePurchaseOrder(id: string): Promise<boolean> {
   }
   return success;
 }
+
