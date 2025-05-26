@@ -6,8 +6,7 @@ import { useRouter, useParams, usePathname } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { CustomerForm } from '@/components/customer-form';
 import type { CustomerFormData } from '@/lib/schemas';
-import { fetchCustomerById, getAllInvoices, markInvoiceAsPaid } from '@/lib/actions';
-import { updateExistingCustomer } from '@/lib/customer-actions'; // Changed to updateExistingCustomer
+import { fetchCustomerById, getAllInvoices, markInvoiceAsPaid, saveCustomer } from '@/lib/actions'; // Reverted to use saveCustomer
 import { useToast } from '@/hooks/use-toast';
 import type { Customer, Invoice } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,7 +24,7 @@ export default function EditCustomerPage() {
   const params = useParams();
   const customerId = params.id as string;
   const { toast } = useToast();
-  const pathname = usePathname(); // Keep this
+  const pathname = usePathname();
   
   const [customer, setCustomer] = React.useState<Customer | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -56,7 +55,7 @@ export default function EditCustomerPage() {
       }
       loadCustomer();
     }
-  }, [customerId, router, toast, pathname]); // Added pathname here
+  }, [customerId, router, toast, pathname]);
 
   React.useEffect(() => {
     async function loadCustomerInvoices() {
@@ -82,12 +81,12 @@ export default function EditCustomerPage() {
     if (customer) { 
         loadCustomerInvoices();
     }
-  }, [customerId, customer, toast, pathname]); // Added pathname here for consistency
+  }, [customerId, customer, toast, pathname]);
 
   const handleSubmit = async (data: CustomerFormData) => {
     setIsSubmitting(true);
     try {
-      const updatedCustomer = await updateExistingCustomer(customerId, data); // Changed to updateExistingCustomer
+      const updatedCustomer = await saveCustomer(data, customerId); // Use saveCustomer
       if (updatedCustomer) {
         setCustomer(updatedCustomer);
         toast({ title: "Success", description: "Customer updated successfully." });
@@ -246,3 +245,4 @@ function CardSkeleton() {
     </div>
   );
 }
+    

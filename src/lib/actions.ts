@@ -1,11 +1,12 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import {
   getCustomers,
   getCustomerById,
-  // createCustomer is now in customer-actions.ts
-  // updateCustomer is now in customer-actions.ts
+  createCustomer,
+  updateCustomer,
   deleteCustomer,
   getInvoices,
   getInvoiceById,
@@ -36,16 +37,14 @@ import {
   deleteCoverPageTemplate,
   getRepositoryItems,
   getRepositoryItemById as getRepositoryItemByIdData,
-  createRepositoryItem as createRepositoryItemData, // Assuming this is now fully implemented or needed
+  createRepositoryItem as createRepositoryItemData,
   updateRepositoryItem as updateRepositoryItemData,
   deleteRepositoryItem,
-  upsertRepositoryItemFromOrderForm as upsertRepositoryItemFromOrderFormData,
   getPurchaseOrders,
   getPurchaseOrderById,
   createPurchaseOrder as createPurchaseOrderData,
-  updatePurchaseOrder as updatePurchaseOrderData,
+  // updatePurchaseOrder as updatePurchaseOrderData, // Not fully implemented yet
   deletePurchaseOrder,
-  // These functions need to be defined in your data.ts file if they are not already
   deletePurchaseOrdersByOrderFormId as deletePurchaseOrdersByOrderFormIdData,
   getNextPoNumber as getNextPoNumberData,
   getUsers,
@@ -65,7 +64,24 @@ export async function fetchCustomerById(id: string): Promise<Customer | undefine
   return getCustomerById(id);
 }
 
-// saveCustomer is removed as createNewCustomer and updateExistingCustomer are now separate in customer-actions.ts
+export async function saveCustomer(data: CustomerFormData, id?: string): Promise<Customer | null> {
+  if (id) {
+    const updatedCustomer = await updateCustomer(id, data);
+    if (updatedCustomer) {
+      revalidatePath('/customers');
+      revalidatePath(`/customers/${id}/edit`);
+      revalidatePath('/(app)/dashboard', 'page');
+    }
+    return updatedCustomer;
+  } else {
+    const newCustomer = await createCustomer(data);
+    if (newCustomer) {
+      revalidatePath('/customers');
+      revalidatePath('/(app)/dashboard', 'page');
+    }
+    return newCustomer;
+  }
+}
 
 export async function removeCustomer(id: string): Promise<boolean> {
   const success = await deleteCustomer(id);
@@ -90,18 +106,16 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
   const currencyCode = customer?.currency || 'USD';
 
   const invoiceDataCore = {
-    ...data, // Spread form data first
+    ...data,
     customerName: customer?.name || 'Unknown Customer',
     currencyCode: currencyCode,
     linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId,
-    // Ensure custom text fields are passed
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     customPaymentTerms: data.customPaymentTerms,
     customCommitmentPeriod: data.customCommitmentPeriod,
     paymentFrequency: data.paymentFrequency,
     customPaymentFrequency: data.customPaymentFrequency,
   };
-    console.log("[Action: saveInvoice] invoiceDataCore:", JSON.parse(JSON.stringify(invoiceDataCore)));
-
 
   if (id) {
     const existingInvoice = await getInvoiceById(id);
@@ -111,23 +125,13 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
       ...invoiceDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
-      msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
-      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId),
+      // msaCoverPageTemplateId is already in invoiceDataCore
     };
-      console.log("[Action: saveInvoice - Update] finalData for update:", JSON.parse(JSON.stringify(finalData)));
-
     const updated = await updateInvoiceData(id, finalData);
     if (updated) {
-      if (updated.items && updated.customerId && customer) {
-        for (const item of updated.items) {
-          // Pass currencyCode as part of the item object or adjust data.ts signature
-          await upsertRepositoryItemFromOrderFormData({ ...item, currencyCode: updated.currencyCode || 'USD' }, updated.customerId, customer.name);
-        }
-      }
       revalidatePath('/invoices');
       revalidatePath(`/invoices/${updated.id}`);
       revalidatePath(`/invoices/${updated.id}/terms`);
-      revalidatePath('/item-repository');
       revalidatePath('/(app)/dashboard', 'page');
       revalidatePath(`/customers/${updated.customerId}/edit`);
     }
@@ -135,15 +139,8 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
   } else {
     const newInvoice = await createInvoiceData(invoiceDataCore);
     if (newInvoice) {
-        if (newInvoice.items && newInvoice.customerId && customer) {
-         for (const item of newInvoice.items) {
-           // Pass currencyCode as part of the item object or adjust data.ts signature
-           await upsertRepositoryItemFromOrderFormData({ ...item, currencyCode: newInvoice.currencyCode || 'USD' }, newInvoice.customerId, customer.name);
-         }
-       }
       revalidatePath('/invoices');
       revalidatePath(`/invoices/${newInvoice.id}`);
-      revalidatePath('/item-repository');
       revalidatePath('/(app)/dashboard', 'page');
       revalidatePath(`/customers/${newInvoice.customerId}/edit`);
     }
@@ -163,9 +160,7 @@ export async function removeInvoice(id: string): Promise<boolean> {
 export async function saveInvoiceTerms(id: string, data: TermsFormData): Promise<Invoice | null> {
   const invoice = await getInvoiceById(id);
   if (!invoice) return null;
-
   const updated = await updateInvoiceData(id, { termsAndConditions: data.termsAndConditions });
-
   if (updated) {
     revalidatePath(`/invoices/${id}`);
     revalidatePath(`/invoices/${id}/terms`);
@@ -180,9 +175,7 @@ export async function fetchNextInvoiceNumber(): Promise<string> {
 export async function markInvoiceAsPaid(invoiceId: string): Promise<Invoice | null> {
   const invoice = await getInvoiceById(invoiceId);
   if (!invoice) return null;
-
   const updatedInvoice = await updateInvoiceData(invoiceId, { status: 'Paid' });
-
   if (updatedInvoice) {
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${invoiceId}`);
@@ -193,7 +186,6 @@ export async function markInvoiceAsPaid(invoiceId: string): Promise<Invoice | nu
   }
   return updatedInvoice;
 }
-
 
 // OrderForm Actions
 export async function getAllOrderForms(): Promise<OrderForm[]> {
@@ -209,45 +201,32 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
   const currencyCode = customer?.currency || 'USD';
 
   const orderFormDataCore = {
-    ...data, // Spread form data first
+    ...data,
     customerName: customer?.name || 'Unknown Customer',
     currencyCode: currencyCode,
     linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId,
-    // Ensure custom text fields are passed
+    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     customPaymentTerms: data.customPaymentTerms,
     customCommitmentPeriod: data.customCommitmentPeriod,
     paymentFrequency: data.paymentFrequency,
     customPaymentFrequency: data.customPaymentFrequency,
   };
-  // console.log("[Action: saveOrderForm] orderFormDataCore:", JSON.parse(JSON.stringify(orderFormDataCore)));
-
 
   if (id) {
     const existingOrderForm = await getOrderFormById(id);
     if (!existingOrderForm) return null;
-
     const finalData = {
       ...orderFormDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
-      msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
-      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId),
+      // msaCoverPageTemplateId is already in orderFormDataCore
     };
-    // 	console.log("[Action: saveOrderForm - Update] finalData for update:", JSON.parse(JSON.stringify(finalData)));
-
     const updated = await updateOrderFormData(id, finalData);
     if (updated) {
-      await deletePurchaseOrdersByOrderFormIdData(id); // Ensure this function is defined in data.ts
+      await deletePurchaseOrdersByOrderFormIdData(id);
       if (updated.items && updated.customerId && customer) {
-        for (const item of updated.items) {
-          // Pass currencyCode as part of the item object or adjust data.ts signature
-          await upsertRepositoryItemFromOrderFormData({ ...item, currencyCode: updated.currencyCode || 'USD' }, updated.customerId, customer.name);
-          if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice >= 0) {
-            // Logic to group items by vendor and create/update POs will be complex here
-            // For now, let's assume one PO per vendor, per Order Form save
-          }
-        }
-        // Simplified PO creation: group items by vendor from the updated Order Form
+        // For now, we are not dynamically updating the Item Repository from Order Forms in this reverted version.
+        // This logic can be re-added later if desired.
         const itemsByVendor = updated.items.reduce((acc, item) => {
           if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice >= 0) {
             if (!acc[item.vendorName]) {
@@ -265,7 +244,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
             procurementPrice: ofi.procurementPrice!,
           }));
           if (poItems.length > 0) {
-            const poNumber = await getNextPoNumberData(); // Ensure this function is defined in data.ts
+            const poNumber = await getNextPoNumberData();
             await createPurchaseOrderData({
               poNumber,
               vendorName,
@@ -281,7 +260,6 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       revalidatePath('/orderforms');
       revalidatePath(`/orderforms/${updated.id}`);
       revalidatePath(`/orderforms/${updated.id}/terms`);
-      revalidatePath('/item-repository');
       revalidatePath('/purchase-orders');
     }
     return updated;
@@ -289,11 +267,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     const newOrderForm = await createOrderFormData(orderFormDataCore);
     if(newOrderForm) {
       if (newOrderForm.items && newOrderForm.customerId && customer) {
-        for (const item of newOrderForm.items) {
-            // Pass currencyCode as part of the item object or adjust data.ts signature
-            await upsertRepositoryItemFromOrderFormData({ ...item, currencyCode: newOrderForm.currencyCode || 'USD' }, newOrderForm.customerId, customer.name);
-        }
-          // PO Creation for new Order Form
+        // For now, we are not dynamically updating the Item Repository from Order Forms in this reverted version.
         const itemsByVendor = newOrderForm.items.reduce((acc, item) => {
           if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice >= 0) {
             if (!acc[item.vendorName]) {
@@ -311,7 +285,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
             procurementPrice: ofi.procurementPrice!,
           }));
             if (poItems.length > 0) {
-            const poNumber = await getNextPoNumberData(); // Ensure this function is defined in data.ts
+            const poNumber = await getNextPoNumberData();
             await createPurchaseOrderData({
               poNumber,
               vendorName,
@@ -326,17 +300,17 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       }
       revalidatePath('/orderforms');
       revalidatePath(`/orderforms/${newOrderForm.id}`);
-      revalidatePath('/item-repository');
       revalidatePath('/purchase-orders');
     }
     return newOrderForm;
   }
 }
 
+
 export async function removeOrderForm(id: string): Promise<boolean> {
   const success = await deleteOrderForm(id);
   if (success) {
-    await deletePurchaseOrdersByOrderFormIdData(id); // Ensure this function is defined in data.ts
+    await deletePurchaseOrdersByOrderFormIdData(id);
     revalidatePath('/orderforms');
     revalidatePath('/purchase-orders');
   }
@@ -346,9 +320,7 @@ export async function removeOrderForm(id: string): Promise<boolean> {
 export async function saveOrderFormTerms(id: string, data: TermsFormData): Promise<OrderForm | null> {
   const orderForm = await getOrderFormById(id);
   if (!orderForm) return null;
-
   const updated = await updateOrderFormData(id, { termsAndConditions: data.termsAndConditions });
-
   if (updated) {
     revalidatePath(`/orderforms/${id}`);
     revalidatePath(`/orderforms/${id}/terms`);
@@ -368,13 +340,12 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
   }
 
   const nextInvoiceNumber = await getNextInvoiceNumberData();
-  const customer = await fetchCustomerById(orderForm.customerId);
 
   const newInvoiceData: Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode' | 'discountAmount'> & { items: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: any[] } = {
     customerId: orderForm.customerId,
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
-    dueDate: addDays(new Date(), 30), // Default due date
+    dueDate: addDays(new Date(), 30),
     items: orderForm.items.map(item => ({
       description: item.description,
       quantity: item.quantity,
@@ -420,7 +391,6 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
   } else {
     console.error('Failed to create invoice from order form:', orderFormId);
   }
-
   return newInvoice;
 }
 
@@ -428,7 +398,6 @@ export async function convertMultipleOrderFormsToInvoices(orderFormIds: string[]
   let successCount = 0;
   let errorCount = 0;
   const newInvoiceIds: string[] = [];
-
   for (const orderFormId of orderFormIds) {
     const newInvoice = await convertOrderFormToInvoice(orderFormId);
     if (newInvoice) {
@@ -442,7 +411,6 @@ export async function convertMultipleOrderFormsToInvoices(orderFormIds: string[]
     revalidatePath('/invoices');
     revalidatePath('/orderforms');
     revalidatePath('/(app)/dashboard', 'page');
-    // Could also revalidate multiple customer edit pages if needed, but might be too broad
   }
   return { successCount, errorCount, newInvoiceIds };
 }
@@ -461,7 +429,6 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
   if (!invoice) {
     return { success: false, message: 'Invoice not found.' };
   }
-
   const headers = [
     'Invoice Number', 'Customer Name', 'Issue Date', 'Due Date', 'Status',
     'Payment Terms', 'Custom Payment Terms', 'Commitment Period', 'Custom Commitment Period',
@@ -471,81 +438,44 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
     'Additional Charge Description', 'Additional Charge Type', 'Additional Charge Value', 'Additional Charge Calculated Amount',
     'Invoice Subtotal (Items)', 'Invoice Tax Rate (%)', 'Invoice Tax Amount', 'Invoice Total'
   ];
-
   let csvContent = headers.map(escapeCsvField).join(',') + '\n';
-
-  // Base row for invoice details
   const baseInvoiceRow = [
-      invoice.invoiceNumber,
-      invoice.customerName,
-      format(new Date(invoice.issueDate), 'yyyy-MM-dd'),
-      format(new Date(invoice.dueDate), 'yyyy-MM-dd'),
-      invoice.status,
-      invoice.paymentTerms,
-      invoice.customPaymentTerms,
-      invoice.commitmentPeriod,
-      invoice.customCommitmentPeriod,
-      invoice.paymentFrequency,
-      invoice.customPaymentFrequency,
-      invoice.serviceStartDate ? format(new Date(invoice.serviceStartDate), 'yyyy-MM-dd') : '',
+      invoice.invoiceNumber, invoice.customerName, format(new Date(invoice.issueDate), 'yyyy-MM-dd'),
+      format(new Date(invoice.dueDate), 'yyyy-MM-dd'), invoice.status,
+      invoice.paymentTerms, invoice.customPaymentTerms, invoice.commitmentPeriod, invoice.customCommitmentPeriod,
+      invoice.paymentFrequency, invoice.customPaymentFrequency, invoice.serviceStartDate ? format(new Date(invoice.serviceStartDate), 'yyyy-MM-dd') : '',
       invoice.serviceEndDate ? format(new Date(invoice.serviceEndDate), 'yyyy-MM-dd') : '',
   ];
-
-  // Add rows for each item
   invoice.items.forEach(item => {
     const itemRow = [
-      ...baseInvoiceRow,
-      item.description,
-      item.quantity,
-      item.rate,
-      item.amount,
-      invoice.discountEnabled, invoice.discountDescription, invoice.discountType, invoice.discountValue, invoice.discountAmount, // Discount info per item row for simplicity in CSV structure
-      '', '', '', '', // Placeholders for additional charges
-      invoice.subtotal,
-      invoice.taxRate,
-      invoice.taxAmount,
-      invoice.total
+      ...baseInvoiceRow, item.description, item.quantity, item.rate, item.amount,
+      invoice.discountEnabled, invoice.discountDescription, invoice.discountType, invoice.discountValue, invoice.discountAmount,
+      '', '', '', '', invoice.subtotal, invoice.taxRate, invoice.taxAmount, invoice.total
     ];
     csvContent += itemRow.map(escapeCsvField).join(',') + '\n';
   });
-
-  // Add rows for each additional charge
   if (invoice.additionalCharges && invoice.additionalCharges.length > 0) {
     invoice.additionalCharges.forEach(charge => {
       const chargeRow = [
-        ...baseInvoiceRow,
-          '', '', '', '', // Placeholders for item details
+        ...baseInvoiceRow, '', '', '', '',
         invoice.discountEnabled, invoice.discountDescription, invoice.discountType, invoice.discountValue, invoice.discountAmount,
         charge.description, charge.valueType, charge.value, charge.calculatedAmount,
-        invoice.subtotal,
-        invoice.taxRate,
-        invoice.taxAmount,
-        invoice.total
+        invoice.subtotal, invoice.taxRate, invoice.taxAmount, invoice.total
       ];
       csvContent += chargeRow.map(escapeCsvField).join(',') + '\n';
     });
-  } else if (invoice.items.length === 0) { // If no items and no charges, add one row with invoice details
+  } else if (invoice.items.length === 0) {
       const emptyRow = [
-        ...baseInvoiceRow,
-        '', '', '', '', // Placeholders for item details
+        ...baseInvoiceRow, '', '', '', '',
         invoice.discountEnabled, invoice.discountDescription, invoice.discountType, invoice.discountValue, invoice.discountAmount,
-        '', '', '', '', // Placeholders for additional charges
-        invoice.subtotal,
-        invoice.taxRate,
-        invoice.taxAmount,
-        invoice.total
+        '', '', '', '', invoice.subtotal, invoice.taxRate, invoice.taxAmount, invoice.total
       ];
     csvContent += emptyRow.map(escapeCsvField).join(',') + '\n';
   }
-
-
   const fileData = Buffer.from(csvContent).toString('base64');
   return {
-    success: true,
-    message: "CSV file generated.",
-    fileName: `Invoice_${invoice.invoiceNumber}.csv`,
-    fileData: fileData,
-    mimeType: 'text/csv'
+    success: true, message: "CSV file generated.", fileName: `Invoice_${invoice.invoiceNumber}.csv`,
+    fileData: fileData, mimeType: 'text/csv'
   };
 }
 
@@ -554,7 +484,6 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
   if (!orderForm) {
     return { success: false, message: 'Order Form not found.' };
   }
-
   const headers = [
     'OrderForm Number', 'Customer Name', 'Issue Date', 'Valid Until Date', 'Status',
     'Payment Terms', 'Custom Payment Terms', 'Commitment Period', 'Custom Commitment Period',
@@ -564,80 +493,44 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
     'Additional Charge Description', 'Additional Charge Type', 'Additional Charge Value', 'Additional Charge Calculated Amount',
     'OrderForm Subtotal (Items)', 'OrderForm Tax Rate (%)', 'OrderForm Tax Amount', 'OrderForm Total'
   ];
-
   let csvContent = headers.map(escapeCsvField).join(',') + '\n';
-
   const baseOrderFormRow = [
-      orderForm.orderFormNumber,
-      orderForm.customerName,
-      format(new Date(orderForm.issueDate), 'yyyy-MM-dd'),
-      format(new Date(orderForm.validUntilDate), 'yyyy-MM-dd'),
-      orderForm.status,
-      orderForm.paymentTerms,
-      orderForm.customPaymentTerms,
-      orderForm.commitmentPeriod,
-      orderForm.customCommitmentPeriod,
-      orderForm.paymentFrequency,
-      orderForm.customPaymentFrequency,
-      orderForm.serviceStartDate ? format(new Date(orderForm.serviceStartDate), 'yyyy-MM-dd') : '',
+      orderForm.orderFormNumber, orderForm.customerName, format(new Date(orderForm.issueDate), 'yyyy-MM-dd'),
+      format(new Date(orderForm.validUntilDate), 'yyyy-MM-dd'), orderForm.status,
+      orderForm.paymentTerms, orderForm.customPaymentTerms, orderForm.commitmentPeriod, orderForm.customCommitmentPeriod,
+      orderForm.paymentFrequency, orderForm.customPaymentFrequency, orderForm.serviceStartDate ? format(new Date(orderForm.serviceStartDate), 'yyyy-MM-dd') : '',
       orderForm.serviceEndDate ? format(new Date(orderForm.serviceEndDate), 'yyyy-MM-dd') : '',
   ];
-
   orderForm.items.forEach(item => {
     const itemRow = [
-      ...baseOrderFormRow,
-      item.description,
-      item.quantity,
-      item.rate,
-      item.procurementPrice,
-      item.vendorName,
-      item.amount,
+      ...baseOrderFormRow, item.description, item.quantity, item.rate, item.procurementPrice, item.vendorName, item.amount,
       orderForm.discountEnabled, orderForm.discountDescription, orderForm.discountType, orderForm.discountValue, orderForm.discountAmount,
-      '', '', '', '',
-      orderForm.subtotal,
-      orderForm.taxRate,
-      orderForm.taxAmount,
-      orderForm.total
+      '', '', '', '', orderForm.subtotal, orderForm.taxRate, orderForm.taxAmount, orderForm.total
     ];
     csvContent += itemRow.map(escapeCsvField).join(',') + '\n';
   });
-
   if (orderForm.additionalCharges && orderForm.additionalCharges.length > 0) {
     orderForm.additionalCharges.forEach(charge => {
       const chargeRow = [
-        ...baseOrderFormRow,
-        '', '', '', '', '', '', // Placeholders for item details
+        ...baseOrderFormRow, '', '', '', '', '', '',
         orderForm.discountEnabled, orderForm.discountDescription, orderForm.discountType, orderForm.discountValue, orderForm.discountAmount,
         charge.description, charge.valueType, charge.value, charge.calculatedAmount,
-        orderForm.subtotal,
-        orderForm.taxRate,
-        orderForm.taxAmount,
-        orderForm.total
+        orderForm.subtotal, orderForm.taxRate, orderForm.taxAmount, orderForm.total
       ];
       csvContent += chargeRow.map(escapeCsvField).join(',') + '\n';
     });
   } else if (orderForm.items.length === 0) {
       const emptyRow = [
-        ...baseOrderFormRow,
-        '', '', '', '', '', '',
+        ...baseOrderFormRow, '', '', '', '', '', '',
         orderForm.discountEnabled, orderForm.discountDescription, orderForm.discountType, orderForm.discountValue, orderForm.discountAmount,
-        '', '', '', '',
-        orderForm.subtotal,
-        orderForm.taxRate,
-        orderForm.taxAmount,
-        orderForm.total
+        '', '', '', '', orderForm.subtotal, orderForm.taxRate, orderForm.taxAmount, orderForm.total
       ];
     csvContent += emptyRow.map(escapeCsvField).join(',') + '\n';
   }
-
-
   const fileData = Buffer.from(csvContent).toString('base64');
   return {
-    success: true,
-    message: "CSV file generated.",
-    fileName: `OrderForm_${orderForm.orderFormNumber}.csv`,
-    fileData: fileData,
-    mimeType: 'text/csv'
+    success: true, message: "CSV file generated.", fileName: `OrderForm_${orderForm.orderFormNumber}.csv`,
+    fileData: fileData, mimeType: 'text/csv'
   };
 }
 
@@ -690,9 +583,6 @@ export async function saveMsaTemplate(data: MsaTemplateFormData, id?: string): P
     content: data.content,
     coverPageTemplateId: data.coverPageTemplateId === "_no_cover_page_" ? undefined : data.coverPageTemplateId,
   };
-  // console.log("[Action: saveMsaTemplate] Payload for save/update:", JSON.parse(JSON.stringify(payload)));
-
-
   if (id) {
     const updated = await updateMsaTemplateData(id, payload);
     if (updated) {
@@ -720,14 +610,12 @@ export async function removeMsaTemplate(id: string): Promise<boolean> {
 export async function linkCoverPageToMsa(msaTemplateId: string, coverPageTemplateId: string | null): Promise<MsaTemplate | null> {
   const msaTemplate = await getMsaTemplateById(msaTemplateId);
   if (!msaTemplate) return null;
-
   const updatedMsaTemplate = await updateMsaTemplateData(msaTemplateId, { coverPageTemplateId: coverPageTemplateId === null ? undefined : coverPageTemplateId });
   if (updatedMsaTemplate) {
     revalidatePath('/templates/msa');
   }
   return updatedMsaTemplate;
 }
-
 
 // Cover Page Template Actions
 export async function getAllCoverPageTemplates(): Promise<CoverPageTemplate[]> {
@@ -788,13 +676,9 @@ export async function saveRepositoryItem(data: RepositoryItemFormData, id?: stri
     }
     return updated;
   } else {
-    // Direct creation of repository items might need a separate form/flow
-    // If you intend to allow direct creation from a form, uncomment and implement this:
-    const newItem = await createRepositoryItemData(data); // Assuming createRepositoryItemData is now robust
+    const newItem = await createRepositoryItemData(data);
     if (newItem) revalidatePath('/item-repository');
     return newItem;
-    // console.warn("Direct creation of repository items via saveRepositoryItem without ID is not fully implemented. Items are typically created/updated via Order Forms or Invoices.");
-    // return null;
   }
 }
 
@@ -815,9 +699,6 @@ export async function fetchPurchaseOrderById(id: string): Promise<PurchaseOrder 
   return getPurchaseOrderById(id);
 }
 
-// savePurchaseOrder would be for creating/editing POs directly, not currently implemented
-// removePurchaseOrder is already there
-
 // User Actions (for Admin)
 export async function getAllUsers(): Promise<User[]> {
   return getUsers();
@@ -830,3 +711,4 @@ export async function toggleUserActiveStatus(userId: string, isActive: boolean):
   }
   return updatedUser;
 }
+    

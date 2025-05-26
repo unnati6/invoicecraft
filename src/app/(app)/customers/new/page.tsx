@@ -2,43 +2,43 @@
 'use client';
 
 import * as React from 'react';
-// All other imports like AppHeader, CustomerForm, useToast, useRouter are removed for this test.
-// Only import what's absolutely necessary for the minimal test.
-import { ultraMinimalServerActionForNewCustomerPage } from '../../../../lib/new-customer-page-actions';
+import { useRouter } from 'next/navigation';
+import { AppHeader } from '@/components/layout/app-header';
+import { CustomerForm } from '@/components/customer-form';
+import type { CustomerFormData } from '@/lib/schemas';
+import { saveCustomer } from '@/lib/actions'; // Reverted to use saveCustomer
+import { useToast } from '@/hooks/use-toast';
 
 export default function NewCustomerPage() {
+  const router = useRouter();
+  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [message, setMessage] = React.useState('');
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmit = async (data: CustomerFormData) => {
     setIsSubmitting(true);
-    setMessage('');
     try {
-      await ultraMinimalServerActionForNewCustomerPage();
-      setMessage("Ultra minimal server action (from separate file) called successfully. Check server console.");
-    } catch (error: any) {
-      console.error("Failed to call ultraMinimalServerActionForNewCustomerPage:", error);
-      setMessage(`Error calling action: ${error.message}`);
+      const newCustomer = await saveCustomer(data); // Use saveCustomer
+      if (newCustomer) {
+        toast({ title: "Success", description: "Customer created successfully." });
+        router.push(`/customers/${newCustomer.id}/edit`);
+      } else {
+        toast({ title: "Error", description: "Failed to create customer.", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Failed to create customer:", error);
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div style={{ padding: '20px', margin: '20px', border: '1px solid black' }}>
-      <h1>New Customer Page (Ultra Minimal External Server Action Test)</h1>
-      <p>This page tests if any server action, when defined in its own dedicated file, can be bundled for this route.</p>
-      <form onSubmit={handleSubmit}>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          style={{ padding: '8px 15px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          {isSubmitting ? 'Calling Action...' : 'Call Ultra Minimal External Action'}
-        </button>
-      </form>
-      {message && <p style={{ marginTop: '10px', color: message.startsWith('Error') ? 'red' : 'green' }}>{message}</p>}
-    </div>
+    <>
+      <AppHeader title="Add New Customer" showBackButton />
+      <main className="flex-1 p-4 md:p-6">
+        <CustomerForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+      </main>
+    </>
   );
 }
+    
