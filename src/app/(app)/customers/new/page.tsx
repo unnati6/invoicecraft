@@ -2,41 +2,53 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import { AppHeader } from '@/components/layout/app-header';
-import { CustomerForm } from '@/components/customer-form';
-import type { CustomerFormData } from '@/lib/schemas';
-import { createNewCustomer } from '../../../../lib/customer-actions';
-import { useToast } from '@/hooks/use-toast';
+// Removed AppHeader, CustomerForm, useRouter, useToast, CustomerFormData
+// Removed import of createNewCustomer from '../../../../lib/customer-actions'
+
+// Define an ultra-minimal server action directly in the page file
+async function minimalTestAction(formData: FormData): Promise<void> {
+  'use server';
+  const name = formData.get('name') as string;
+  console.log("[NewCustomerPage Ultra-Minimal Action] minimalTestAction called. Name:", name);
+  // Does nothing else for diagnostic purposes.
+}
 
 export default function NewCustomerPage() {
-  const router = useRouter();
-  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const handleSubmit = async (data: CustomerFormData) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setIsSubmitting(true);
+    const formData = new FormData(event.currentTarget);
     try {
-      // Call the ultra-minimal, synchronous void action
-      createNewCustomer(data); 
-      toast({ title: "Action Called", description: "createNewCustomer (minimal) was called." });
-      // Since it's a void function for diagnostics, we won't get a result to check.
-      // We'll just assume success for this test and redirect.
-      router.push('/customers'); 
+      await minimalTestAction(formData);
+      alert("Minimal test action called. Check server console.");
     } catch (error) {
-      console.error("Failed to call createNewCustomer:", error);
-      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+      console.error("Failed to call minimalTestAction:", error);
+      alert("Error calling minimal test action. Check console.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <>
-      <AppHeader title="Add New Customer" showBackButton />
-      <main className="flex-1 p-4 md:p-6">
-        <CustomerForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
-      </main>
-    </>
+    <div style={{ padding: '20px', margin: '20px', border: '1px solid black' }}>
+      <h1>New Customer Page (Minimal Diagnostic)</h1>
+      <p>This page has been stripped down to test a very basic server action.</p>
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: '10px' }}>
+          <label htmlFor="nameInput" style={{ marginRight: '10px' }}>Test Name: </label>
+          <input type="text" id="nameInput" name="name" defaultValue="Test Name Input" style={{ padding: '5px', border: '1px solid #ccc' }} />
+        </div>
+        <button 
+          type="submit" 
+          disabled={isSubmitting} 
+          style={{ padding: '8px 15px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+        >
+          {isSubmitting ? 'Calling Action...' : 'Call Minimal Test Action'}
+        </button>
+      </form>
+      {isSubmitting && <p style={{ marginTop: '10px' }}>Submitting...</p>}
+    </div>
   );
 }
