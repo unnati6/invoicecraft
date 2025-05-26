@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -5,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { CustomerForm } from '@/components/customer-form';
 import type { CustomerFormData } from '@/lib/schemas';
-import { saveCustomer } from '@/lib/actions';
+import { createNewCustomer } from '@/lib/actions'; // Changed to createNewCustomer
 import { useToast } from '@/hooks/use-toast';
 
 export default function NewCustomerPage() {
@@ -16,7 +17,7 @@ export default function NewCustomerPage() {
   const handleSubmit = async (data: CustomerFormData) => {
     setIsSubmitting(true);
     try {
-      const newCustomer = await saveCustomer(data);
+      const newCustomer = await createNewCustomer(data); // Changed to createNewCustomer
       if (newCustomer) {
         toast({ title: "Success", description: "Customer created successfully." });
         router.push('/customers');

@@ -4,7 +4,7 @@
 import { revalidatePath } from 'next/cache';
 import * as Data from './data';
 import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, PurchaseOrderItem, User } from '@/types';
-import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData, BrandingSettingsFormData, RepositoryItemFormData } from './schemas';
+import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData, BrandingSettingsFormData, RepositoryItemFormData, SmtpSettingsFormData, EmailTemplateFormData } from './schemas';
 import { format, addDays } from 'date-fns';
 import { Buffer } from 'buffer';
 
@@ -17,22 +17,33 @@ export async function fetchCustomerById(id: string): Promise<Customer | undefine
   return Data.getCustomerById(id);
 }
 
+export async function createNewCustomer(data: CustomerFormData): Promise<Customer | null> {
+  console.log("[Action: createNewCustomer] Received Form Data:", JSON.parse(JSON.stringify(data)));
+  const newCustomer = await Data.createCustomer(data);
+  if (newCustomer) {
+    revalidatePath('/customers');
+    revalidatePath('/(app)/dashboard', 'page');
+  }
+  return newCustomer;
+}
+
+export async function updateExistingCustomer(id: string, data: CustomerFormData): Promise<Customer | null> {
+  console.log(`[Action: updateExistingCustomer] ID: ${id}, Received Form Data:`, JSON.parse(JSON.stringify(data)));
+  const updatedCustomer = await Data.updateCustomer(id, data);
+  if (updatedCustomer) {
+    revalidatePath('/customers');
+    revalidatePath(`/customers/${id}/edit`);
+    revalidatePath('/(app)/dashboard', 'page');
+  }
+  return updatedCustomer;
+}
+
+// Kept for compatibility if other pages still use it, but direct calls to create/update are preferred.
 export async function saveCustomer(data: CustomerFormData, id?: string): Promise<Customer | null> {
   if (id) {
-    const updated = await Data.updateCustomer(id, data);
-    if (updated) {
-      revalidatePath('/customers');
-      revalidatePath(`/customers/${id}/edit`);
-      revalidatePath('/(app)/dashboard', 'page');
-    }
-    return updated;
+    return updateExistingCustomer(id, data);
   } else {
-    const newCustomer = await Data.createCustomer(data);
-    if (newCustomer) {
-      revalidatePath('/customers');
-      revalidatePath('/(app)/dashboard', 'page');
-    }
-    return newCustomer;
+    return createNewCustomer(data);
   }
 }
 
@@ -82,8 +93,7 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     serviceStartDate: data.serviceStartDate,
     serviceEndDate: data.serviceEndDate,
   };
-
-  console.log("[Action: saveInvoice] Invoice Data Core for Save/Update:", JSON.parse(JSON.stringify(invoiceDataCore)));
+  console.log("[Action: saveInvoice] Core Data for Save/Update:", JSON.parse(JSON.stringify(invoiceDataCore)));
 
   let savedInvoice: Invoice | null = null;
 
@@ -92,11 +102,17 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     if (!existingInvoice) return null;
     
     const finalData = {
-      ...invoiceDataCore,
+      ...invoiceDataCore, // Contains all fields from the form
+      // Ensure termsAndConditions and MSA related fields from form data are used
+      // If they are undefined in form data (e.g. schema allows optional and not provided), it will take from existing.
+      // This logic assumes that if a field is present in `data` (from the form), it should override.
+      // The `...invoiceDataCore` spread already achieves this if `data` always includes these fields.
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
-      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId),
+      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" 
+        ? undefined 
+        : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId),
     };
     console.log("[Action: saveInvoice] Final Data for Update:", JSON.parse(JSON.stringify(finalData)));
     savedInvoice = await Data.updateInvoice(id, finalData);
@@ -107,15 +123,17 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
   if (savedInvoice) {
     console.log("[Action: saveInvoice] Saved Invoice:", JSON.parse(JSON.stringify(savedInvoice)));
     const customer = await fetchCustomerById(savedInvoice.customerId);
-    const invoiceCurrency = customer?.currency || savedInvoice.currencyCode || 'USD';
-    const customerNameForRepo = customer?.name || 'Unknown Customer';
+    const customerName = customer?.name || 'Unknown Customer';
+    const customerCurrency = customer?.currency || 'USD';
 
     for (const item of savedInvoice.items) {
        await Data.upsertRepositoryItemFromOrderForm(
-        item, 
+        item as any, // Cast as any to satisfy the function expecting OrderFormItem specific fields if necessary
         savedInvoice.customerId,
-        customerNameForRepo,
-        invoiceCurrency
+        customerName,
+        customerCurrency,
+        undefined, // procurementPrice for invoice item
+        undefined  // vendorName for invoice item
       );
     }
     revalidatePath('/invoices');
@@ -231,7 +249,9 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
-      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId),
+      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" 
+        ? undefined 
+        : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId),
     };
     console.log("[Action: saveOrderForm] Final Data for Update:", JSON.parse(JSON.stringify(finalData)));
     savedOrderForm = await Data.updateOrderForm(id, finalData);
@@ -246,15 +266,17 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
 
     const customer = await fetchCustomerById(savedOrderForm.customerId);
     const orderFormCurrency = customer?.currency || savedOrderForm.currencyCode || 'USD';
-    const customerNameForRepo = customer?.name || 'Unknown Customer';
+    const customerName = customer?.name || 'Unknown Customer';
 
     const itemsByVendor = new Map<string, OrderFormItem[]>();
     for (const item of savedOrderForm.items) {
       await Data.upsertRepositoryItemFromOrderForm(
-        item,
+        item, 
         savedOrderForm.customerId,
-        customerNameForRepo,
-        orderFormCurrency
+        customerName,
+        orderFormCurrency,
+        item.procurementPrice,
+        item.vendorName
       );
       if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice > 0) {
         if (!itemsByVendor.has(item.vendorName)) {
@@ -269,7 +291,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
       const poItems: Omit<PurchaseOrderItem, 'id' | 'totalVendorPayable'>[] = vendorItems.map(vi => ({
         description: vi.description,
         quantity: vi.quantity,
-        procurementPrice: vi.procurementPrice!, // We know it's defined due to the filter above
+        procurementPrice: vi.procurementPrice!,
       }));
 
       await Data.createPurchaseOrder({
@@ -277,7 +299,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
         vendorName,
         orderFormId: savedOrderForm.id,
         orderFormNumber: savedOrderForm.orderFormNumber,
-        issueDate: new Date(), // Or savedOrderForm.issueDate
+        issueDate: new Date(),
         items: poItems,
         status: 'Draft',
       });
@@ -332,7 +354,7 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
     customerId: orderForm.customerId,
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
-    dueDate: addDays(new Date(), 30), // Default due date
+    dueDate: addDays(new Date(), 30),
     items: orderForm.items.map(item => ({
       description: item.description,
       quantity: item.quantity,
@@ -711,8 +733,6 @@ export async function savePurchaseOrder(data: Partial<Omit<PurchaseOrder, 'id' |
     }
     return updated;
   } else {
-    // For creating POs, we typically do it from an OrderForm.
-    // Direct creation might be added later if needed.
     console.warn("Direct creation of Purchase Orders via savePurchaseOrder is not the primary flow yet.");
     return null;
   }
@@ -734,7 +754,9 @@ export async function getAllUsers(): Promise<User[]> {
 export async function toggleUserActiveStatus(userId: string, isActive: boolean): Promise<User | null> {
   const updatedUser = await Data.updateUser(userId, { isActive });
   if (updatedUser) {
-    revalidatePath('/admin/dashboard'); // Revalidate admin dashboard to show updated status
+    revalidatePath('/admin/dashboard'); 
   }
   return updatedUser;
 }
+
+    
