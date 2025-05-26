@@ -1,24 +1,42 @@
 
 'use server';
 
-import { revalidatePath } from 'next/cache';
-import { createCustomer as createCustomerData, getCustomerById as getCustomerByIdData, updateCustomer as updateCustomerData } from './data';
-import type { Customer } from '@/types';
+// import { revalidatePath } from 'next/cache'; // Keep commented for diagnostics
+// import { updateCustomer as updateCustomerData } from './data'; // Keep commented for diagnostics
 import type { CustomerFormData } from './schemas';
+import type { Customer } from '@/types';
+
+// Helper function (copied from data.ts for isolation during diagnostics)
+const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
 export async function createNewCustomer(data: CustomerFormData): Promise<Customer | null> {
-  const newCustomer = await createCustomerData(data);
+  console.log("[customer-actions] MOCK createNewCustomer called with data:", data.name);
+  
+  // Simulate customer creation directly here without calling Data.createCustomer
+  const newCustomer: Customer = {
+    id: generateId('cust'),
+    name: data.name,
+    email: data.email,
+    phone: data.phone,
+    currency: data.currency || 'USD',
+    billingAddress: data.billingAddress ? { ...data.billingAddress } : undefined,
+    shippingAddress: data.shippingAddress ? { ...data.shippingAddress } : undefined,
+    createdAt: new Date()
+  };
+  
+  // RevalidatePath calls remain commented out for this diagnostic step.
   // if (newCustomer) {
-    // console.log(`Revalidating path: /customers for new customer ${newCustomer.id}`);
     // revalidatePath('/customers');
-    // console.log(`Revalidating path: /(app)/dashboard for new customer ${newCustomer.id}`);
     // revalidatePath('/(app)/dashboard', 'page');
-    // console.log(`Revalidating path: /customers/${newCustomer.id}/edit for new customer`);
     // revalidatePath(`/customers/${newCustomer.id}/edit`);
   // }
+  
+  console.log("[customer-actions] MOCK created customer:", newCustomer.id, newCustomer.name);
   return newCustomer;
 }
 
+/*
+// Keep updateExistingCustomer commented out for this diagnostic step
 export async function updateExistingCustomer(id: string, data: CustomerFormData): Promise<Customer | null> {
   const updatedCustomer = await updateCustomerData(id, data);
   if (updatedCustomer) {
@@ -28,3 +46,4 @@ export async function updateExistingCustomer(id: string, data: CustomerFormData)
   }
   return updatedCustomer;
 }
+*/
