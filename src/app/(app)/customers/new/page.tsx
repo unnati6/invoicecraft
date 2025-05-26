@@ -2,6 +2,7 @@
 'use client';
 
 import * as React from 'react';
+// All other imports like AppHeader, CustomerForm, useToast, useRouter are removed for this test.
 
 // Define an ultra-minimal server action directly in the page file
 async function ultraMinimalServerAction(): Promise<void> {
