@@ -19,13 +19,21 @@ export async function createNewCustomer(data: CustomerFormData): Promise<Custome
     id: generateId('cust'),
     createdAt: new Date(),
   };
-  const newCustomer = await createCustomerData(newCustomerData);
 
+try {
+  const newCustomer = await createCustomerData(newCustomerData);
   if (newCustomer) {
-    revalidatePath('/customers');
-    revalidatePath('/(app)/dashboard', 'page');
-    return newCustomer;
+      revalidatePath('/customers');
+      revalidatePath('/(app)/dashboard', 'page');
+      return newCustomer;
+  } else {
+    
+      throw new Error("Failed to create customer in data layer.");
   }
+} catch (error) {
+  console.error("Error creating new customer:", error);
+  throw new Error("Failed to create customer: " + (error instanceof Error ? error.message : "Unknown error"));
+}
   return null;
 }
 

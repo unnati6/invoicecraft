@@ -1,5 +1,5 @@
 
-'use client';
+'use client'; // Add this directive
 
 import * as React from 'react';
 // All other imports like AppHeader, CustomerForm, useToast, useRouter are removed for this test.
