@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { CustomerForm } from '@/components/customer-form';
 import type { CustomerFormData } from '@/lib/schemas';
-import { createNewCustomer } from '@/lib/customer-actions'; // Changed to createNewCustomer
+import { createNewCustomer } from '../../../../lib/customer-actions';
 import { useToast } from '@/hooks/use-toast';
 
 export default function NewCustomerPage() {
@@ -17,15 +17,14 @@ export default function NewCustomerPage() {
   const handleSubmit = async (data: CustomerFormData) => {
     setIsSubmitting(true);
     try {
-      const newCustomer = await createNewCustomer(data); // Changed to createNewCustomer
-      if (newCustomer) {
-        toast({ title: "Success", description: "Customer created successfully." });
-        router.push('/customers');
-      } else {
-        toast({ title: "Error", description: "Failed to create customer. Please try again.", variant: "destructive" });
-      }
+      // Call the ultra-minimal, synchronous void action
+      createNewCustomer(data); 
+      toast({ title: "Action Called", description: "createNewCustomer (minimal) was called." });
+      // Since it's a void function for diagnostics, we won't get a result to check.
+      // We'll just assume success for this test and redirect.
+      router.push('/customers'); 
     } catch (error) {
-      console.error("Failed to create customer:", error);
+      console.error("Failed to call createNewCustomer:", error);
       toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
