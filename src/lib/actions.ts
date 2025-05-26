@@ -2,56 +2,57 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import {
-  getCustomers,
-  getCustomerById,
-  createCustomer,
-  updateCustomer,
+import { 
+  getCustomers, 
+  getCustomerById, 
+  // createCustomer is now in customer-actions.ts
+  // updateCustomer is now in customer-actions.ts
   deleteCustomer,
   getInvoices,
   getInvoiceById,
-  createInvoice,
-  updateInvoice,
+  createInvoice as createInvoiceData,
+  updateInvoice as updateInvoiceData,
   deleteInvoice,
-  getNextInvoiceNumber,
+  getNextInvoiceNumber as getNextInvoiceNumberData,
   getOrderForms,
   getOrderFormById,
-  createOrderForm,
-  updateOrderForm,
+  createOrderForm as createOrderFormData,
+  updateOrderForm as updateOrderFormData,
   deleteOrderForm,
-  getNextOrderFormNumber,
+  getNextOrderFormNumber as getNextOrderFormNumberData,
   getTermsTemplates,
   getTermsTemplateById,
-  createTermsTemplate,
-  updateTermsTemplate,
+  createTermsTemplate as createTermsTemplateData,
+  updateTermsTemplate as updateTermsTemplateData,
   deleteTermsTemplate,
   getMsaTemplates,
   getMsaTemplateById,
-  createMsaTemplate,
-  updateMsaTemplate,
+  createMsaTemplate as createMsaTemplateData,
+  updateMsaTemplate as updateMsaTemplateData,
   deleteMsaTemplate,
   getCoverPageTemplates,
   getCoverPageTemplateById,
-  createCoverPageTemplate,
-  updateCoverPageTemplate,
+  createCoverPageTemplate as createCoverPageTemplateData,
+  updateCoverPageTemplate as updateCoverPageTemplateData,
   deleteCoverPageTemplate,
   getRepositoryItems,
-  getRepositoryItemById,
-  createRepositoryItem,
-  updateRepositoryItem,
+  getRepositoryItemById as getRepositoryItemByIdData,
+  createRepositoryItem as createRepositoryItemData,
+  updateRepositoryItem as updateRepositoryItemData,
   deleteRepositoryItem,
-  upsertRepositoryItemFromOrderForm,
+  upsertRepositoryItemFromOrderForm as upsertRepositoryItemFromOrderFormData,
   getPurchaseOrders,
   getPurchaseOrderById,
-  deletePurchaseOrdersByOrderFormId,
-  createPurchaseOrder,
-  getNextPoNumber,
+  createPurchaseOrder as createPurchaseOrderData,
+  updatePurchaseOrder as updatePurchaseOrderData,
   deletePurchaseOrder,
+  deletePurchaseOrdersByOrderFormId as deletePurchaseOrdersByOrderFormIdData,
+  getNextPoNumber as getNextPoNumberData,
   getUsers,
-  updateUser as updateUserInData, // Alias to avoid conflict if any local updateUser
+  updateUser as updateUserData,
 } from './data';
-import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, PurchaseOrderItem, User } from '@/types';
-import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData, BrandingSettingsFormData, RepositoryItemFormData, SmtpSettingsFormData, EmailTemplateFormData } from './schemas';
+import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, User } from '@/types';
+import type { CustomerFormData, InvoiceFormData, TermsFormData, OrderFormFormData, TermsTemplateFormData, MsaTemplateFormData, CoverPageTemplateFormData, BrandingSettingsFormData, RepositoryItemFormData } from './schemas';
 import { format, addDays } from 'date-fns';
 import { Buffer } from 'buffer';
 
@@ -64,34 +65,7 @@ export async function fetchCustomerById(id: string): Promise<Customer | undefine
   return getCustomerById(id);
 }
 
-export async function createNewCustomer(data: CustomerFormData): Promise<Customer | null> {
-  // console.log("[Action: createNewCustomer] Received Form Data:", JSON.parse(JSON.stringify(data))); // Removed for troubleshooting
-  const newCustomer = await createCustomer(data);
-  if (newCustomer) {
-    revalidatePath('/customers');
-    revalidatePath('/(app)/dashboard', 'page');
-  }
-  return newCustomer;
-}
-
-export async function updateExistingCustomer(id: string, data: CustomerFormData): Promise<Customer | null> {
-  // console.log(`[Action: updateExistingCustomer] ID: ${id}, Received Form Data:`, JSON.parse(JSON.stringify(data))); // Consider removing if issue persists elsewhere
-  const updatedCustomer = await updateCustomer(id, data);
-  if (updatedCustomer) {
-    revalidatePath('/customers');
-    revalidatePath(`/customers/${id}/edit`);
-    revalidatePath('/(app)/dashboard', 'page');
-  }
-  return updatedCustomer;
-}
-
-export async function saveCustomer(data: CustomerFormData, id?: string): Promise<Customer | null> {
-  if (id) {
-    return updateExistingCustomer(id, data);
-  } else {
-    return createNewCustomer(data);
-  }
-}
+// saveCustomer is removed as createNewCustomer and updateExistingCustomer are now separate in customer-actions.ts
 
 export async function removeCustomer(id: string): Promise<boolean> {
   const success = await deleteCustomer(id);
@@ -112,78 +86,67 @@ export async function fetchInvoiceById(id: string): Promise<Invoice | undefined>
 }
 
 export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<Invoice | null> {
-  console.log("[Action: saveInvoice] Received Form Data (custom terms):", data.customPaymentTerms, data.customCommitmentPeriod, data.customPaymentFrequency);
+  const customer = await fetchCustomerById(data.customerId);
+  const currencyCode = customer?.currency || 'USD';
+
   const invoiceDataCore = {
-    customerId: data.customerId,
-    invoiceNumber: data.invoiceNumber,
-    issueDate: data.issueDate,
-    dueDate: data.dueDate,
-    items: data.items,
-    additionalCharges: data.additionalCharges,
-    discountEnabled: data.discountEnabled,
-    discountDescription: data.discountDescription,
-    discountType: data.discountType,
-    discountValue: data.discountValue,
-    taxRate: data.taxRate || 0,
+    ...data, // Spread form data first
+    customerName: customer?.name || 'Unknown Customer',
+    currencyCode: currencyCode,
     linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId,
-    msaContent: data.msaContent,
-    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
-    termsAndConditions: data.termsAndConditions,
-    status: data.status,
-    paymentTerms: data.paymentTerms,
+    // Ensure custom text fields are passed
     customPaymentTerms: data.customPaymentTerms,
-    commitmentPeriod: data.commitmentPeriod,
     customCommitmentPeriod: data.customCommitmentPeriod,
     paymentFrequency: data.paymentFrequency,
     customPaymentFrequency: data.customPaymentFrequency,
-    serviceStartDate: data.serviceStartDate,
-    serviceEndDate: data.serviceEndDate,
   };
-  console.log("[Action: saveInvoice] Core Data for Save/Update:", invoiceDataCore);
+   console.log("[Action: saveInvoice] invoiceDataCore:", JSON.parse(JSON.stringify(invoiceDataCore)));
 
-  let savedInvoice: Invoice | null = null;
 
   if (id) {
     const existingInvoice = await getInvoiceById(id);
     if (!existingInvoice) return null;
-    
+
     const finalData = {
       ...invoiceDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingInvoice.msaCoverPageTemplateId,
-      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" 
-        ? undefined 
-        : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId),
+      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingInvoice.linkedMsaTemplateId),
     };
-    console.log("[Action: saveInvoice] Final Data for Update:", finalData);
-    savedInvoice = await updateInvoice(id, finalData);
-  } else {
-    savedInvoice = await createInvoice(invoiceDataCore);
-  }
+     console.log("[Action: saveInvoice - Update] finalData for update:", JSON.parse(JSON.stringify(finalData)));
 
-  if (savedInvoice) {
-    console.log("[Action: saveInvoice] Saved Invoice:", savedInvoice);
-    const customer = await fetchCustomerById(savedInvoice.customerId);
-    const customerName = customer?.name || 'Unknown Customer';
-    const customerCurrency = customer?.currency || 'USD';
-
-    for (const item of savedInvoice.items) {
-       await upsertRepositoryItemFromOrderForm(
-        item as any, 
-        savedInvoice.customerId,
-        customerName,
-        customerCurrency
-      );
+    const updated = await updateInvoiceData(id, finalData);
+    if (updated) {
+      if (updated.items && updated.customerId && customer) {
+        for (const item of updated.items) {
+          await upsertRepositoryItemFromOrderFormData(item, updated.customerId, customer.name, updated.currencyCode || 'USD');
+        }
+      }
+      revalidatePath('/invoices');
+      revalidatePath(`/invoices/${updated.id}`);
+      revalidatePath(`/invoices/${updated.id}/terms`);
+      revalidatePath('/item-repository');
+      revalidatePath('/(app)/dashboard', 'page');
+      revalidatePath(`/customers/${updated.customerId}/edit`);
     }
-    revalidatePath('/invoices');
-    revalidatePath(`/invoices/${savedInvoice.id}`);
-    revalidatePath(`/invoices/${savedInvoice.id}/terms`);
-    revalidatePath('/(app)/dashboard', 'page');
-    revalidatePath('/item-repository');
+    return updated;
+  } else {
+    const newInvoice = await createInvoiceData(invoiceDataCore);
+    if (newInvoice) {
+       if (newInvoice.items && newInvoice.customerId && customer) {
+        for (const item of newInvoice.items) {
+          await upsertRepositoryItemFromOrderFormData(item, newInvoice.customerId, customer.name, newInvoice.currencyCode || 'USD');
+        }
+      }
+      revalidatePath('/invoices');
+      revalidatePath(`/invoices/${newInvoice.id}`);
+      revalidatePath('/item-repository');
+      revalidatePath('/(app)/dashboard', 'page');
+      revalidatePath(`/customers/${newInvoice.customerId}/edit`);
+    }
+    return newInvoice;
   }
-
-  return savedInvoice;
 }
 
 export async function removeInvoice(id: string): Promise<boolean> {
@@ -199,7 +162,7 @@ export async function saveInvoiceTerms(id: string, data: TermsFormData): Promise
   const invoice = await getInvoiceById(id);
   if (!invoice) return null;
 
-  const updated = await updateInvoice(id, { termsAndConditions: data.termsAndConditions });
+  const updated = await updateInvoiceData(id, { termsAndConditions: data.termsAndConditions });
 
   if (updated) {
     revalidatePath(`/invoices/${id}`);
@@ -209,33 +172,24 @@ export async function saveInvoiceTerms(id: string, data: TermsFormData): Promise
 }
 
 export async function fetchNextInvoiceNumber(): Promise<string> {
-    return getNextInvoiceNumber();
+    return getNextInvoiceNumberData();
 }
 
 export async function markInvoiceAsPaid(invoiceId: string): Promise<Invoice | null> {
   const invoice = await getInvoiceById(invoiceId);
-  if (!invoice) {
-    console.error(`Invoice not found for marking as paid: ${invoiceId}`);
-    return null;
-  }
+  if (!invoice) return null;
 
-  if (invoice.status === 'Paid') {
-    console.warn(`Invoice ${invoiceId} is already paid.`);
-    return invoice;
-  }
-
-  const updatedInvoice = await updateInvoice(invoiceId, { status: 'Paid' });
+  const updatedInvoice = await updateInvoiceData(invoiceId, { status: 'Paid' });
 
   if (updatedInvoice) {
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${invoiceId}`);
-    if (updatedInvoice.customerId) {
-        revalidatePath(`/customers/${updatedInvoice.customerId}/edit`);
+    if (invoice.customerId) {
+      revalidatePath(`/customers/${invoice.customerId}/edit`);
     }
     revalidatePath('/(app)/dashboard', 'page');
-    return updatedInvoice;
   }
-  return null;
+  return updatedInvoice;
 }
 
 
@@ -249,113 +203,136 @@ export async function fetchOrderFormById(id: string): Promise<OrderForm | undefi
 }
 
 export async function saveOrderForm(data: OrderFormFormData, id?: string): Promise<OrderForm | null> {
-  console.log("[Action: saveOrderForm] Received Form Data (custom terms):", data.customPaymentTerms, data.customCommitmentPeriod, data.customPaymentFrequency);
+  const customer = await fetchCustomerById(data.customerId);
+  const currencyCode = customer?.currency || 'USD';
+
   const orderFormDataCore = {
-    customerId: data.customerId,
-    orderFormNumber: data.orderFormNumber,
-    issueDate: data.issueDate,
-    validUntilDate: data.validUntilDate,
-    items: data.items,
-    additionalCharges: data.additionalCharges,
-    discountEnabled: data.discountEnabled,
-    discountDescription: data.discountDescription,
-    discountType: data.discountType,
-    discountValue: data.discountValue,
-    taxRate: data.taxRate || 0,
+    ...data, // Spread form data first
+    customerName: customer?.name || 'Unknown Customer',
+    currencyCode: currencyCode,
     linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId,
-    msaContent: data.msaContent,
-    msaCoverPageTemplateId: data.msaCoverPageTemplateId,
-    termsAndConditions: data.termsAndConditions,
-    status: data.status,
-    paymentTerms: data.paymentTerms,
+    // Ensure custom text fields are passed
     customPaymentTerms: data.customPaymentTerms,
-    commitmentPeriod: data.commitmentPeriod,
     customCommitmentPeriod: data.customCommitmentPeriod,
     paymentFrequency: data.paymentFrequency,
     customPaymentFrequency: data.customPaymentFrequency,
-    serviceStartDate: data.serviceStartDate,
-    serviceEndDate: data.serviceEndDate,
   };
-  console.log("[Action: saveOrderForm] Order Form Data Core for Save/Update:", orderFormDataCore);
+  // console.log("[Action: saveOrderForm] orderFormDataCore:", JSON.parse(JSON.stringify(orderFormDataCore)));
 
-  let savedOrderForm: OrderForm | null = null;
 
   if (id) {
     const existingOrderForm = await getOrderFormById(id);
     if (!existingOrderForm) return null;
-    
+
     const finalData = {
       ...orderFormDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
       msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
       msaCoverPageTemplateId: data.msaCoverPageTemplateId !== undefined ? data.msaCoverPageTemplateId : existingOrderForm.msaCoverPageTemplateId,
-      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" 
-        ? undefined 
-        : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId),
+      linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : (data.linkedMsaTemplateId !== undefined ? data.linkedMsaTemplateId : existingOrderForm.linkedMsaTemplateId),
     };
-    console.log("[Action: saveOrderForm] Final Data for Update:", finalData);
-    savedOrderForm = await updateOrderForm(id, finalData);
-  } else {
-    savedOrderForm = await createOrderForm(orderFormDataCore);
-  }
+    //  console.log("[Action: saveOrderForm - Update] finalData for update:", JSON.parse(JSON.stringify(finalData)));
 
-  if (savedOrderForm) {
-    console.log("[Action: saveOrderForm] Saved Order Form:", savedOrderForm);
-    
-    await deletePurchaseOrdersByOrderFormId(savedOrderForm.id);
-
-    const customer = await fetchCustomerById(savedOrderForm.customerId);
-    const orderFormCurrency = customer?.currency || savedOrderForm.currencyCode || 'USD';
-    const customerName = customer?.name || 'Unknown Customer';
-
-    const itemsByVendor = new Map<string, OrderFormItem[]>();
-    for (const item of savedOrderForm.items) {
-      await upsertRepositoryItemFromOrderForm(
-        item, 
-        savedOrderForm.customerId,
-        customerName,
-        orderFormCurrency
-      );
-      if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice > 0) {
-        if (!itemsByVendor.has(item.vendorName)) {
-          itemsByVendor.set(item.vendorName, []);
+    const updated = await updateOrderFormData(id, finalData);
+    if (updated) {
+      await deletePurchaseOrdersByOrderFormIdData(id);
+      if (updated.items && updated.customerId && customer) {
+        for (const item of updated.items) {
+          await upsertRepositoryItemFromOrderFormData(item, updated.customerId, customer.name, updated.currencyCode || 'USD');
+          if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice >= 0) {
+            // Logic to group items by vendor and create/update POs will be complex here
+            // For now, let's assume one PO per vendor, per Order Form save
+          }
         }
-        itemsByVendor.get(item.vendorName)!.push(item);
+        // Simplified PO creation: group items by vendor from the updated Order Form
+        const itemsByVendor = updated.items.reduce((acc, item) => {
+          if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice >= 0) {
+            if (!acc[item.vendorName]) {
+              acc[item.vendorName] = [];
+            }
+            acc[item.vendorName].push(item);
+          }
+          return acc;
+        }, {} as Record<string, OrderFormItem[]>);
+
+        for (const vendorName in itemsByVendor) {
+          const poItems = itemsByVendor[vendorName].map(ofi => ({
+            description: ofi.description,
+            quantity: ofi.quantity,
+            procurementPrice: ofi.procurementPrice!,
+          }));
+          if (poItems.length > 0) {
+            const poNumber = await getNextPoNumberData();
+            await createPurchaseOrderData({
+              poNumber,
+              vendorName,
+              orderFormId: updated.id,
+              orderFormNumber: updated.orderFormNumber,
+              issueDate: new Date(),
+              items: poItems,
+              status: 'Draft'
+            });
+          }
+        }
       }
+      revalidatePath('/orderforms');
+      revalidatePath(`/orderforms/${updated.id}`);
+      revalidatePath(`/orderforms/${updated.id}/terms`);
+      revalidatePath('/item-repository');
+      revalidatePath('/purchase-orders');
     }
+    return updated;
+  } else {
+    const newOrderForm = await createOrderFormData(orderFormDataCore);
+    if(newOrderForm) {
+      if (newOrderForm.items && newOrderForm.customerId && customer) {
+        for (const item of newOrderForm.items) {
+           await upsertRepositoryItemFromOrderFormData(item, newOrderForm.customerId, customer.name, newOrderForm.currencyCode || 'USD');
+        }
+         // PO Creation for new Order Form
+        const itemsByVendor = newOrderForm.items.reduce((acc, item) => {
+          if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice >= 0) {
+            if (!acc[item.vendorName]) {
+              acc[item.vendorName] = [];
+            }
+            acc[item.vendorName].push(item);
+          }
+          return acc;
+        }, {} as Record<string, OrderFormItem[]>);
 
-    for (const [vendorName, vendorItems] of itemsByVendor) {
-      const poNumber = await getNextPoNumber();
-      const poItems: Omit<PurchaseOrderItem, 'id' | 'totalVendorPayable'>[] = vendorItems.map(vi => ({
-        description: vi.description,
-        quantity: vi.quantity,
-        procurementPrice: vi.procurementPrice!,
-      }));
-
-      await createPurchaseOrder({
-        poNumber,
-        vendorName,
-        orderFormId: savedOrderForm.id,
-        orderFormNumber: savedOrderForm.orderFormNumber,
-        issueDate: new Date(),
-        items: poItems,
-        status: 'Draft',
-      });
+        for (const vendorName in itemsByVendor) {
+          const poItems = itemsByVendor[vendorName].map(ofi => ({
+            description: ofi.description,
+            quantity: ofi.quantity,
+            procurementPrice: ofi.procurementPrice!,
+          }));
+           if (poItems.length > 0) {
+            const poNumber = await getNextPoNumberData();
+            await createPurchaseOrderData({
+              poNumber,
+              vendorName,
+              orderFormId: newOrderForm.id,
+              orderFormNumber: newOrderForm.orderFormNumber,
+              issueDate: new Date(),
+              items: poItems,
+              status: 'Draft'
+            });
+          }
+        }
+      }
+      revalidatePath('/orderforms');
+      revalidatePath(`/orderforms/${newOrderForm.id}`);
+      revalidatePath('/item-repository');
+      revalidatePath('/purchase-orders');
     }
-    revalidatePath('/orderforms');
-    revalidatePath(`/orderforms/${savedOrderForm.id}`);
-    revalidatePath(`/orderforms/${savedOrderForm.id}/terms`);
-    revalidatePath('/item-repository');
-    revalidatePath('/purchase-orders');
+    return newOrderForm;
   }
-
-  return savedOrderForm;
 }
 
 export async function removeOrderForm(id: string): Promise<boolean> {
   const success = await deleteOrderForm(id);
   if (success) {
-    await deletePurchaseOrdersByOrderFormId(id);
+    await deletePurchaseOrdersByOrderFormIdData(id);
     revalidatePath('/orderforms');
     revalidatePath('/purchase-orders');
   }
@@ -366,7 +343,7 @@ export async function saveOrderFormTerms(id: string, data: TermsFormData): Promi
   const orderForm = await getOrderFormById(id);
   if (!orderForm) return null;
 
-  const updated = await updateOrderForm(id, { termsAndConditions: data.termsAndConditions });
+  const updated = await updateOrderFormData(id, { termsAndConditions: data.termsAndConditions });
 
   if (updated) {
     revalidatePath(`/orderforms/${id}`);
@@ -376,7 +353,7 @@ export async function saveOrderFormTerms(id: string, data: TermsFormData): Promi
 }
 
 export async function fetchNextOrderFormNumber(): Promise<string> {
-    return getNextOrderFormNumber();
+    return getNextOrderFormNumberData();
 }
 
 export async function convertOrderFormToInvoice(orderFormId: string): Promise<Invoice | null> {
@@ -386,13 +363,14 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
     return null;
   }
 
-  const nextInvoiceNumber = await getNextInvoiceNumber();
+  const nextInvoiceNumber = await getNextInvoiceNumberData();
+  const customer = await fetchCustomerById(orderForm.customerId);
 
   const newInvoiceData: Omit<Invoice, 'id' | 'createdAt' | 'subtotal' | 'taxAmount' | 'total' | 'items' | 'customerName' | 'additionalCharges' | 'currencyCode' | 'discountAmount'> & { items: Omit<InvoiceItem, 'id' | 'amount'>[], additionalCharges?: any[] } = {
     customerId: orderForm.customerId,
     invoiceNumber: nextInvoiceNumber,
     issueDate: new Date(),
-    dueDate: addDays(new Date(), 30),
+    dueDate: addDays(new Date(), 30), // Default due date
     items: orderForm.items.map(item => ({
       description: item.description,
       quantity: item.quantity,
@@ -403,11 +381,11 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
       valueType: ac.valueType,
       value: ac.value,
     })) : [],
+    taxRate: orderForm.taxRate,
     discountEnabled: orderForm.discountEnabled,
     discountDescription: orderForm.discountDescription,
     discountType: orderForm.discountType,
     discountValue: orderForm.discountValue,
-    taxRate: orderForm.taxRate,
     linkedMsaTemplateId: orderForm.linkedMsaTemplateId,
     msaContent: orderForm.msaContent,
     msaCoverPageTemplateId: orderForm.msaCoverPageTemplateId,
@@ -423,15 +401,18 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
     serviceEndDate: orderForm.serviceEndDate,
   };
 
-  const newInvoice = await createInvoice(newInvoiceData);
+  const newInvoice = await createInvoiceData(newInvoiceData);
 
   if (newInvoice) {
-    await updateOrderForm(orderFormId, { status: 'Accepted' });
+    await updateOrderFormData(orderFormId, { status: 'Accepted' });
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${newInvoice.id}`);
     revalidatePath('/orderforms');
     revalidatePath(`/orderforms/${orderFormId}`);
     revalidatePath('/(app)/dashboard', 'page');
+    if (newInvoice.customerId) {
+      revalidatePath(`/customers/${newInvoice.customerId}/edit`);
+    }
   } else {
     console.error('Failed to create invoice from order form:', orderFormId);
   }
@@ -457,11 +438,11 @@ export async function convertMultipleOrderFormsToInvoices(orderFormIds: string[]
     revalidatePath('/invoices');
     revalidatePath('/orderforms');
     revalidatePath('/(app)/dashboard', 'page');
+    // Could also revalidate multiple customer edit pages if needed, but might be too broad
   }
   return { successCount, errorCount, newInvoiceIds };
 }
 
-// --- CSV Export Helpers ---
 const escapeCsvField = (field: string | number | undefined | null): string => {
   if (field === undefined || field === null) return '';
   const str = String(field);
@@ -479,16 +460,18 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
 
   const headers = [
     'Invoice Number', 'Customer Name', 'Issue Date', 'Due Date', 'Status',
-    'Payment Terms', 'Custom Payment Terms', 'Commitment Period', 'Custom Commitment Period', 'Payment Frequency', 'Custom Payment Frequency', 'Service Start Date', 'Service End Date',
+    'Payment Terms', 'Custom Payment Terms', 'Commitment Period', 'Custom Commitment Period',
+    'Payment Frequency', 'Custom Payment Frequency', 'Service Start Date', 'Service End Date',
     'Item Description', 'Item Quantity', 'Item Rate', 'Item Amount',
-    'Invoice Subtotal', 'Discount Description', 'Discount Type', 'Discount Value', 'Discount Amount',
-    'Invoice Tax Rate (%)', 'Invoice Tax Amount', 'Invoice Total'
+    'Discount Enabled', 'Discount Description', 'Discount Type', 'Discount Value', 'Calculated Discount Amount',
+    'Additional Charge Description', 'Additional Charge Type', 'Additional Charge Value', 'Additional Charge Calculated Amount',
+    'Invoice Subtotal (Items)', 'Invoice Tax Rate (%)', 'Invoice Tax Amount', 'Invoice Total'
   ];
 
   let csvContent = headers.map(escapeCsvField).join(',') + '\n';
 
-  invoice.items.forEach(item => {
-    const row = [
+  // Base row for invoice details
+  const baseInvoiceRow = [
       invoice.invoiceNumber,
       invoice.customerName,
       format(new Date(invoice.issueDate), 'yyyy-MM-dd'),
@@ -502,21 +485,55 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
       invoice.customPaymentFrequency,
       invoice.serviceStartDate ? format(new Date(invoice.serviceStartDate), 'yyyy-MM-dd') : '',
       invoice.serviceEndDate ? format(new Date(invoice.serviceEndDate), 'yyyy-MM-dd') : '',
+  ];
+
+  // Add rows for each item
+  invoice.items.forEach(item => {
+    const itemRow = [
+      ...baseInvoiceRow,
       item.description,
       item.quantity,
       item.rate,
       item.amount,
+      invoice.discountEnabled, invoice.discountDescription, invoice.discountType, invoice.discountValue, invoice.discountAmount, // Discount info per item row for simplicity in CSV structure
+      '', '', '', '', // Placeholders for additional charges
       invoice.subtotal,
-      invoice.discountDescription,
-      invoice.discountType,
-      invoice.discountValue,
-      invoice.discountAmount,
       invoice.taxRate,
       invoice.taxAmount,
       invoice.total
     ];
-    csvContent += row.map(escapeCsvField).join(',') + '\n';
+    csvContent += itemRow.map(escapeCsvField).join(',') + '\n';
   });
+
+  // Add rows for each additional charge
+  if (invoice.additionalCharges && invoice.additionalCharges.length > 0) {
+    invoice.additionalCharges.forEach(charge => {
+      const chargeRow = [
+        ...baseInvoiceRow,
+         '', '', '', '', // Placeholders for item details
+        invoice.discountEnabled, invoice.discountDescription, invoice.discountType, invoice.discountValue, invoice.discountAmount,
+        charge.description, charge.valueType, charge.value, charge.calculatedAmount,
+        invoice.subtotal,
+        invoice.taxRate,
+        invoice.taxAmount,
+        invoice.total
+      ];
+      csvContent += chargeRow.map(escapeCsvField).join(',') + '\n';
+    });
+  } else if (invoice.items.length === 0) { // If no items and no charges, add one row with invoice details
+     const emptyRow = [
+      ...baseInvoiceRow,
+      '', '', '', '', // Placeholders for item details
+      invoice.discountEnabled, invoice.discountDescription, invoice.discountType, invoice.discountValue, invoice.discountAmount,
+      '', '', '', '', // Placeholders for additional charges
+      invoice.subtotal,
+      invoice.taxRate,
+      invoice.taxAmount,
+      invoice.total
+    ];
+    csvContent += emptyRow.map(escapeCsvField).join(',') + '\n';
+  }
+
 
   const fileData = Buffer.from(csvContent).toString('base64');
   return {
@@ -536,16 +553,17 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
 
   const headers = [
     'OrderForm Number', 'Customer Name', 'Issue Date', 'Valid Until Date', 'Status',
-    'Payment Terms', 'Custom Payment Terms', 'Commitment Period', 'Custom Commitment Period', 'Payment Frequency', 'Custom Payment Frequency', 'Service Start Date', 'Service End Date',
+    'Payment Terms', 'Custom Payment Terms', 'Commitment Period', 'Custom Commitment Period',
+    'Payment Frequency', 'Custom Payment Frequency', 'Service Start Date', 'Service End Date',
     'Item Description', 'Item Quantity', 'Item Rate', 'Item Procurement Price', 'Item Vendor Name', 'Item Amount',
-    'OrderForm Subtotal', 'Discount Description', 'Discount Type', 'Discount Value', 'Discount Amount',
-    'OrderForm Tax Rate (%)', 'OrderForm Tax Amount', 'OrderForm Total'
+    'Discount Enabled', 'Discount Description', 'Discount Type', 'Discount Value', 'Calculated Discount Amount',
+    'Additional Charge Description', 'Additional Charge Type', 'Additional Charge Value', 'Additional Charge Calculated Amount',
+    'OrderForm Subtotal (Items)', 'OrderForm Tax Rate (%)', 'OrderForm Tax Amount', 'OrderForm Total'
   ];
 
   let csvContent = headers.map(escapeCsvField).join(',') + '\n';
 
-  orderForm.items.forEach(item => {
-    const row = [
+  const baseOrderFormRow = [
       orderForm.orderFormNumber,
       orderForm.customerName,
       format(new Date(orderForm.issueDate), 'yyyy-MM-dd'),
@@ -559,23 +577,55 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
       orderForm.customPaymentFrequency,
       orderForm.serviceStartDate ? format(new Date(orderForm.serviceStartDate), 'yyyy-MM-dd') : '',
       orderForm.serviceEndDate ? format(new Date(orderForm.serviceEndDate), 'yyyy-MM-dd') : '',
+  ];
+
+  orderForm.items.forEach(item => {
+    const itemRow = [
+      ...baseOrderFormRow,
       item.description,
       item.quantity,
       item.rate,
       item.procurementPrice,
       item.vendorName,
       item.amount,
+      orderForm.discountEnabled, orderForm.discountDescription, orderForm.discountType, orderForm.discountValue, orderForm.discountAmount,
+      '', '', '', '', 
       orderForm.subtotal,
-      orderForm.discountDescription,
-      orderForm.discountType,
-      orderForm.discountValue,
-      orderForm.discountAmount,
       orderForm.taxRate,
       orderForm.taxAmount,
       orderForm.total
     ];
-    csvContent += row.map(escapeCsvField).join(',') + '\n';
+    csvContent += itemRow.map(escapeCsvField).join(',') + '\n';
   });
+  
+  if (orderForm.additionalCharges && orderForm.additionalCharges.length > 0) {
+    orderForm.additionalCharges.forEach(charge => {
+      const chargeRow = [
+        ...baseOrderFormRow,
+        '', '', '', '', '', '', // Placeholders for item details
+        orderForm.discountEnabled, orderForm.discountDescription, orderForm.discountType, orderForm.discountValue, orderForm.discountAmount,
+        charge.description, charge.valueType, charge.value, charge.calculatedAmount,
+        orderForm.subtotal,
+        orderForm.taxRate,
+        orderForm.taxAmount,
+        orderForm.total
+      ];
+      csvContent += chargeRow.map(escapeCsvField).join(',') + '\n';
+    });
+  } else if (orderForm.items.length === 0) {
+     const emptyRow = [
+        ...baseOrderFormRow,
+        '', '', '', '', '', '',
+        orderForm.discountEnabled, orderForm.discountDescription, orderForm.discountType, orderForm.discountValue, orderForm.discountAmount,
+        '', '', '', '', 
+        orderForm.subtotal,
+        orderForm.taxRate,
+        orderForm.taxAmount,
+        orderForm.total
+    ];
+    csvContent += emptyRow.map(escapeCsvField).join(',') + '\n';
+  }
+
 
   const fileData = Buffer.from(csvContent).toString('base64');
   return {
@@ -587,7 +637,7 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
   };
 }
 
-// --- TermsTemplate Actions ---
+// TermsTemplate Actions
 export async function getAllTermsTemplates(): Promise<TermsTemplate[]> {
   return getTermsTemplates();
 }
@@ -598,14 +648,14 @@ export async function fetchTermsTemplateById(id: string): Promise<TermsTemplate 
 
 export async function saveTermsTemplate(data: TermsTemplateFormData, id?: string): Promise<TermsTemplate | null> {
   if (id) {
-    const updated = await updateTermsTemplate(id, data);
+    const updated = await updateTermsTemplateData(id, data);
     if (updated) {
       revalidatePath('/templates/terms');
       revalidatePath(`/templates/terms/${id}/edit`);
     }
     return updated;
   } else {
-    const newTemplate = await createTermsTemplate(data);
+    const newTemplate = await createTermsTemplateData(data);
     if (newTemplate) {
       revalidatePath('/templates/terms');
     }
@@ -621,7 +671,7 @@ export async function removeTermsTemplate(id: string): Promise<boolean> {
   return success;
 }
 
-// --- MSA Template Actions ---
+// MSA Template Actions
 export async function getAllMsaTemplates(): Promise<MsaTemplate[]> {
   return getMsaTemplates();
 }
@@ -634,18 +684,20 @@ export async function saveMsaTemplate(data: MsaTemplateFormData, id?: string): P
   const payload: Partial<Omit<MsaTemplate, 'id' | 'createdAt'>> = {
     name: data.name,
     content: data.content,
-    coverPageTemplateId: data.coverPageTemplateId === "_no_cover_page_" || data.coverPageTemplateId === "" ? undefined : data.coverPageTemplateId,
+    coverPageTemplateId: data.coverPageTemplateId === "_no_cover_page_" ? undefined : data.coverPageTemplateId,
   };
+  // console.log("[Action: saveMsaTemplate] Payload for save/update:", JSON.parse(JSON.stringify(payload)));
+
 
   if (id) {
-    const updated = await updateMsaTemplate(id, payload);
+    const updated = await updateMsaTemplateData(id, payload);
     if (updated) {
       revalidatePath('/templates/msa');
       revalidatePath(`/templates/msa/${id}/edit`);
     }
     return updated;
   } else {
-    const newTemplate = await createMsaTemplate(payload as Omit<MsaTemplate, 'id' | 'createdAt'>);
+    const newTemplate = await createMsaTemplateData(payload);
     if (newTemplate) {
       revalidatePath('/templates/msa');
     }
@@ -665,7 +717,7 @@ export async function linkCoverPageToMsa(msaTemplateId: string, coverPageTemplat
   const msaTemplate = await getMsaTemplateById(msaTemplateId);
   if (!msaTemplate) return null;
 
-  const updatedMsaTemplate = await updateMsaTemplate(msaTemplateId, { coverPageTemplateId: coverPageTemplateId === null ? undefined : coverPageTemplateId });
+  const updatedMsaTemplate = await updateMsaTemplateData(msaTemplateId, { coverPageTemplateId: coverPageTemplateId === null ? undefined : coverPageTemplateId });
   if (updatedMsaTemplate) {
     revalidatePath('/templates/msa');
   }
@@ -673,7 +725,7 @@ export async function linkCoverPageToMsa(msaTemplateId: string, coverPageTemplat
 }
 
 
-// --- Cover Page Template Actions ---
+// Cover Page Template Actions
 export async function getAllCoverPageTemplates(): Promise<CoverPageTemplate[]> {
   return getCoverPageTemplates();
 }
@@ -684,14 +736,14 @@ export async function fetchCoverPageTemplateById(id: string): Promise<CoverPageT
 
 export async function saveCoverPageTemplate(data: CoverPageTemplateFormData, id?: string): Promise<CoverPageTemplate | null> {
   if (id) {
-    const updated = await updateCoverPageTemplate(id, data);
+    const updated = await updateCoverPageTemplateData(id, data);
     if (updated) {
       revalidatePath('/templates/coverpages');
       revalidatePath(`/templates/coverpages/${id}/edit`);
     }
     return updated;
   } else {
-    const newTemplate = await createCoverPageTemplate(data);
+    const newTemplate = await createCoverPageTemplateData(data);
     if (newTemplate) {
       revalidatePath('/templates/coverpages');
     }
@@ -707,53 +759,50 @@ export async function removeCoverPageTemplate(id: string): Promise<boolean> {
   return success;
 }
 
-// --- Branding/Settings Actions ---
+// Branding/Settings Actions
 export async function saveBrandingSettings(data: BrandingSettingsFormData): Promise<boolean> {
   console.log("Branding settings to save (server action):", data);
   revalidatePath('/(app)/branding', 'page');
   return true;
 }
 
-// --- Repository Item Actions ---
+// Repository Item Actions
 export async function getAllRepositoryItems(): Promise<RepositoryItem[]> {
   return getRepositoryItems();
 }
 
 export async function fetchRepositoryItemById(id: string): Promise<RepositoryItem | undefined> {
-  return getRepositoryItemById(id);
+  return getRepositoryItemByIdData(id);
 }
 
 export async function saveRepositoryItem(data: RepositoryItemFormData, id?: string): Promise<RepositoryItem | null> {
-  const itemDataToSave: Partial<Omit<RepositoryItem, 'id' | 'createdAt'>> = {
-    name: data.name,
-    defaultRate: data.defaultRate,
-    defaultProcurementPrice: data.defaultProcurementPrice,
-    defaultVendorName: data.defaultVendorName,
-    currencyCode: data.currencyCode,
-    customerId: data.customerId, 
-    customerName: data.customerName, 
-  };
-  console.log("[Action: saveRepositoryItem] Data to save:", itemDataToSave);
-
-
   if (id) {
-    const updated = await updateRepositoryItem(id, itemDataToSave);
-    if (updated) revalidatePath('/item-repository');
+    const updated = await updateRepositoryItemData(id, data);
+    if (updated) {
+      revalidatePath('/item-repository');
+      revalidatePath(`/item-repository/${id}/edit`);
+    }
     return updated;
   } else {
-    const newItem = await createRepositoryItem(itemDataToSave as Omit<RepositoryItem, 'id' | 'createdAt'>);
-    if (newItem) revalidatePath('/item-repository');
-    return newItem;
+    // Direct creation of repository items might need a separate form/flow
+    // For now, upsert logic handles creation via order forms/invoices
+    // const newItem = await createRepositoryItemData(data);
+    // if (newItem) revalidatePath('/item-repository');
+    // return newItem;
+    console.warn("Direct creation of repository items via saveRepositoryItem without ID is not fully implemented. Items are typically created/updated via Order Forms or Invoices.");
+    return null;
   }
 }
 
 export async function removeRepositoryItem(id: string): Promise<boolean> {
   const success = await deleteRepositoryItem(id);
-  if (success) revalidatePath('/item-repository');
+  if (success) {
+    revalidatePath('/item-repository');
+  }
   return success;
 }
 
-// --- Purchase Order Actions ---
+// Purchase Order Actions
 export async function getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
   return getPurchaseOrders();
 }
@@ -762,39 +811,18 @@ export async function fetchPurchaseOrderById(id: string): Promise<PurchaseOrder 
   return getPurchaseOrderById(id);
 }
 
-// export async function savePurchaseOrder(data: Partial<Omit<PurchaseOrder, 'id' | 'createdAt' | 'items' | 'grandTotalVendorPayable'>> & { items?: Omit<PurchaseOrderItem, 'id' | 'totalVendorPayable'>[] }, id?: string): Promise<PurchaseOrder | null> {
-//    if (id) {
-//     const updated = await updatePurchaseOrder(id, data);
-//     if (updated) {
-//       revalidatePath('/purchase-orders');
-//       revalidatePath(`/purchase-orders/${id}`);
-//     }
-//     return updated;
-//   } else {
-//     console.warn("Direct creation of Purchase Orders via savePurchaseOrder is not the primary flow yet.");
-//     return null;
-//   }
-// }
+// savePurchaseOrder would be for creating/editing POs directly, not currently implemented
+// removePurchaseOrder is already there
 
-export async function removePurchaseOrder(id: string): Promise<boolean> {
-  const success = await deletePurchaseOrder(id);
-  if (success) {
-    revalidatePath('/purchase-orders');
-  }
-  return success;
-}
-
-// --- User Actions (for Admin Prototype) ---
+// User Actions (for Admin)
 export async function getAllUsers(): Promise<User[]> {
   return getUsers();
 }
 
 export async function toggleUserActiveStatus(userId: string, isActive: boolean): Promise<User | null> {
-  const updatedUser = await updateUserInData(userId, { isActive });
+  const updatedUser = await updateUserData(userId, { isActive });
   if (updatedUser) {
-    revalidatePath('/admin/dashboard'); 
+    revalidatePath('/admin/dashboard');
   }
   return updatedUser;
 }
-
-    

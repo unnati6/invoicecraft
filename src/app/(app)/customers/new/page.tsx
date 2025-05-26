@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { CustomerForm } from '@/components/customer-form';
 import type { CustomerFormData } from '@/lib/schemas';
-import { createNewCustomer } from '@/lib/actions'; // Changed to createNewCustomer
+import { createNewCustomer } from '@/lib/customer-actions'; // Changed to createNewCustomer
 import { useToast } from '@/hooks/use-toast';
 
 export default function NewCustomerPage() {

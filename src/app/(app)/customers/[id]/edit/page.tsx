@@ -2,11 +2,12 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, usePathname } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { CustomerForm } from '@/components/customer-form';
 import type { CustomerFormData } from '@/lib/schemas';
-import { fetchCustomerById, saveCustomer, getAllInvoices, markInvoiceAsPaid } from '@/lib/actions';
+import { fetchCustomerById, getAllInvoices, markInvoiceAsPaid } from '@/lib/actions';
+import { updateExistingCustomer } from '@/lib/customer-actions'; // Changed to updateExistingCustomer
 import { useToast } from '@/hooks/use-toast';
 import type { Customer, Invoice } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +25,7 @@ export default function EditCustomerPage() {
   const params = useParams();
   const customerId = params.id as string;
   const { toast } = useToast();
+  const pathname = usePathname(); // Keep this
   
   const [customer, setCustomer] = React.useState<Customer | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -54,7 +56,7 @@ export default function EditCustomerPage() {
       }
       loadCustomer();
     }
-  }, [customerId, router, toast]);
+  }, [customerId, router, toast, pathname]); // Added pathname here
 
   React.useEffect(() => {
     async function loadCustomerInvoices() {
@@ -77,15 +79,15 @@ export default function EditCustomerPage() {
             }
         }
     }
-    if (customer) { // Ensure customer data is available before fetching invoices
+    if (customer) { 
         loadCustomerInvoices();
     }
-  }, [customerId, customer, toast]);
+  }, [customerId, customer, toast, pathname]); // Added pathname here for consistency
 
   const handleSubmit = async (data: CustomerFormData) => {
     setIsSubmitting(true);
     try {
-      const updatedCustomer = await saveCustomer(data, customerId);
+      const updatedCustomer = await updateExistingCustomer(customerId, data); // Changed to updateExistingCustomer
       if (updatedCustomer) {
         setCustomer(updatedCustomer);
         toast({ title: "Success", description: "Customer updated successfully." });
@@ -128,10 +130,10 @@ export default function EditCustomerPage() {
 
   const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" | "status-overdue" => {
     switch (status) {
-      case 'Paid': return 'default'; // Green (primary)
-      case 'Sent': return 'destructive'; // Red
-      case 'Overdue': return 'status-overdue'; // Orange
-      case 'Draft': return 'outline'; // Default outline
+      case 'Paid': return 'default'; 
+      case 'Sent': return 'destructive'; 
+      case 'Overdue': return 'status-overdue'; 
+      case 'Draft': return 'outline'; 
       default: return 'outline';
     }
   };
