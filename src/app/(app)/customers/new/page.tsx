@@ -1,35 +1,36 @@
-
+// src/app/customers/new/page.tsx
 'use client';
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { CustomerForm } from '@/components/customer-form';
-import type { CustomerFormData } from '@/lib/schemas';
-import { saveCustomer } from '@/lib/actions'; // Reverted to use saveCustomer
+import type { CustomerFormData } from '@/lib/schemas'; // <-- Keep this
+import { saveCustomer } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
+// import { useFormStatus } from 'react-dom'; // No longer directly needed here
 
 export default function NewCustomerPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const handleSubmit = async (data: CustomerFormData) => {
-    console.log('DEBUG: handleSubmit called with data:', data);
-    setIsSubmitting(true);
+  // Updated formAction to directly receive CustomerFormData
+  const formAction = async (data: CustomerFormData) => { // <-- Change 'formData: FormData' to 'data: CustomerFormData'
+    console.log('FRONTEND DEBUG: formAction triggered from CustomerForm with data:', data);
+
     try {
-      const newCustomer = await saveCustomer(data); // Use saveCustomer
-      if (newCustomer) {
+      // Pass the already prepared customerData object to saveCustomer
+      const result = await saveCustomer(data); // <-- Pass 'data' directly
+
+      if (result && result.id) {
         toast({ title: "Success", description: "Customer created successfully." });
-        router.push(`/customers/${newCustomer.id}/edit`);
+        router.push(`/customers/${result.id}/edit`);
       } else {
-        toast({ title: "Error", description: "Failed to create customer.", variant: "destructive" });
+        toast({ title: "Error", description: "Failed to create customer. No valid ID returned.", variant: "destructive" });
       }
     } catch (error) {
-      console.error("Failed to create customer:", error);
-      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
+      console.error("FRONTEND ERROR: Error during form submission:", error);
+      toast({ title: "Error", description: "An unexpected error occurred during submission.", variant: "destructive" });
     }
   };
 
@@ -37,9 +38,9 @@ export default function NewCustomerPage() {
     <>
       <AppHeader title="Add New Customer" showBackButton />
       <main className="flex-1 p-4 md:p-6">
-        <CustomerForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+        {/* Pass the updated formAction to CustomerForm */}
+        <CustomerForm formAction={formAction} />
       </main>
     </>
   );
 }
-    

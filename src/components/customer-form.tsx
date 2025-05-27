@@ -1,4 +1,4 @@
-
+// src/components/customer-form.tsx
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,14 +16,16 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { customerSchema, type CustomerFormData } from '@/lib/schemas';
 import type { Customer } from '@/types';
-import { Save, Copy } from 'lucide-react'; // Added Copy icon
+import { Save, Copy } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useFormStatus } from 'react-dom'; // Import useFormStatus if you want loading state
 
 interface CustomerFormProps {
-  onSubmit: (data: CustomerFormData) => Promise<void>;
   initialData?: Customer | null;
-  isSubmitting?: boolean;
+  // Change the type of formAction to accept CustomerFormData
+  formAction: (data: CustomerFormData) => Promise<void>;
 }
+
 
 const currencies = [
   { value: 'USD', label: 'USD - United States Dollar' },
@@ -64,7 +66,8 @@ const currencies = [
 ];
 
 
-export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: CustomerFormProps) {
+
+export function CustomerForm({ initialData, formAction }: CustomerFormProps) {
   const form = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
@@ -100,9 +103,32 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
     }
   };
 
+  // Component to render the submit button with loading state
+  function SubmitButton() {
+    const { pending } = useFormStatus();
+    return (
+      <Button type="submit" disabled={pending} aria-disabled={pending}>
+        {pending ? (
+          <>
+            <Save className="mr-2 h-4 w-4 animate-spin" /> Saving...
+          </>
+        ) : (
+          <>
+            <Save className="mr-2 h-4 w-4" /> {initialData ? 'Update Customer' : 'Create Customer'}
+          </>
+        )}
+      </Button>
+    );
+  }
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
+      {/* Use the form's onSubmit to validate, then trigger the formAction with the validated data */}
+      <form onSubmit={form.handleSubmit(async (data) => {
+        // Add a debug log here
+        console.log("DEBUG: CustomerForm onSubmit triggered after validation. Data:", data);
+        await formAction(data);
+      })}> {/* <-- Direct call with validated 'data' */}
         <Card>
           <CardHeader>
             <CardTitle>{initialData ? 'Edit Customer' : 'Add New Customer'}</CardTitle>
@@ -175,7 +201,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                 )}
               />
             </div>
-            
+
             <p className="text-base font-semibold text-foreground pt-4">Billing Address</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
@@ -211,7 +237,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                 name="billingAddress.state"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>State / Province</FormLabel>
+                    <FormLabel>State/Province</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. CA" {...field} suppressHydrationWarning={true} />
                     </FormControl>
@@ -224,7 +250,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                 name="billingAddress.zip"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>ZIP / Postal Code</FormLabel>
+                    <FormLabel>Zip/Postal Code</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. 90210" {...field} suppressHydrationWarning={true} />
                     </FormControl>
@@ -248,10 +274,10 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
             </div>
 
             <div className="flex justify-between items-center pt-4">
-                <p className="text-base font-semibold text-foreground">Shipping Address</p>
-                <Button type="button" variant="outline" size="sm" onClick={handleCopyBillingAddress}>
-                    <Copy className="mr-2 h-3 w-3" /> Copy Billing Address
-                </Button>
+              <p className="text-base font-semibold text-foreground">Shipping Address</p>
+              <Button type="button" variant="outline" onClick={handleCopyBillingAddress} size="sm">
+                <Copy className="mr-2 h-4 w-4" /> Copy Billing Address
+              </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
@@ -261,7 +287,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>Street</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. 456 Oak Ave" {...field} suppressHydrationWarning={true} />
+                      <Input placeholder="e.g. 123 Main St" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -274,7 +300,7 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                   <FormItem>
                     <FormLabel>City</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Otherville" {...field} suppressHydrationWarning={true} />
+                      <Input placeholder="e.g. Anytown" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -287,9 +313,9 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                 name="shippingAddress.state"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>State / Province</FormLabel>
+                    <FormLabel>State/Province</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. TX" {...field} suppressHydrationWarning={true} />
+                      <Input placeholder="e.g. CA" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -300,9 +326,9 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
                 name="shippingAddress.zip"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>ZIP / Postal Code</FormLabel>
+                    <FormLabel>Zip/Postal Code</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. 75001" {...field} suppressHydrationWarning={true} />
+                      <Input placeholder="e.g. 90210" {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -323,16 +349,14 @@ export function CustomerForm({ onSubmit, initialData, isSubmitting = false }: Cu
               />
             </div>
           </CardContent>
-          <CardFooter>
-            <Button type="submit" disabled={isSubmitting}>
-              <Save className="mr-2 h-4 w-4" />
-              {isSubmitting ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Customer')}
+          <CardFooter className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => form.reset()}>
+              Reset
             </Button>
+            <SubmitButton />
           </CardFooter>
         </Card>
       </form>
     </Form>
   );
 }
-
-CustomerForm.displayName = "CustomerForm";

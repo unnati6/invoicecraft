@@ -166,31 +166,35 @@ export async function getCustomerById(id: string): Promise<Customer | undefined>
   const customer = mockCustomers.find(c => c.id === id);
   return customer ? { ...customer } : undefined;
 }
-
 export async function createCustomer(data: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer | null> {
   console.log("DEBUG: [data.ts] createCustomer called with data:", data);
-  try{
-  const newCustomer = await securedApiCall<Customer>('/customers', {
-    method: 'POST',
-    body: JSON.stringify(data), 
-    headers: { 'Content-Type': 'application/json' },
-  });
 
-  if (newCustomer) {
-      return {
-          ...newCustomer,
-          createdAt: new Date(newCustomer.createdAt),
-      };
+  // Remove the stringifiedBody variable and try to stringify directly in the call
+  // This is a temporary diagnostic step.
+  const bodyToSend = JSON.stringify(data);
+  console.log("DEBUG: [data.ts] Direct JSON.stringify(data) result for bodyToSend:", bodyToSend);
+
+
+  try {
+      const newCustomer = await securedApiCall<Customer>('/api/customers', {
+          method: 'POST',
+          body: bodyToSend, // <--- Directly use bodyToSend here
+          headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (newCustomer) {
+          return {
+              ...newCustomer,
+              createdAt: new Date(newCustomer.createdAt),
+          };
+      }
+      console.log("DEBUG: [data.ts] createCustomer API response:", newCustomer);
+      return newCustomer;
+  } catch (error) {
+      console.error('Failed to create customer:', error);
+      return null;
   }
-  console.log("DEBUG: [data.ts] createCustomer API response:", newCustomer); // <--- यह लाइन जोड़ें
-  return newCustomer;
-} catch (error) {
-  console.error('Failed to create customer:', error);
-  return null;
 }
-}
-
-
 export async function updateCustomer(id: string, data: Partial<Omit<Customer, 'id' | 'createdAt'>>): Promise<Customer | null> {
   const index = mockCustomers.findIndex(c => c.id === id);
   if (index === -1) return null;

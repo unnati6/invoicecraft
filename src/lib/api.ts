@@ -1,6 +1,6 @@
 
 //import { auth } from './firebase'; 
-const BACKEND_BASE_URL = 'http://localhost:5000/api'; 
+const BACKEND_BASE_URL = 'http://localhost:5000'; 
 
 // async function getAuthToken(): Promise<string | null> {
 //     if (typeof window !== 'undefined' && auth.currentUser) {
@@ -16,7 +16,7 @@ const BACKEND_BASE_URL = 'http://localhost:5000/api';
 // }
 
 export async function checkBackendConnection(): Promise<boolean> {
-  const url = `${BACKEND_BASE_URL}/status`;
+  const url = `${BACKEND_BASE_URL}/api/status`;
 
   try {
       console.log(`Attempting to connect to backend at: ${url}`);
@@ -45,38 +45,27 @@ export async function checkBackendConnection(): Promise<boolean> {
   }
 }
 
-export async function securedApiCall<T>(url: string, options: RequestInit = {}): Promise<T> {
-    // const token = await auth.currentUser?.getIdToken(); // यह लाइन टिप्पणी करें या हटा दें
-    // const HARDCODED_TOKEN = "YOUR_HARDCODED_VALID_FIREBASE_ID_TOKEN"; // यह हार्डकोडेड लाइन भी हटा दें या टिप्पणी करें
-
-    const defaultHeaders = {
-        'Content-Type': 'application/json',
-        // 'Authorization': token ? `Bearer ${token}` : '', // यह लाइन हटा दें या टिप्पणी करें
-    };
-
-    const requestOptions = {
-        ...options,
-        headers: {
-            ...defaultHeaders,
-            ...options.headers, // यदि कोई अतिरिक्त हेडर पास किए जा रहे हैं तो उन्हें बनाए रखें
-        },
-    };
-
-    console.log('DEBUG: securedApiCall initiated for URL:', url);
-    console.log('DEBUG: Request options (without Authorization header):', requestOptions);
-
+export async function securedApiCall<T>(
+    endpoint: string,
+    options?: RequestInit // This is the correct way to pass fetch options
+  ): Promise<T | null> {
+    const url = `${BACKEND_BASE_URL}${endpoint}`;
+    console.log(`FRONTEND DEBUG: Making API call to: ${url}`);
+    console.log(`FRONTEND DEBUG: Request options:`, options); // Log options to debug
+  
     try {
-        const response = await fetch(`http://localhost:5000${url}`, requestOptions); // सुनिश्चित करें कि baseURL यहां सही है
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`API Error: ${response.status} - ${errorText}`);
-            throw new Error(`API Error: ${response.status} - ${errorText}`);
-        }
-        return response.json() as Promise<T>;
-
-    } catch (error) {
-        console.error('DEBUG: Network or API error in securedApiCall (without Authorization header):', error);
-        throw error;
+      const response = await fetch(url, options); // Pass the options object directly
+  
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        console.error(`API Error (${response.status}):`, errorData);
+        throw new Error(`API call failed: ${errorData.message || response.statusText}`);
+      }
+  
+      const data = await response.json();
+      return data as T;
+    } catch (error: any) {
+      console.error('Error during API call:', error);
+      throw error;
     }
-}
+  }
