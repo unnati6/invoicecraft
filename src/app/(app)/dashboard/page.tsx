@@ -53,9 +53,7 @@ export default function DashboardPage() {
         console.log("🥳 Frontend is successfully connected to Backend!");
       } else {
         console.error("😞 Frontend failed to connect to Backend.");
-        // यहाँ आप उपयोगकर्ता को एक त्रुटि संदेश भी दिखा सकते हैं
-        // toast({ title: "Connection Error", description: "Could not connect to the backend server.", variant: "destructive" });
-      }
+        }
     };
 
     testConnection();

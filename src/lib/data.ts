@@ -1,7 +1,7 @@
 
 import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, PurchaseOrderItem, User, PlanType } from '@/types';
 import type { AdditionalChargeFormData } from './schemas';
-
+import { securedApiCall } from './api';
 const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
 // --- Mock Data ---
@@ -168,14 +168,26 @@ export async function getCustomerById(id: string): Promise<Customer | undefined>
 }
 
 export async function createCustomer(data: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer | null> {
-  const newCustomer: Customer = {
-    ...data,
-    id: generateId('cust'),
-    createdAt: new Date(),
-  };
-  mockCustomers.push(newCustomer);
-  return { ...newCustomer };
+ try{
+  const newCustomer = await securedApiCall<Customer>('/customers', {
+    method: 'post',
+    body: JSON.stringify(data), 
+    headers: { 'Content-Type': 'application/json' },
+  });
+  console.log(data);
+  if (newCustomer) {
+      return {
+          ...newCustomer,
+          createdAt: new Date(newCustomer.createdAt),
+      };
+  }
+  return null;
+} catch (error) {
+  console.error('Failed to create customer:', error);
+  return null;
 }
+}
+
 
 export async function updateCustomer(id: string, data: Partial<Omit<Customer, 'id' | 'createdAt'>>): Promise<Customer | null> {
   const index = mockCustomers.findIndex(c => c.id === id);

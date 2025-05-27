@@ -3,51 +3,51 @@
 
 import { revalidatePath } from 'next/cache';
 import {
-  getCustomers,
-  getCustomerById,
-  createCustomer,
-  updateCustomer,
-  deleteCustomer,
-  getInvoices,
-  getInvoiceById,
-  createInvoice as createInvoiceData,
-  updateInvoice as updateInvoiceData,
-  deleteInvoice,
+  getCustomers as getCustomersData,
+  getCustomerById as getCustomerByIdData,
+  createCustomer as createCustomerData,
+  updateCustomer as updateCustomerData,
+  deleteCustomer as deleteCustomerData,
+  getInvoices as getInvoicesData,
+  getInvoiceById as getInvoiceByIdData,
+  createInvoice as createInvoiceDataLayer,
+  updateInvoice as updateInvoiceDataLayer,
+  deleteInvoice as deleteInvoiceData,
   getNextInvoiceNumber as getNextInvoiceNumberData,
-  getOrderForms,
-  getOrderFormById,
-  createOrderForm as createOrderFormData,
-  updateOrderForm as updateOrderFormData,
-  deleteOrderForm,
+  getOrderForms as getOrderFormsData,
+  getOrderFormById as getOrderFormByIdData,
+  createOrderForm as createOrderFormDataLayer,
+  updateOrderForm as updateOrderFormDataLayer,
+  deleteOrderForm as deleteOrderFormData,
   getNextOrderFormNumber as getNextOrderFormNumberData,
-  getTermsTemplates,
-  getTermsTemplateById,
-  createTermsTemplate as createTermsTemplateData,
-  updateTermsTemplate as updateTermsTemplateData,
-  deleteTermsTemplate,
-  getMsaTemplates,
-  getMsaTemplateById,
-  createMsaTemplate as createMsaTemplateData,
-  updateMsaTemplate as updateMsaTemplateData,
-  deleteMsaTemplate,
-  getCoverPageTemplates,
-  getCoverPageTemplateById,
-  createCoverPageTemplate as createCoverPageTemplateData,
-  updateCoverPageTemplate as updateCoverPageTemplateData,
-  deleteCoverPageTemplate,
-  getRepositoryItems,
+  getTermsTemplates as getTermsTemplatesData,
+  getTermsTemplateById as getTermsTemplateByIdData,
+  createTermsTemplate as createTermsTemplateDataLayer,
+  updateTermsTemplate as updateTermsTemplateDataLayer,
+  deleteTermsTemplate as deleteTermsTemplateData,
+  getMsaTemplates as getMsaTemplatesData,
+  getMsaTemplateById as getMsaTemplateByIdData,
+  createMsaTemplate as createMsaTemplateDataLayer,
+  updateMsaTemplate as updateMsaTemplateDataLayer,
+  deleteMsaTemplate as deleteMsaTemplateData,
+  getCoverPageTemplates as getCoverPageTemplatesData,
+  getCoverPageTemplateById as getCoverPageTemplateByIdData,
+  createCoverPageTemplate as createCoverPageTemplateDataLayer,
+  updateCoverPageTemplate as updateCoverPageTemplateDataLayer,
+  deleteCoverPageTemplate as deleteCoverPageTemplateData,
+  getRepositoryItems as getRepositoryItemsData,
   getRepositoryItemById as getRepositoryItemByIdData,
-  createRepositoryItem as createRepositoryItemData,
-  updateRepositoryItem as updateRepositoryItemData,
-  deleteRepositoryItem,
-  getPurchaseOrders,
-  getPurchaseOrderById,
-  createPurchaseOrder as createPurchaseOrderData,
-  // updatePurchaseOrder as updatePurchaseOrderData, // Not fully implemented yet
-  deletePurchaseOrder,
+  createRepositoryItem as createRepositoryItemDataLayer,
+  updateRepositoryItem as updateRepositoryItemDataLayer,
+  deleteRepositoryItem as deleteRepositoryItemData,
+  upsertRepositoryItemFromOrderForm as upsertRepositoryItemFromOrderFormData,
+  getPurchaseOrders as getPurchaseOrdersData,
+  getPurchaseOrderById as getPurchaseOrderByIdData,
+  createPurchaseOrder as createPurchaseOrderDataLayer,
+  deletePurchaseOrder as deletePurchaseOrderData, // Ensure this is the correct name from data.ts
   deletePurchaseOrdersByOrderFormId as deletePurchaseOrdersByOrderFormIdData,
   getNextPoNumber as getNextPoNumberData,
-  getUsers,
+  getUsers as getUsersData,
   updateUser as updateUserData,
 } from './data';
 import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, User } from '@/types';
@@ -57,16 +57,16 @@ import { Buffer } from 'buffer';
 
 // Customer Actions
 export async function getAllCustomers(): Promise<Customer[]> {
-  return getCustomers();
+  return getCustomersData();
 }
 
 export async function fetchCustomerById(id: string): Promise<Customer | undefined> {
-  return getCustomerById(id);
+  return getCustomerByIdData(id);
 }
 
 export async function saveCustomer(data: CustomerFormData, id?: string): Promise<Customer | null> {
   if (id) {
-    const updatedCustomer = await updateCustomer(id, data);
+    const updatedCustomer = await updateCustomerData(id, data);
     if (updatedCustomer) {
       revalidatePath('/customers');
       revalidatePath(`/customers/${id}/edit`);
@@ -74,7 +74,7 @@ export async function saveCustomer(data: CustomerFormData, id?: string): Promise
     }
     return updatedCustomer;
   } else {
-    const newCustomer = await createCustomer(data);
+    const newCustomer = await createCustomerData(data);
     if (newCustomer) {
       revalidatePath('/customers');
       revalidatePath('/(app)/dashboard', 'page');
@@ -84,7 +84,7 @@ export async function saveCustomer(data: CustomerFormData, id?: string): Promise
 }
 
 export async function removeCustomer(id: string): Promise<boolean> {
-  const success = await deleteCustomer(id);
+  const success = await deleteCustomerData(id);
   if (success) {
     revalidatePath('/customers');
     revalidatePath('/(app)/dashboard', 'page');
@@ -94,11 +94,11 @@ export async function removeCustomer(id: string): Promise<boolean> {
 
 // Invoice Actions
 export async function getAllInvoices(): Promise<Invoice[]> {
-  return getInvoices();
+  return getInvoicesData();
 }
 
 export async function fetchInvoiceById(id: string): Promise<Invoice | undefined> {
-  return getInvoiceById(id);
+  return getInvoiceByIdData(id);
 }
 
 export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<Invoice | null> {
@@ -110,46 +110,55 @@ export async function saveInvoice(data: InvoiceFormData, id?: string): Promise<I
     customerName: customer?.name || 'Unknown Customer',
     currencyCode: currencyCode,
     linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId,
+    msaContent: data.msaContent,
     msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     customPaymentTerms: data.customPaymentTerms,
     customCommitmentPeriod: data.customCommitmentPeriod,
     paymentFrequency: data.paymentFrequency,
     customPaymentFrequency: data.customPaymentFrequency,
   };
+  
+  console.log("[Action: saveInvoice] Data before saving:", invoiceDataCore);
 
+  let savedInvoice: Invoice | null = null;
   if (id) {
-    const existingInvoice = await getInvoiceById(id);
+    const existingInvoice = await getInvoiceByIdData(id);
     if (!existingInvoice) return null;
 
     const finalData = {
       ...invoiceDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingInvoice.termsAndConditions,
-      msaContent: data.msaContent !== undefined ? data.msaContent : existingInvoice.msaContent,
-      // msaCoverPageTemplateId is already in invoiceDataCore
     };
-    const updated = await updateInvoiceData(id, finalData);
-    if (updated) {
-      revalidatePath('/invoices');
-      revalidatePath(`/invoices/${updated.id}`);
-      revalidatePath(`/invoices/${updated.id}/terms`);
-      revalidatePath('/(app)/dashboard', 'page');
-      revalidatePath(`/customers/${updated.customerId}/edit`);
-    }
-    return updated;
+    savedInvoice = await updateInvoiceDataLayer(id, finalData);
   } else {
-    const newInvoice = await createInvoiceData(invoiceDataCore);
-    if (newInvoice) {
-      revalidatePath('/invoices');
-      revalidatePath(`/invoices/${newInvoice.id}`);
-      revalidatePath('/(app)/dashboard', 'page');
-      revalidatePath(`/customers/${newInvoice.customerId}/edit`);
-    }
-    return newInvoice;
+    savedInvoice = await createInvoiceDataLayer(invoiceDataCore);
   }
+
+  if (savedInvoice && customer) {
+    for (const item of savedInvoice.items) {
+        await upsertRepositoryItemFromOrderFormData(
+            {
+                description: item.description,
+                rate: item.rate,
+                // procurementPrice & vendorName are not on InvoiceItem, pass undefined
+            },
+            savedInvoice.customerId,
+            customer.name,
+            savedInvoice.currencyCode || 'USD'
+        );
+    }
+    revalidatePath('/invoices');
+    revalidatePath(`/invoices/${savedInvoice.id}`);
+    revalidatePath(`/invoices/${savedInvoice.id}/terms`);
+    revalidatePath('/(app)/dashboard', 'page');
+    revalidatePath(`/customers/${savedInvoice.customerId}/edit`);
+    revalidatePath('/item-repository');
+  }
+  return savedInvoice;
 }
 
 export async function removeInvoice(id: string): Promise<boolean> {
-  const success = await deleteInvoice(id);
+  const success = await deleteInvoiceData(id);
   if (success) {
     revalidatePath('/invoices');
     revalidatePath('/(app)/dashboard', 'page');
@@ -158,9 +167,9 @@ export async function removeInvoice(id: string): Promise<boolean> {
 }
 
 export async function saveInvoiceTerms(id: string, data: TermsFormData): Promise<Invoice | null> {
-  const invoice = await getInvoiceById(id);
+  const invoice = await getInvoiceByIdData(id);
   if (!invoice) return null;
-  const updated = await updateInvoiceData(id, { termsAndConditions: data.termsAndConditions });
+  const updated = await updateInvoiceDataLayer(id, { termsAndConditions: data.termsAndConditions });
   if (updated) {
     revalidatePath(`/invoices/${id}`);
     revalidatePath(`/invoices/${id}/terms`);
@@ -173,9 +182,9 @@ export async function fetchNextInvoiceNumber(): Promise<string> {
 }
 
 export async function markInvoiceAsPaid(invoiceId: string): Promise<Invoice | null> {
-  const invoice = await getInvoiceById(invoiceId);
+  const invoice = await getInvoiceByIdData(invoiceId);
   if (!invoice) return null;
-  const updatedInvoice = await updateInvoiceData(invoiceId, { status: 'Paid' });
+  const updatedInvoice = await updateInvoiceDataLayer(invoiceId, { status: 'Paid' });
   if (updatedInvoice) {
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${invoiceId}`);
@@ -189,11 +198,11 @@ export async function markInvoiceAsPaid(invoiceId: string): Promise<Invoice | nu
 
 // OrderForm Actions
 export async function getAllOrderForms(): Promise<OrderForm[]> {
-  return getOrderForms();
+  return getOrderFormsData();
 }
 
 export async function fetchOrderFormById(id: string): Promise<OrderForm | undefined> {
-  return getOrderFormById(id);
+  return getOrderFormByIdData(id);
 }
 
 export async function saveOrderForm(data: OrderFormFormData, id?: string): Promise<OrderForm | null> {
@@ -205,6 +214,7 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     customerName: customer?.name || 'Unknown Customer',
     currencyCode: currencyCode,
     linkedMsaTemplateId: data.linkedMsaTemplateId === "_no_msa_template_" ? undefined : data.linkedMsaTemplateId,
+    msaContent: data.msaContent,
     msaCoverPageTemplateId: data.msaCoverPageTemplateId,
     customPaymentTerms: data.customPaymentTerms,
     customCommitmentPeriod: data.customCommitmentPeriod,
@@ -212,27 +222,43 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
     customPaymentFrequency: data.customPaymentFrequency,
   };
 
+  console.log("[Action: saveOrderForm] Data before saving:", orderFormDataCore);
+
+  let savedOrderForm: OrderForm | null = null;
   if (id) {
-    const existingOrderForm = await getOrderFormById(id);
+    const existingOrderForm = await getOrderFormByIdData(id);
     if (!existingOrderForm) return null;
     const finalData = {
       ...orderFormDataCore,
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
-      msaContent: data.msaContent !== undefined ? data.msaContent : existingOrderForm.msaContent,
-      // msaCoverPageTemplateId is already in orderFormDataCore
     };
-    const updated = await updateOrderFormData(id, finalData);
-    if (updated) {
-      await deletePurchaseOrdersByOrderFormIdData(id);
-      if (updated.items && updated.customerId && customer) {
-        // For now, we are not dynamically updating the Item Repository from Order Forms in this reverted version.
-        // This logic can be re-added later if desired.
-        const itemsByVendor = updated.items.reduce((acc, item) => {
-          if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice >= 0) {
-            if (!acc[item.vendorName]) {
-              acc[item.vendorName] = [];
+    savedOrderForm = await updateOrderFormDataLayer(id, finalData);
+  } else {
+    savedOrderForm = await createOrderFormDataLayer(orderFormDataCore);
+  }
+  
+  if (savedOrderForm && customer) {
+    await deletePurchaseOrdersByOrderFormIdData(savedOrderForm.id);
+    for (const item of savedOrderForm.items) {
+          await upsertRepositoryItemFromOrderFormData(
+            {
+                description: item.description,
+                rate: item.rate,
+                procurementPrice: item.procurementPrice,
+                vendorName: item.vendorName,
+            },
+            savedOrderForm.customerId,
+            customer.name,
+            savedOrderForm.currencyCode || 'USD'
+        );
+
+        // PO Generation Logic
+        const itemsByVendor = savedOrderForm.items.reduce((acc, currentItem) => {
+          if (currentItem.vendorName && currentItem.procurementPrice !== undefined && currentItem.procurementPrice >= 0) {
+            if (!acc[currentItem.vendorName]) {
+              acc[currentItem.vendorName] = [];
             }
-            acc[item.vendorName].push(item);
+            acc[currentItem.vendorName].push(currentItem);
           }
           return acc;
         }, {} as Record<string, OrderFormItem[]>);
@@ -241,74 +267,34 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
           const poItems = itemsByVendor[vendorName].map(ofi => ({
             description: ofi.description,
             quantity: ofi.quantity,
-            procurementPrice: ofi.procurementPrice!,
+            procurementPrice: ofi.procurementPrice!, // Non-null assertion as it's checked
           }));
           if (poItems.length > 0) {
             const poNumber = await getNextPoNumberData();
-            await createPurchaseOrderData({
+            await createPurchaseOrderDataLayer({
               poNumber,
               vendorName,
-              orderFormId: updated.id,
-              orderFormNumber: updated.orderFormNumber,
+              orderFormId: savedOrderForm.id,
+              orderFormNumber: savedOrderForm.orderFormNumber,
               issueDate: new Date(),
               items: poItems,
               status: 'Draft'
             });
           }
         }
-      }
-      revalidatePath('/orderforms');
-      revalidatePath(`/orderforms/${updated.id}`);
-      revalidatePath(`/orderforms/${updated.id}/terms`);
-      revalidatePath('/purchase-orders');
     }
-    return updated;
-  } else {
-    const newOrderForm = await createOrderFormData(orderFormDataCore);
-    if(newOrderForm) {
-      if (newOrderForm.items && newOrderForm.customerId && customer) {
-        // For now, we are not dynamically updating the Item Repository from Order Forms in this reverted version.
-        const itemsByVendor = newOrderForm.items.reduce((acc, item) => {
-          if (item.vendorName && item.procurementPrice !== undefined && item.procurementPrice >= 0) {
-            if (!acc[item.vendorName]) {
-              acc[item.vendorName] = [];
-            }
-            acc[item.vendorName].push(item);
-          }
-          return acc;
-        }, {} as Record<string, OrderFormItem[]>);
-
-        for (const vendorName in itemsByVendor) {
-          const poItems = itemsByVendor[vendorName].map(ofi => ({
-            description: ofi.description,
-            quantity: ofi.quantity,
-            procurementPrice: ofi.procurementPrice!,
-          }));
-            if (poItems.length > 0) {
-            const poNumber = await getNextPoNumberData();
-            await createPurchaseOrderData({
-              poNumber,
-              vendorName,
-              orderFormId: newOrderForm.id,
-              orderFormNumber: newOrderForm.orderFormNumber,
-              issueDate: new Date(),
-              items: poItems,
-              status: 'Draft'
-            });
-          }
-        }
-      }
-      revalidatePath('/orderforms');
-      revalidatePath(`/orderforms/${newOrderForm.id}`);
-      revalidatePath('/purchase-orders');
-    }
-    return newOrderForm;
+    revalidatePath('/orderforms');
+    revalidatePath(`/orderforms/${savedOrderForm.id}`);
+    revalidatePath(`/orderforms/${savedOrderForm.id}/terms`);
+    revalidatePath('/item-repository');
+    revalidatePath('/purchase-orders');
   }
+  return savedOrderForm;
 }
 
 
 export async function removeOrderForm(id: string): Promise<boolean> {
-  const success = await deleteOrderForm(id);
+  const success = await deleteOrderFormData(id);
   if (success) {
     await deletePurchaseOrdersByOrderFormIdData(id);
     revalidatePath('/orderforms');
@@ -318,9 +304,9 @@ export async function removeOrderForm(id: string): Promise<boolean> {
 }
 
 export async function saveOrderFormTerms(id: string, data: TermsFormData): Promise<OrderForm | null> {
-  const orderForm = await getOrderFormById(id);
+  const orderForm = await getOrderFormByIdData(id);
   if (!orderForm) return null;
-  const updated = await updateOrderFormData(id, { termsAndConditions: data.termsAndConditions });
+  const updated = await updateOrderFormDataLayer(id, { termsAndConditions: data.termsAndConditions });
   if (updated) {
     revalidatePath(`/orderforms/${id}`);
     revalidatePath(`/orderforms/${id}/terms`);
@@ -333,7 +319,7 @@ export async function fetchNextOrderFormNumber(): Promise<string> {
 }
 
 export async function convertOrderFormToInvoice(orderFormId: string): Promise<Invoice | null> {
-  const orderForm = await getOrderFormById(orderFormId);
+  const orderForm = await getOrderFormByIdData(orderFormId);
   if (!orderForm) {
     console.error('OrderForm not found for conversion:', orderFormId);
     return null;
@@ -376,10 +362,10 @@ export async function convertOrderFormToInvoice(orderFormId: string): Promise<In
     serviceEndDate: orderForm.serviceEndDate,
   };
 
-  const newInvoice = await createInvoiceData(newInvoiceData);
+  const newInvoice = await createInvoiceDataLayer(newInvoiceData);
 
   if (newInvoice) {
-    await updateOrderFormData(orderFormId, { status: 'Accepted' });
+    await updateOrderFormDataLayer(orderFormId, { status: 'Accepted' });
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${newInvoice.id}`);
     revalidatePath('/orderforms');
@@ -464,7 +450,7 @@ export async function downloadInvoiceAsExcel(invoiceId: string): Promise<{ succe
       ];
       csvContent += chargeRow.map(escapeCsvField).join(',') + '\n';
     });
-  } else if (invoice.items.length === 0) {
+  } else if (invoice.items.length === 0) { 
       const emptyRow = [
         ...baseInvoiceRow, '', '', '', '',
         invoice.discountEnabled, invoice.discountDescription, invoice.discountType, invoice.discountValue, invoice.discountAmount,
@@ -519,7 +505,7 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
       ];
       csvContent += chargeRow.map(escapeCsvField).join(',') + '\n';
     });
-  } else if (orderForm.items.length === 0) {
+  } else if (orderForm.items.length === 0) { 
       const emptyRow = [
         ...baseOrderFormRow, '', '', '', '', '', '',
         orderForm.discountEnabled, orderForm.discountDescription, orderForm.discountType, orderForm.discountValue, orderForm.discountAmount,
@@ -536,23 +522,23 @@ export async function downloadOrderFormAsExcel(orderFormId: string): Promise<{ s
 
 // TermsTemplate Actions
 export async function getAllTermsTemplates(): Promise<TermsTemplate[]> {
-  return getTermsTemplates();
+  return getTermsTemplatesData();
 }
 
 export async function fetchTermsTemplateById(id: string): Promise<TermsTemplate | undefined> {
-  return getTermsTemplateById(id);
+  return getTermsTemplateByIdData(id);
 }
 
 export async function saveTermsTemplate(data: TermsTemplateFormData, id?: string): Promise<TermsTemplate | null> {
   if (id) {
-    const updated = await updateTermsTemplateData(id, data);
+    const updated = await updateTermsTemplateDataLayer(id, data);
     if (updated) {
       revalidatePath('/templates/terms');
       revalidatePath(`/templates/terms/${id}/edit`);
     }
     return updated;
   } else {
-    const newTemplate = await createTermsTemplateData(data);
+    const newTemplate = await createTermsTemplateDataLayer(data);
     if (newTemplate) {
       revalidatePath('/templates/terms');
     }
@@ -561,7 +547,7 @@ export async function saveTermsTemplate(data: TermsTemplateFormData, id?: string
 }
 
 export async function removeTermsTemplate(id: string): Promise<boolean> {
-  const success = await deleteTermsTemplate(id);
+  const success = await deleteTermsTemplateData(id);
   if (success) {
     revalidatePath('/templates/terms');
   }
@@ -570,11 +556,11 @@ export async function removeTermsTemplate(id: string): Promise<boolean> {
 
 // MSA Template Actions
 export async function getAllMsaTemplates(): Promise<MsaTemplate[]> {
-  return getMsaTemplates();
+  return getMsaTemplatesData();
 }
 
 export async function fetchMsaTemplateById(id: string): Promise<MsaTemplate | undefined> {
-  return getMsaTemplateById(id);
+  return getMsaTemplateByIdData(id);
 }
 
 export async function saveMsaTemplate(data: MsaTemplateFormData, id?: string): Promise<MsaTemplate | null> {
@@ -584,14 +570,14 @@ export async function saveMsaTemplate(data: MsaTemplateFormData, id?: string): P
     coverPageTemplateId: data.coverPageTemplateId === "_no_cover_page_" ? undefined : data.coverPageTemplateId,
   };
   if (id) {
-    const updated = await updateMsaTemplateData(id, payload);
+    const updated = await updateMsaTemplateDataLayer(id, payload);
     if (updated) {
       revalidatePath('/templates/msa');
       revalidatePath(`/templates/msa/${id}/edit`);
     }
     return updated;
   } else {
-    const newTemplate = await createMsaTemplateData(payload);
+    const newTemplate = await createMsaTemplateDataLayer(payload);
     if (newTemplate) {
       revalidatePath('/templates/msa');
     }
@@ -600,7 +586,7 @@ export async function saveMsaTemplate(data: MsaTemplateFormData, id?: string): P
 }
 
 export async function removeMsaTemplate(id: string): Promise<boolean> {
-  const success = await deleteMsaTemplate(id);
+  const success = await deleteMsaTemplateData(id);
   if (success) {
     revalidatePath('/templates/msa');
   }
@@ -608,9 +594,9 @@ export async function removeMsaTemplate(id: string): Promise<boolean> {
 }
 
 export async function linkCoverPageToMsa(msaTemplateId: string, coverPageTemplateId: string | null): Promise<MsaTemplate | null> {
-  const msaTemplate = await getMsaTemplateById(msaTemplateId);
+  const msaTemplate = await getMsaTemplateByIdData(msaTemplateId);
   if (!msaTemplate) return null;
-  const updatedMsaTemplate = await updateMsaTemplateData(msaTemplateId, { coverPageTemplateId: coverPageTemplateId === null ? undefined : coverPageTemplateId });
+  const updatedMsaTemplate = await updateMsaTemplateDataLayer(msaTemplateId, { coverPageTemplateId: coverPageTemplateId === null ? undefined : coverPageTemplateId });
   if (updatedMsaTemplate) {
     revalidatePath('/templates/msa');
   }
@@ -619,23 +605,23 @@ export async function linkCoverPageToMsa(msaTemplateId: string, coverPageTemplat
 
 // Cover Page Template Actions
 export async function getAllCoverPageTemplates(): Promise<CoverPageTemplate[]> {
-  return getCoverPageTemplates();
+  return getCoverPageTemplatesData();
 }
 
 export async function fetchCoverPageTemplateById(id: string): Promise<CoverPageTemplate | undefined> {
-  return getCoverPageTemplateById(id);
+  return getCoverPageTemplateByIdData(id);
 }
 
 export async function saveCoverPageTemplate(data: CoverPageTemplateFormData, id?: string): Promise<CoverPageTemplate | null> {
   if (id) {
-    const updated = await updateCoverPageTemplateData(id, data);
+    const updated = await updateCoverPageTemplateDataLayer(id, data);
     if (updated) {
       revalidatePath('/templates/coverpages');
       revalidatePath(`/templates/coverpages/${id}/edit`);
     }
     return updated;
   } else {
-    const newTemplate = await createCoverPageTemplateData(data);
+    const newTemplate = await createCoverPageTemplateDataLayer(data);
     if (newTemplate) {
       revalidatePath('/templates/coverpages');
     }
@@ -644,7 +630,7 @@ export async function saveCoverPageTemplate(data: CoverPageTemplateFormData, id?
 }
 
 export async function removeCoverPageTemplate(id: string): Promise<boolean> {
-  const success = await deleteCoverPageTemplate(id);
+  const success = await deleteCoverPageTemplateData(id);
   if (success) {
     revalidatePath('/templates/coverpages');
   }
@@ -660,7 +646,7 @@ export async function saveBrandingSettings(data: BrandingSettingsFormData): Prom
 
 // Repository Item Actions
 export async function getAllRepositoryItems(): Promise<RepositoryItem[]> {
-  return getRepositoryItems();
+  return getRepositoryItemsData();
 }
 
 export async function fetchRepositoryItemById(id: string): Promise<RepositoryItem | undefined> {
@@ -669,21 +655,21 @@ export async function fetchRepositoryItemById(id: string): Promise<RepositoryIte
 
 export async function saveRepositoryItem(data: RepositoryItemFormData, id?: string): Promise<RepositoryItem | null> {
   if (id) {
-    const updated = await updateRepositoryItemData(id, data);
+    const updated = await updateRepositoryItemDataLayer(id, data);
     if (updated) {
       revalidatePath('/item-repository');
       revalidatePath(`/item-repository/${id}/edit`);
     }
     return updated;
   } else {
-    const newItem = await createRepositoryItemData(data);
+    const newItem = await createRepositoryItemDataLayer(data);
     if (newItem) revalidatePath('/item-repository');
     return newItem;
   }
 }
 
 export async function removeRepositoryItem(id: string): Promise<boolean> {
-  const success = await deleteRepositoryItem(id);
+  const success = await deleteRepositoryItemData(id);
   if (success) {
     revalidatePath('/item-repository');
   }
@@ -692,16 +678,24 @@ export async function removeRepositoryItem(id: string): Promise<boolean> {
 
 // Purchase Order Actions
 export async function getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
-  return getPurchaseOrders();
+  return getPurchaseOrdersData();
 }
 
 export async function fetchPurchaseOrderById(id: string): Promise<PurchaseOrder | undefined> {
-  return getPurchaseOrderById(id);
+  return getPurchaseOrderByIdData(id);
+}
+
+export async function removePurchaseOrder(id: string): Promise<boolean> {
+  const success = await deletePurchaseOrderData(id);
+  if (success) {
+    revalidatePath('/purchase-orders');
+  }
+  return success;
 }
 
 // User Actions (for Admin)
 export async function getAllUsers(): Promise<User[]> {
-  return getUsers();
+  return getUsersData();
 }
 
 export async function toggleUserActiveStatus(userId: string, isActive: boolean): Promise<User | null> {
@@ -711,4 +705,26 @@ export async function toggleUserActiveStatus(userId: string, isActive: boolean):
   }
   return updatedUser;
 }
-    
+
+// ---
+// The following are no longer used directly by pages but kept for potential internal use or future refactoring:
+// export async function createNewCustomer(data: CustomerFormData): Promise<Customer | null> {
+//   console.log("[Action: createNewCustomer] Received Form Data:", data);
+//   const newCustomer = await createCustomerData(data);
+//   if (newCustomer) {
+//     revalidatePath('/customers');
+//     revalidatePath('/(app)/dashboard', 'page');
+//   }
+//   return newCustomer;
+// }
+
+// export async function updateExistingCustomer(id: string, data: CustomerFormData): Promise<Customer | null> {
+//   console.log("[Action: updateExistingCustomer] Received Form Data for ID:", id, data);
+//   const updatedCustomer = await updateCustomerData(id, data);
+//   if (updatedCustomer) {
+//     revalidatePath('/customers');
+//     revalidatePath(`/customers/${id}/edit`);
+//     revalidatePath('/(app)/dashboard', 'page');
+//   }
+//   return updatedCustomer;
+// }
