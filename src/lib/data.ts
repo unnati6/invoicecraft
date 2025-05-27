@@ -168,20 +168,22 @@ export async function getCustomerById(id: string): Promise<Customer | undefined>
 }
 
 export async function createCustomer(data: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer | null> {
- try{
+  console.log("DEBUG: [data.ts] createCustomer called with data:", data);
+  try{
   const newCustomer = await securedApiCall<Customer>('/customers', {
     method: 'POST',
     body: JSON.stringify(data), 
     headers: { 'Content-Type': 'application/json' },
   });
-  console.log(data);
+
   if (newCustomer) {
       return {
           ...newCustomer,
           createdAt: new Date(newCustomer.createdAt),
       };
   }
-  return null;
+  console.log("DEBUG: [data.ts] createCustomer API response:", newCustomer); // <--- यह लाइन जोड़ें
+  return newCustomer;
 } catch (error) {
   console.error('Failed to create customer:', error);
   return null;
