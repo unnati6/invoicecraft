@@ -15,7 +15,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import { FileText, Users, LogOut, FileSignature as OrderFormIcon, Edit3, LayoutDashboard, ClipboardList, FileCheck2, BookCopy, Archive, ShoppingCart, PenSquare, ShieldCheck } from 'lucide-react';
+import { FileText, Users, LogOut, FileSignature as OrderFormIcon, Edit3, LayoutDashboard, ClipboardList, FileCheck2, BookCopy, Archive, ShoppingCart, PenSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AppLogo = () => (
@@ -63,11 +63,6 @@ export function AppSidebar() {
   const eSignatureMenuItems = [
     { href: '/e-signature/select-document', label: 'Send for Signature', icon: PenSquare },
   ];
-
-  const adminMenuItems = [
-     { href: '/admin/dashboard', label: 'User Management', icon: ShieldCheck },
-  ];
-
 
   const isActive = (href: string) => {
     return pathname === href || pathname.startsWith(href + '/');
@@ -140,32 +135,6 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarMenu>
                 {eSignatureMenuItems.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                        asChild
-                        isActive={isActive(item.href)}
-                        tooltip={item.label}
-                        className={cn(
-                        "justify-start",
-                        {'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30': isActive(item.href) }
-                        )}
-                    >
-                        <Link href={item.href}>
-                        <item.icon className="h-5 w-5" />
-                        <span>{item.label}</span>
-                        </Link>
-                    </SidebarMenuButton>
-                    </SidebarMenuItem>
-                ))}
-            </SidebarMenu>
-        </SidebarGroup>
-         <SidebarGroup>
-            <SidebarGroupLabel className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-                <span className="group-data-[collapsible=icon]:hidden">Admin</span>
-                <ShieldCheck className="hidden group-data-[collapsible=icon]:block h-5 w-5"/>
-            </SidebarGroupLabel>
-            <SidebarMenu>
-                {adminMenuItems.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                         asChild

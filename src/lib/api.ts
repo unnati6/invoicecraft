@@ -46,53 +46,39 @@ export async function checkBackendConnection(): Promise<boolean> {
 }
 
 
-export async function securedApiCall<T>(
-    path: string,
-    options: RequestInit = {}
-): Promise<T | null> {
-    const url = `${BACKEND_BASE_URL}${path}`;
-
-    const defaultHeaders: HeadersInit = {
+export async function securedApiCall(url: string, options: RequestInit = {}) {
+   
+    const HARDCODED_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImZlNjVjY2I4ZWFkMGJhZWY1ZmQzNjE5NWQ2NTI4YTA1NGZiYjc2ZjMiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vaW52b2ljZWNyYWZ0LTRoYmNsIiwiYXVkIjoiaW52b2ljZWNyYWZ0LTRoYmNsIiwiYXV0aF90aW1lIjoxNzQ4MzQwNDQ4LCJ1c2VyX2lkIjoiMDJrc2VveWQ0T1JpamNPd2VwUzR3NHVLb2tuMSIsInN1YiI6IjAya3Nlb3lkNE9SaWpjT3dlcFM0dzR1S29rbjEiLCJpYXQiOjE3NDgzNDA0NDgsImV4cCI6MTc0ODM0NDA0OCwiZW1haWwiOiJ1bm5hdGlwYXJtYXJjcEBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsidW5uYXRpcGFybWFyY3BAZ21haWwuY29tIl19LCJzaWduX2luX3Byb3ZpZGVyIjoicGFzc3dvcmQifX0.iCpU-E2i2vPP3ImU5f9IjVvrrSOgrUIB3o1F94oLrINfRuLvhVENE065n53Ul1ktyiT7wpPacJqE4-0Lhwtpla91dOcW1f-8RRznmr2lEf2vn9mtzFxCF39SUfubx0e3xks1_6WDWS3myEHAvRebecj97NX1D0EChOJcEacRnapPXKziDXzZyyPtcoE2YLUMb5sXQXyfjQb2uAp9FTn9zPCeiKttlyaf9LIIahbQYRb0mJtGITy-ponwE7o4_EQO3VCccegs97xDK5efvy1tNqE17js_9FgbOBN3myGyeZCPRTslBZMMO5u9fleoTwO4sm7tM5lpWbBOZ_yi_hU3NA"
+    
+    const token = HARDCODED_TOKEN; 
+     const defaultHeaders = {
         'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '', 
     };
 
-    const token = await getAuthToken();
-    if (token) {
-
-        defaultHeaders['Authorization'] = `Bearer ${token}`;
-    }
-
-    const requestHeaders = new Headers(defaultHeaders);
-    if (options.headers) {
-        for (const [key, value] of Object.entries(options.headers)) {
-            requestHeaders.set(key, String(value));
-        }
-    }
-
-    const response = await fetch(url, {
+    const requestOptions = {
         ...options,
-        headers: requestHeaders,
-    });
+        headers: {
+            ...defaultHeaders,
+            ...options.headers,
+        },
+    };
 
-    if (!response.ok) {
-        let errorData: any;
-        try {
-            errorData = await response.json();
-        } catch (jsonError) {
-            errorData = { message: response.statusText || 'Unknown error', status: response.status };
+    console.log('DEBUG: securedApiCall initiated for URL:', url);
+    console.log('DEBUG: Request options (with hardcoded token):', requestOptions); // लॉग अपडेट करें
+
+    try {
+        const response = await fetch(url, requestOptions);
+        // ... बाकी कोड (यह उम्मीद की जाती है कि यह अब काम करेगा, या कोई HTTP त्रुटि देगा)
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`API Error: ${response.status} - ${errorText}`);
+            throw new Error(`API Error: ${response.status} - ${errorText}`);
         }
-        console.error(`[API Error] Status: ${response.status} | Path: ${path} | Message: ${errorData.message || 'No message'}`);
-         if (response.status === 401) {
-            console.warn("Unauthorized API call. User might need to re-authenticate.");
-                   }
+        return response.json();
 
-        throw new Error(errorData.message || `API call failed with status ${response.status}`);
+    } catch (error) {
+        console.error('DEBUG: Network or API error in securedApiCall (with hardcoded token):', error); // लॉग अपडेट करें
+        throw error;
     }
-
-    if (response.status === 204) {
-        return null;
-    }
-
-    return response.json() as T;
 }
-

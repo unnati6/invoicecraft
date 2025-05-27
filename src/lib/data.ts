@@ -170,7 +170,7 @@ export async function getCustomerById(id: string): Promise<Customer | undefined>
 export async function createCustomer(data: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer | null> {
  try{
   const newCustomer = await securedApiCall<Customer>('/customers', {
-    method: 'post',
+    method: 'POST',
     body: JSON.stringify(data), 
     headers: { 'Content-Type': 'application/json' },
   });

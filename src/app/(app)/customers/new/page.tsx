@@ -15,6 +15,7 @@ export default function NewCustomerPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const handleSubmit = async (data: CustomerFormData) => {
+    console.log('DEBUG: handleSubmit called with data:', data);
     setIsSubmitting(true);
     try {
       const newCustomer = await saveCustomer(data); // Use saveCustomer
