@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
   FileText, Users, LogOut, FileSignature as OrderFormIcon, Edit3 as BrandingIcon, LayoutDashboard,
-  ClipboardList, FileCheck2, BookCopy, Archive, ShoppingCart, PenSquare, ShieldCheck
+  ClipboardList, FileCheck2, BookCopy, Archive, ShoppingCart, PenSquare, ShieldCheck, Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -57,12 +57,16 @@ export function AppSidebar() {
     { href: '/item-repository', label: 'Item Repository', icon: Archive },
   ];
 
-  const brandingAndTemplatesMenuItems = [
-    { href: '/branding', label: 'Branding & Numbering', icon: BrandingIcon },
-    { href: '/templates/terms', label: 'T&C Templates', icon: ClipboardList },
-    { href: '/templates/msa', label: 'MSA Templates', icon: FileCheck2 },
-    { href: '/templates/coverpages', label: 'Cover Pages', icon: BookCopy },
-  ];
+  const brandingAndTemplatesGroup = {
+    label: "Branding & Templates",
+    icon: BrandingIcon,
+    items: [
+      { href: '/branding', label: 'Branding & Numbering', icon: BrandingIcon },
+      { href: '/templates/terms', label: 'T&C Templates', icon: ClipboardList },
+      { href: '/templates/msa', label: 'MSA Templates', icon: FileCheck2 },
+      { href: '/templates/coverpages', label: 'Cover Pages', icon: BookCopy },
+    ]
+  };
 
   const eSignatureMenuItems = [
     { href: '/e-signature/select-document', label: 'Send for Signature', icon: PenSquare },
@@ -70,6 +74,7 @@ export function AppSidebar() {
 
   const adminNavItems = [
     { href: '/admin/dashboard', label: 'User Management', icon: ShieldCheck },
+    { href: '/admin/settings', label: 'Email Settings', icon: Settings },
   ];
 
   const isActive = (href: string) => {
@@ -135,11 +140,11 @@ export function AppSidebar() {
 
             <SidebarGroup>
                 <SidebarGroupLabel className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-                    <span className="group-data-[collapsible=icon]:hidden">Branding & Templates</span>
-                    <BrandingIcon className="hidden group-data-[collapsible=icon]:block h-5 w-5"/>
+                    <span className="group-data-[collapsible=icon]:hidden">{brandingAndTemplatesGroup.label}</span>
+                    <brandingAndTemplatesGroup.icon className="hidden group-data-[collapsible=icon]:block h-5 w-5"/>
                 </SidebarGroupLabel>
                 <SidebarMenu>
-                    {brandingAndTemplatesMenuItems.map((item) => (
+                    {brandingAndTemplatesGroup.items.map((item) => (
                         <SidebarMenuItem key={item.href}>
                         <SidebarMenuButton
                             asChild
