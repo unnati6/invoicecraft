@@ -1,6 +1,7 @@
 
 import { auth } from './firebase'; 
 const BACKEND_BASE_URL = 'http://localhost:5000/api'; 
+
 async function getAuthToken(): Promise<string | null> {
     if (typeof window !== 'undefined' && auth.currentUser) {
         try {
@@ -13,6 +14,7 @@ async function getAuthToken(): Promise<string | null> {
     }
     return null;
 }
+
 export async function checkBackendConnection(): Promise<boolean> {
   const url = `${BACKEND_BASE_URL}/status`;
 
@@ -20,7 +22,6 @@ export async function checkBackendConnection(): Promise<boolean> {
       console.log(`Attempting to connect to backend at: ${url}`);
       const response = await fetch(url, {
           method: 'GET',
-          // 'Content-Type': 'application/json', // Removed for GET request
       });
 
       if (response.ok) {
@@ -28,17 +29,18 @@ export async function checkBackendConnection(): Promise<boolean> {
           console.log("Backend Connection Successful:", data.message);
           return true;
       } else {
-          console.error(`Backend Connection Failed: Status ${response.status} - ${response.statusText}`);
+          let errorBodyText = '';
           try {
-            const errorBody = await response.text();
-            console.error("Backend error body:", errorBody);
-          } catch (e) {
-            // Ignore if can't parse body
-          }
+            errorBodyText = await response.text();
+          } catch (e) { /* ignore if reading body fails */ }
+          console.error(`Backend Connection Failed to ${url}: Status ${response.status} - ${response.statusText}. Response body: ${errorBodyText}`);
           return false;
       }
-  } catch (error) {
-      console.error("Network Error: Could not connect to backend.", error);
+  } catch (error: any) {
+      console.error(`Network Error: Could not connect to ${url}. Details:`, error.message || error);
+      if (error.cause) { // Some fetch errors might have a 'cause' property
+        console.error('Cause:', error.cause);
+      }
       return false;
   }
 }
@@ -93,3 +95,4 @@ export async function securedApiCall<T>(
 
     return response.json() as T;
 }
+
