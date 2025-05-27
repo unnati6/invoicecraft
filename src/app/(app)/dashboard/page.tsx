@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { DashboardChart, type ChartData } from '@/components/dashboard-chart';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
+import { checkBackendConnection } from '@/lib/api';
 interface CurrencySummary {
   currencyCode: string;
   totalInCurrency: number;
@@ -46,6 +46,20 @@ export default function DashboardPage() {
   });
   const [currencyBreakdown, setCurrencyBreakdown] = React.useState<CurrencySummary[]>([]);
   const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    const testConnection = async () => {
+      const isConnected = await checkBackendConnection();
+      if (isConnected) {
+        console.log("🥳 Frontend is successfully connected to Backend!");
+      } else {
+        console.error("😞 Frontend failed to connect to Backend.");
+        // यहाँ आप उपयोगकर्ता को एक त्रुटि संदेश भी दिखा सकते हैं
+        // toast({ title: "Connection Error", description: "Could not connect to the backend server.", variant: "destructive" });
+      }
+    };
+
+    testConnection();
+  }, []); // केवल एक बार माउंट पर चलाएं
 
   React.useEffect(() => {
     async function fetchData() {
