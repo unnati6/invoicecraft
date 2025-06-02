@@ -1,6 +1,6 @@
 
 //import { auth } from './firebase'; 
-const BACKEND_BASE_URL = 'http://localhost:5000'; 
+const BACKEND_BASE_URL = 'https://render.com/docs/web-services#port-binding'; 
 
 // async function getAuthToken(): Promise<string | null> {
 //     if (typeof window !== 'undefined' && auth.currentUser) {
