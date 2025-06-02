@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
+import Link from 'next/link'; // Import Link
 import { useRouter, usePathname } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { getCurrencySymbol } from '@/lib/currency-utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog'; // Added DialogTrigger
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface RepositoryItemPreviewDialogProps {
@@ -64,8 +64,7 @@ export default function ItemRepositoryPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [viewMode, setViewMode] = React.useState<'card' | 'list'>('card');
 
-  React.useEffect(() => {
-    async function fetchData() {
+  const fetchItems = React.useCallback(async () => {
       setLoading(true);
       try {
         const repoItemsData = await getAllRepositoryItems();
@@ -75,9 +74,12 @@ export default function ItemRepositoryPage() {
       } finally {
         setLoading(false);
       }
-    }
-    fetchData();
-  }, [toast, pathname]);
+  }, [toast]);
+
+  React.useEffect(() => {
+    fetchItems();
+  }, [fetchItems, pathname]);
+
 
   const handleDeleteItem = async (id: string) => {
     try {
@@ -186,9 +188,11 @@ export default function ItemRepositoryPage() {
           />
           <Button variant={viewMode === 'card' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('card')} title="Card View"><LayoutGrid className="h-4 w-4" /></Button>
           <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')} title="List View"><ListFilter className="h-4 w-4" /></Button>
-          <Button onClick={handleAddNewItem} title="Adding items directly requires a dedicated form (not yet implemented). Items are auto-created/updated via Order Forms.">
+          <Link href="/item-repository/new">
+            <Button>
             <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
           </Button>
+          </Link>
         </div>
       </AppHeader>
       <main className="flex-1 p-4 md:p-6 space-y-6">
@@ -199,11 +203,13 @@ export default function ItemRepositoryPage() {
               {searchTerm ? "No Matching Items Found" : "No Items in Repository"}
             </h2>
             <p className="text-muted-foreground mb-4 max-w-md">
-              {searchTerm ? `Your search for "${searchTerm}" did not match any items.` : "Items added or updated via Order Forms will appear here. You can also add global default items (form not yet implemented)."}
+              {searchTerm ? `Your search for "${searchTerm}" did not match any items.` : "Create your first global default item, or items will be automatically created/updated here when you save Order Forms or Invoices with new item details."}
             </p>
-            <Button onClick={handleAddNewItem} title="Adding items directly requires a dedicated form (not yet implemented).">
+            <Link href="/item-repository/new">
+                <Button>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Default Item
             </Button>
+            </Link>
           </div>
         ) : viewMode === 'card' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -246,8 +252,7 @@ export default function ItemRepositoryPage() {
             <CardHeader>
               <CardTitle>All Repository Items</CardTitle>
               <CardDescription>
-                Manage default values for items/services. These can be global or customer-specific (updated via Order Forms).
-                <strong className="block mt-1">Note: Values shown are defaults. Editing items here requires a dedicated form (not yet implemented).</strong>
+                Manage default values for items/services. Items specific to customers are created/updated via Order Forms & Invoices.
               </CardDescription>
             </CardHeader>
             <CardContent>

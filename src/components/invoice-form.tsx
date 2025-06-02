@@ -94,8 +94,10 @@ export function InvoiceForm({ onSubmit, initialData, isSubmitting: formIsSubmitt
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
+    
     defaultValues: initialData
       ? {
+        
           ...initialData,
           issueDate: new Date(initialData.issueDate),
           dueDate: new Date(initialData.dueDate),

@@ -27,9 +27,17 @@ function replacePlaceholders(
   let processedContent = content;
   const currencySymbol = getCurrencySymbol(customer?.currency || (doc as Invoice).currencyCode || (doc as OrderForm).currencyCode);
 
+  
+  const formatIssueDate = (date: Date | null | undefined) => {
+    if (!date) return '';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    return format(d, 'PPP');
+  };
+
   const placeholders: Record<string, () => string | undefined> = {
     '{{customerName}}': () => customer?.name || (doc as any).customerName,
-    '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
+    '{{issueDate}}': () => formatIssueDate(doc.issueDate),
     '{{documentNumber}}': () => 'invoiceNumber' in doc ? doc.invoiceNumber : doc.orderFormNumber,
     '{{totalAmount}}': () => `${currencySymbol}${(doc.total || 0).toFixed(2)}`,
     // Add more placeholders as needed
@@ -62,7 +70,14 @@ export function CoverPageContent({ document: doc, customer, template }: CoverPag
 
   const pageTitle = template?.title ? replacePlaceholders(template.title, doc, customer) : "Service Agreement";
   const preparedFor = customer?.name || (doc as any).customerName || 'Valued Client';
-  const dateString = format(new Date(doc.issueDate), 'PPP');
+  const formatIssueDate = (date: Date | null | undefined) => {
+    if (!date) return '';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    return format(d, 'PPP');
+  };
+  const dateString = formatIssueDate(doc.issueDate);
+
 
   const getCompanyLogo = () => {
     if (template?.companyLogoEnabled && template.companyLogoUrl) return template.companyLogoUrl;

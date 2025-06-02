@@ -188,6 +188,8 @@ export function OrderFormForm({ onSubmit, initialData, isSubmitting: formIsSubmi
           getAllMsaTemplates(),
           getAllRepositoryItems(),
         ]);
+                console.log(fetchedCustomers);
+
         setCustomers(fetchedCustomers);
         setTermsTemplates(fetchedTermsTemplates);
         setMsaTemplates(fetchedMsaTemplates);

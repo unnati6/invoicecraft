@@ -24,7 +24,8 @@ export default function NewCustomerPage() {
 
       if (result && result.id) {
         toast({ title: "Success", description: "Customer created successfully." });
-        router.push(`/customers/${result.id}/edit`);
+ router.push(`/customers`);
+ //router.push(`/customers/${result.id}/edit`);
       } else {
         toast({ title: "Error", description: "Failed to create customer. No valid ID returned.", variant: "destructive" });
       }

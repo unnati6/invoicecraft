@@ -12,7 +12,7 @@ import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialo
 import { Badge } from '@/components/ui/badge';
 import { PlusCircle, Edit, Eye, Trash2, Download, ChevronDown, FileSignature, PackageSearch } from 'lucide-react';
 import type { OrderForm, Customer } from '@/types';
-import { getAllOrderForms, removeOrderForm, fetchCustomerById, convertMultipleOrderFormsToInvoices } from '@/lib/actions';
+import { getAllOrderForms,getAllCustomers, removeOrderForm, fetchCustomerById, convertMultipleOrderFormsToInvoices } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { OrderFormPreviewDialog } from '@/components/orderform-preview-dialog';
@@ -37,13 +37,23 @@ export default function OrderFormsPage() {
   const [isDownloading, setIsDownloading] = React.useState(false);
   const [isBulkConverting, setIsBulkConverting] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState(''); // Added state for search term
-
+  const [customers,setCustomers] = React.useState<Customer[]>([]);
   React.useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
         const data = await getAllOrderForms();
-        setOrderForms(data);
+               const customerdata = await getAllCustomers();
+        setCustomers(customerdata);
+         const enrichedOrderForms = data.map(form => {
+          const customer = customerdata.find(cust => cust.id === form.customerId);
+          return {
+            ...form,
+            customerName: customer ? customer.name : 'Unknown Customer', // नई प्रॉपर्टी जोड़ें
+            
+          };
+        });
+        setOrderForms(enrichedOrderForms);
       } catch (error) {
         toast({ title: "Error", description: "Failed to fetch order forms.", variant: "destructive" });
       } finally {
@@ -51,11 +61,12 @@ export default function OrderFormsPage() {
       }
     }
     fetchData();
-  }, [toast, pathname]);
+  }, []);
 
   const handleDeleteOrderForm = async (id: string) => {
     try {
-      await removeOrderForm(id);
+             const success = await removeOrderForm(id); // Capture the boolean result
+        if (success) {
       setOrderForms(prev => prev.filter(q => q.id !== id));
       setRowSelection(prev => {
         const newSelection = {...prev};
@@ -63,9 +74,14 @@ export default function OrderFormsPage() {
         return newSelection;
       });
       toast({ title: "Success", description: "Order Form deleted successfully." });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to delete order form.", variant: "destructive" });
-    }
+           } else {
+            // This 'else' block handles cases where the action returns false (e.g., due to an error in data.ts being caught and returning false)
+            toast({ title: "Error", description: "Failed to delete order form. (Action returned false)", variant: "destructive" });
+        }
+    } catch (error) { // This block handles actual exceptions thrown
+        console.error("Error deleting order form:", error);
+        toast({ title: "Error", description: "Failed to delete order form. (An unexpected error occurred)", variant: "destructive" });
+ } 
   };
   
   const getSelectedOrderForms = (): OrderForm[] => {
@@ -168,10 +184,10 @@ export default function OrderFormsPage() {
   const columns: any[] = [ 
     { accessorKey: 'orderFormNumber', header: 'Number', cell: (row: OrderForm) => row.orderFormNumber, size: 120 },
     { accessorKey: 'customerName', header: 'Customer', cell: (row: OrderForm) => row.customerName || 'N/A', size: 200 },
-    { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: OrderForm) => format(new Date(row.issueDate), 'PP'), size: 120 },
-    { accessorKey: 'validUntilDate', header: 'Valid Until', cell: (row: OrderForm) => format(new Date(row.validUntilDate), 'PP'), size: 120 },
-    { accessorKey: 'total', header: 'Total', cell: (row: OrderForm) => `${getCurrencySymbol(row.currencyCode)}${row.total.toFixed(2)}`, size: 100 },
-    { 
+        { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: OrderForm) => format(new Date(row.issueDate || 'N/A'), 'PP'), size: 120 },
+    { accessorKey: 'validUntilDate', header: 'Valid Until', cell: (row: OrderForm) => format(new Date(row.validUntilDate || 'N/A'), 'PP'), size: 120 },
+     { accessorKey: 'total', header: 'Total', cell: (row: OrderForm) => `${getCurrencySymbol(row.currencyCode)}${row.total !== undefined && row.total !== null ? row.total.toFixed(2) : 'N/A'}`, size: 100 },
+  { 
       accessorKey: 'status', 
       header: 'Status', 
       cell: (row: OrderForm) => (
@@ -185,8 +201,8 @@ export default function OrderFormsPage() {
       accessorKey: 'actions',
       header: 'Actions',
       cell: (row: OrderForm) => (
-        <div className="flex space-x-1">
-          <OrderFormPreviewDialog 
+                <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
+   <OrderFormPreviewDialog 
             orderForm={row}
             trigger={
               <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Preview Order Form">

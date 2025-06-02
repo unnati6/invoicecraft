@@ -54,6 +54,7 @@ export async function securedApiCall<T>(
     console.log(`FRONTEND DEBUG: Request options:`, options); // Log options to debug
   
     try {
+      
       const response = await fetch(url, options); // Pass the options object directly
   
       if (!response.ok) {
@@ -61,11 +62,15 @@ export async function securedApiCall<T>(
         console.error(`API Error (${response.status}):`, errorData);
         throw new Error(`API call failed: ${errorData.message || response.statusText}`);
       }
-  
+  const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
       const data = await response.json();
       return data as T;
-    } catch (error: any) {
-      console.error('Error during API call:', error);
-      throw error;
+    } else {
+      return null as T; // or `return undefined as T;`
     }
+  } catch (error: any) {
+    console.error('Error during API call:', error);
+    throw error;
+  }
   }

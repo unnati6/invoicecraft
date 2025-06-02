@@ -91,14 +91,14 @@ export function RepositoryItemForm({ onSubmit, initialData, isSubmitting = false
           <CardHeader>
             <CardTitle>{initialData ? 'Edit Repository Item' : 'Create New Repository Item'}</CardTitle>
             <CardDesc>
-              Manage the default details for this item/service.
+              {initialData ? 'Modify the default details for this item/service.' : 'Define a new global default item/service for your repository.'}
             </CardDesc>
           </CardHeader>
           <CardContent className="space-y-6">
             {initialData?.customerName && (
               <div className="bg-muted/50 p-3 rounded-md border">
                 <p className="text-sm font-medium text-foreground">Customer-Specific Item</p>
-                <p className="text-xs text-muted-foreground">This item's defaults are specific to: {initialData.customerName}.</p>
+                <p className="text-xs text-muted-foreground">This item's defaults are specific to: {initialData.customerName}. Editing here updates this customer-specific version.</p>
               </div>
             )}
             <FormField
@@ -108,8 +108,9 @@ export function RepositoryItemForm({ onSubmit, initialData, isSubmitting = false
                 <FormItem>
                   <FormLabel>Item Name / Description *</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Standard Web Development Hour" {...field} disabled={isSubmitting} />
+                    <Input placeholder="e.g. Standard Web Development Hour" {...field} disabled={isSubmitting || !!initialData?.customerId} />
                   </FormControl>
+                  {!!initialData?.customerId && <FormDescription className="text-xs">Name cannot be changed for customer-specific items. To change the name, create a new item from an Order Form.</FormDescription>}
                   <FormMessage />
                 </FormItem>
               )}
@@ -140,7 +141,7 @@ export function RepositoryItemForm({ onSubmit, initialData, isSubmitting = false
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Default Currency</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting || !!initialData?.customerId}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select currency" />
@@ -154,6 +155,7 @@ export function RepositoryItemForm({ onSubmit, initialData, isSubmitting = false
                         ))}
                       </SelectContent>
                     </Select>
+                    {!!initialData?.customerId && <FormDescription className="text-xs">Currency cannot be changed for customer-specific items.</FormDescription>}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -187,16 +189,23 @@ export function RepositoryItemForm({ onSubmit, initialData, isSubmitting = false
                   <FormItem>
                     <FormLabel>Default Vendor Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Optional vendor name" {...field} disabled={isSubmitting} />
+                      <Input placeholder="Optional vendor name" {...field} 
+                      value={field.value ?? ''}
+                      disabled={isSubmitting} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-             {/* Hidden fields for IDs if needed for submission, but not typically part of RepositoryItemFormData directly */}
-            {initialData?.id && <input type="hidden" {...form.register("id")} value={initialData.id} />}
-            {initialData?.customerId && <input type="hidden" {...form.register("customerId")} value={initialData.customerId} />}
+          
+            {initialData?.id && (
+                <input
+                    type="hidden"
+                    name="id" // Provide a 'name' attribute
+                    value={initialData.id}
+                />
+            )}     {initialData?.customerId && <input type="hidden" {...form.register("customerId")} value={initialData.customerId} />}
             {initialData?.customerName && <input type="hidden" {...form.register("customerName")} value={initialData.customerName} />}
 
           </CardContent>

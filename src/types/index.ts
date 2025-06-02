@@ -2,24 +2,24 @@
 export interface Customer {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   phone?: string;
   currency?: string;
   billingAddress?: {
-    street: string;
-    city: string;
-    state: string;
-    zip: string;
-    country: string;
+    street?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
   };
   shippingAddress?: {
-    street: string;
-    city: string;
-    state: string;
-    zip: string;
-    country: string;
+    street?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
   };
-  createdAt: Date;
+  createdAt: Date | null;
 }
 
 export interface InvoiceItem {
@@ -31,11 +31,11 @@ export interface InvoiceItem {
 }
 
 export interface AdditionalChargeItem {
-  id: string;
+  id?: string;
   description: string;
   valueType: 'fixed' | 'percentage';
   value: number;
-  calculatedAmount: number;
+  calculatedAmount?: number;
 }
 
 export interface CoverPageTemplate {
@@ -50,7 +50,7 @@ export interface CoverPageTemplate {
   additionalImage1Url?: string;
   additionalImage2Enabled?: boolean;
   additionalImage2Url?: string;
-  createdAt: Date;
+  createdAt: Date | null;
 }
 
 export interface MsaTemplate {
@@ -58,8 +58,9 @@ export interface MsaTemplate {
   name: string;
   content: string;
   coverPageTemplateId?: string;
-  createdAt: Date;
+  createdAt: Date | null;
 }
+export type InvoiceStatus = "Draft" | "Sent" | "Paid" | "Overdue" | "Cancelled"; // <--- सुनिश्चित करें कि यह आपके सभी संभव मानों को कवर करता है
 
 export interface Invoice {
   id: string;
@@ -67,8 +68,8 @@ export interface Invoice {
   customerId: string;
   customerName?: string; 
   currencyCode?: string; 
-  issueDate: Date;
-  dueDate: Date;
+  issueDate: Date | null;
+  dueDate: Date | null;
   items: InvoiceItem[];
   additionalCharges?: AdditionalChargeItem[];
   discountEnabled?: boolean;
@@ -84,7 +85,7 @@ export interface Invoice {
   msaContent?: string;
   msaCoverPageTemplateId?: string;
   termsAndConditions?: string;
-  status: 'Draft' | 'Sent' | 'Paid' | 'Overdue';
+  status: InvoiceStatus;
   paymentTerms?: string;
   customPaymentTerms?: string;
   commitmentPeriod?: string;
@@ -93,11 +94,11 @@ export interface Invoice {
   customPaymentFrequency?: string;
   serviceStartDate?: Date | null;
   serviceEndDate?: Date | null;
-  createdAt: Date;
+  createdAt: Date | null;
 }
 
 export interface OrderFormItem {
-  id: string;
+  id?: string;
   description: string;
   quantity: number;
   rate: number;
@@ -112,8 +113,8 @@ export interface OrderForm {
   customerId: string;
   customerName?: string; 
   currencyCode?: string; 
-  issueDate: Date;
-  validUntilDate: Date;
+  issueDate: Date | null ;
+  validUntilDate: Date  | null ;
   items: OrderFormItem[];
   additionalCharges?: AdditionalChargeItem[];
   discountEnabled?: boolean;
@@ -125,9 +126,9 @@ export interface OrderForm {
   taxRate: number;
   taxAmount: number; 
   total: number; 
-  linkedMsaTemplateId?: string;
-  msaContent?: string;
-  msaCoverPageTemplateId?: string;
+  linkedMsaTemplateId?: string | null;
+  msaContent?: string | null;
+  msaCoverPageTemplateId?: string | null;
   termsAndConditions?: string;
   status: 'Draft' | 'Sent' | 'Accepted' | 'Declined' | 'Expired';
   paymentTerms?: string;
@@ -136,16 +137,17 @@ export interface OrderForm {
   customCommitmentPeriod?: string;
   paymentFrequency?: string;
   customPaymentFrequency?: string;
-  serviceStartDate?: Date | null;
-  serviceEndDate?: Date | null;
-  createdAt: Date;
+  serviceStartDate: Date | null;
+  serviceEndDate: Date | null;
+  createdAt: Date | null;
+  
 }
 
 export interface TermsTemplate {
   id: string;
   name: string;
   content: string;
-  createdAt: Date;
+  createdAt: Date | null;
 }
 
 export interface RepositoryItem {
@@ -157,26 +159,37 @@ export interface RepositoryItem {
   currencyCode?: string;
   customerId?: string; 
   customerName?: string; 
-  createdAt: Date;
+  createdAt: Date | null;
 }
-
+export interface RepositoryItemFormData {
+  name: string;
+  defaultRate?: number;
+  defaultProcurementPrice?: number;
+  defaultVendorName?: string;
+  currencyCode?: string | null;
+  customerId?: string; // Often required for forms
+  customerName?: string; // Often required for forms
+  // No 'id' as it's for new items or updates where ID is passed separately
+  // No 'createdAt' as it's handled by the backend
+}
 export interface PurchaseOrderItem {
   id: string;
   description: string;
   quantity: number;
   procurementPrice: number;
-  totalVendorPayable: number; // quantity * procurementPrice
+  totalVendorPayable: number; // Calculated: quantity * procurementPrice
 }
 
 export interface PurchaseOrder {
   id: string;
   poNumber: string;
   vendorName: string;
-  orderFormId: string; // Link back to the source OrderForm
-  orderFormNumber: string; // For easy reference
+  orderFormId?: string; // Made optional for manual POs
+  orderFormNumber?: string; // Made optional for manual POs
+  currencyCode: string; // Added currency code
   issueDate: Date;
   items: PurchaseOrderItem[];
-  grandTotalVendorPayable: number; // Sum of all item totalVendorPayable
+  grandTotalVendorPayable: number; // Calculated sum of all item totalVendorPayable
   status: 'Draft' | 'Issued' | 'Fulfilled' | 'Cancelled';
   createdAt: Date;
 }
@@ -187,7 +200,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  signupDate: Date;
+  signupDate: Date | null;
   planType: PlanType;
   isActive: boolean;
 }

@@ -53,12 +53,22 @@ export default function TermsTemplatesPage() {
     }
   };
 
+  const isValidDate = (date: any): boolean => {
+    return date && !isNaN(new Date(date).getTime());
+  };
+
   const columns = [
     { accessorKey: 'name', header: 'Name', cell: (row: TermsTemplate) => row.name },
     { 
       accessorKey: 'createdAt', 
       header: 'Created At', 
-      cell: (row: TermsTemplate) => format(new Date(row.createdAt), 'PP') 
+      cell: (row: TermsTemplate) => 
+        {
+             if (typeof row.createdAt === 'string' && isValidDate(row.createdAt)) {
+          return format(new Date(row.createdAt), 'PP');
+        }
+        return 'N/A';
+        }    
     },
     {
       accessorKey: 'actions',
@@ -159,7 +169,9 @@ export default function TermsTemplatesPage() {
               <Card key={template.id} className="flex flex-col">
                 <CardHeader>
                   <CardTitle className="truncate" title={template.name}>{template.name}</CardTitle>
-                  <CardDescription>Created: {format(new Date(template.createdAt), 'PP')}</CardDescription>
+                  <CardDescription>
+                       Created: {template.createdAt && typeof template.createdAt === 'string' ? format(new Date(template.createdAt), 'PP') : 'N/A'}
+      </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow relative">
                   <ScrollArea className="h-48 w-full rounded-md border bg-muted/20 p-3 relative">
@@ -172,7 +184,7 @@ export default function TermsTemplatesPage() {
                   <TermsTemplatePreviewDialog
                     template={template}
                     trigger={
-                      <Button variant="ghost" size="icon" title="Preview Template">
+                      <Button variant="ghost" size="icon" title="Preview Template" onClick={(e) => e.stopPropagation()}>
                         <Eye className="h-4 w-4" />
                       </Button>
                     }

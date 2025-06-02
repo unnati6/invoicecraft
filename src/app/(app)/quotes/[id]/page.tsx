@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation'; // Added usePathname
 import { AppHeader } from '@/components/layout/app-header';
 import { QuoteForm } from '@/components/quote-form';
-import type { QuoteFormData } from '@/lib/schemas';
+//import type { QuoteFormData } from '@/lib/schemas';
 import { fetchQuoteById, saveQuote, fetchCustomerById, convertQuoteToInvoice } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import type { Quote, Customer } from '@/types';

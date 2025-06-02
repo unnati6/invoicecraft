@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Trash2, PackageOpen } from 'lucide-react';
+import { Eye, Trash2, PackageOpen, PlusCircle, Edit } from 'lucide-react'; // Added PlusCircle, Edit
 import type { PurchaseOrder } from '@/types';
 import { getAllPurchaseOrders, removePurchaseOrder } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -67,9 +67,11 @@ export default function PurchaseOrdersPage() {
       accessorKey: 'orderFormNumber', 
       header: 'Source Order Form', 
       cell: (row: PurchaseOrder) => (
-        <Link href={`/orderforms/${row.orderFormId}`} className="text-primary hover:underline">
-          {row.orderFormNumber}
-        </Link>
+        row.orderFormId ? (
+          <Link href={`/orderforms/${row.orderFormId}`} className="text-primary hover:underline">
+            {row.orderFormNumber}
+          </Link>
+        ) : 'N/A'
       ),
       size: 150 
     },
@@ -77,7 +79,7 @@ export default function PurchaseOrdersPage() {
     { 
       accessorKey: 'grandTotalVendorPayable', 
       header: 'Total Payable', 
-      cell: (row: PurchaseOrder) => `${getCurrencySymbol('USD')}${row.grandTotalVendorPayable.toFixed(2)}`, // Assuming USD for now, could be dynamic
+      cell: (row: PurchaseOrder) => `${getCurrencySymbol(row.currencyCode)}${row.grandTotalVendorPayable.toFixed(2)}`,
       size: 130 
     },
     { 
@@ -95,18 +97,20 @@ export default function PurchaseOrdersPage() {
       header: 'Actions',
       cell: (row: PurchaseOrder) => (
         <div className="flex space-x-1">
-          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/purchase-orders/${row.id}`); }} title="View Purchase Order">
-            <Eye className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/purchase-orders/${row.id}`); }} title={row.status === 'Draft' ? "Edit Purchase Order" : "View Purchase Order"}>
+            {row.status === 'Draft' ? <Edit className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
-          <DeleteConfirmationDialog 
-            onConfirm={() => handleDeletePurchaseOrder(row.id)} 
-            itemName={`purchase order ${row.poNumber}`}
-            trigger={
-               <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Delete Purchase Order">
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            }
-          />
+          {row.status === 'Draft' && ( // Only allow delete for Draft POs
+            <DeleteConfirmationDialog 
+              onConfirm={() => handleDeletePurchaseOrder(row.id)} 
+              itemName={`purchase order ${row.poNumber}`}
+              trigger={
+                <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Delete Purchase Order">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              }
+            />
+          )}
         </div>
       ),
       size: 120
@@ -116,7 +120,9 @@ export default function PurchaseOrdersPage() {
   if (loading) {
     return (
       <>
-        <AppHeader title="Purchase Orders" />
+        <AppHeader title="Purchase Orders">
+           <Skeleton className="h-10 w-44" />
+        </AppHeader>
         <main className="flex-1 p-6 space-y-6">
           <Card>
             <CardHeader><CardTitle>All Purchase Orders</CardTitle><CardDescription>Manage and track your purchase orders to vendors.</CardDescription></CardHeader>
@@ -129,25 +135,34 @@ export default function PurchaseOrdersPage() {
 
   return (
     <>
-      <AppHeader title="Purchase Orders" />
+      <AppHeader title="Purchase Orders">
+        <Link href="/purchase-orders/new">
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" /> Create Purchase Order
+          </Button>
+        </Link>
+      </AppHeader>
       <main className="flex-1 p-4 md:p-6 space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>All Purchase Orders</CardTitle>
-            <CardDescription>Manage and track your purchase orders to vendors.</CardDescription>
+            <CardDescription>Manage and track your purchase orders to vendors. POs can be auto-generated from Order Forms or created manually.</CardDescription>
           </CardHeader>
           <CardContent>
             {purchaseOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[30vh] text-center">
                 <PackageOpen className="w-16 h-16 text-muted-foreground mb-4" />
                 <h2 className="text-xl font-semibold mb-2">No Purchase Orders Yet</h2>
-                <p className="text-muted-foreground">Purchase orders are automatically generated when you save an Order Form with items that have a vendor and procurement price.</p>
+                <p className="text-muted-foreground">Create your first purchase order manually, or they can be auto-generated when saving Order Forms with vendor details.</p>
+                 <Link href="/purchase-orders/new" className="mt-4">
+                    <Button><PlusCircle className="mr-2 h-4 w-4" /> Create Purchase Order</Button>
+                 </Link>
               </div>
             ) : (
               <DataTable
                 columns={columns}
                 data={purchaseOrders}
-                onRowClick={(row) => router.push(`/purchase-orders/${row.id}`)}
+                onRowClick={(row) => router.push(`/purchase-orders/${row.id}`)} // Navigate to the edit/view page
                 noResultsMessage="No purchase orders found."
               />
             )}

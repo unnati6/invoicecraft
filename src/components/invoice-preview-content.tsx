@@ -69,7 +69,7 @@ function replacePlaceholders(
     '{{customerShippingAddress.zip}}': () => customer?.shippingAddress?.zip,
     '{{customerShippingAddress.country}}': () => customer?.shippingAddress?.country,
     '{{documentNumber}}': () => doc.invoiceNumber,
-    '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
+    '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP') ,
     '{{dueDate}}': () => format(new Date(doc.dueDate), 'PPP'),
     '{{totalAmount}}': () => `${currencySymbol}${(doc.total || 0).toFixed(2)}`,
     '{{paymentTerms}}': () => paymentTermsDisplay,

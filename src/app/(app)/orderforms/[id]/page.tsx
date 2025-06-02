@@ -34,6 +34,7 @@ export default function EditOrderFormPage() { // Changed
         setLoading(true);
         try {
           const data = await fetchOrderFormById(orderFormId); // Changed
+        console.log(data)
           if (data) {
             setOrderForm(data); // Changed
             if (data.customerId) {

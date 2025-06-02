@@ -15,9 +15,9 @@ import {
   deleteInvoice as deleteInvoiceData,
   getNextInvoiceNumber as getNextInvoiceNumberData,
   getOrderForms as getOrderFormsData,
-  getOrderFormById as getOrderFormByIdData,
-  createOrderForm as createOrderFormDataLayer,
-  updateOrderForm as updateOrderFormDataLayer,
+  getOrderFormByIdData as getOrderFormByIdData,
+  createOrderFormDataLayer as createOrderFormDataLayer,
+  updateOrderFormDataLayer as updateOrderFormDataLayer,
   deleteOrderForm as deleteOrderFormData,
   getNextOrderFormNumber as getNextOrderFormNumberData,
   getTermsTemplates as getTermsTemplatesData,
@@ -43,11 +43,12 @@ import {
   upsertRepositoryItemFromOrderForm as upsertRepositoryItemFromOrderFormData,
   getPurchaseOrders as getPurchaseOrdersData,
   getPurchaseOrderById as getPurchaseOrderByIdData,
-  createPurchaseOrder as createPurchaseOrderDataLayer,
-  deletePurchaseOrder as deletePurchaseOrderData, // Ensure this is the correct name from data.ts
-  deletePurchaseOrdersByOrderFormId as deletePurchaseOrdersByOrderFormIdData,
-  getNextPoNumber as getNextPoNumberData,
-  getUsers as getUsersData,
+  createPurchaseOrderDataLayer,
+  updatePurchaseOrderDataLayer, 
+  deletePurchaseOrderData as deletePurchaseOrderDataLayer,
+  deletePurchaseOrdersByOrderFormIdData,
+  getNextPoNumberData,
+   getUsers as getUsersData,
   updateUser as updateUserData,
 } from './data';
 import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, User } from '@/types';
@@ -252,40 +253,40 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
             savedOrderForm.currencyCode || 'USD'
         );
 
-        // PO Generation Logic
-        const itemsByVendor = savedOrderForm.items.reduce((acc, currentItem) => {
-          if (currentItem.vendorName && currentItem.procurementPrice !== undefined && currentItem.procurementPrice >= 0) {
-            if (!acc[currentItem.vendorName]) {
-              acc[currentItem.vendorName] = [];
-            }
-            acc[currentItem.vendorName].push(currentItem);
-          }
-          return acc;
-        }, {} as Record<string, OrderFormItem[]>);
+        // // PO Generation Logic
+        // const itemsByVendor = savedOrderForm.items.reduce((acc, currentItem) => {
+        //   if (currentItem.vendorName && currentItem.procurementPrice !== undefined && currentItem.procurementPrice >= 0) {
+        //     if (!acc[currentItem.vendorName]) {
+        //       acc[currentItem.vendorName] = [];
+        //     }
+        //     acc[currentItem.vendorName].push(currentItem);
+        //   }
+        //   return acc;
+        // }, {} as Record<string, OrderFormItem[]>);
 
-        for (const vendorName in itemsByVendor) {
-          const poItems = itemsByVendor[vendorName].map(ofi => ({
-            description: ofi.description,
-            quantity: ofi.quantity,
-            procurementPrice: ofi.procurementPrice!, // Non-null assertion as it's checked
-          }));
-          if (poItems.length > 0) {
-            const poNumber = await getNextPoNumberData();
-            await createPurchaseOrderDataLayer({
-              poNumber,
-              vendorName,
-              orderFormId: savedOrderForm.id,
-              orderFormNumber: savedOrderForm.orderFormNumber,
-              issueDate: new Date(),
-              items: poItems,
-              status: 'Draft'
-            });
-          }
-        }
+        // for (const vendorName in itemsByVendor) {
+        //   const poItems = itemsByVendor[vendorName].map(ofi => ({
+        //     description: ofi.description,
+        //     quantity: ofi.quantity,
+        //     procurementPrice: ofi.procurementPrice!, // Non-null assertion as it's checked
+        //   }));
+        //   if (poItems.length > 0) {
+        //     const poNumber = await getNextPoNumberData();
+        //     await createPurchaseOrderDataLayer({
+        //       poNumber,
+        //       vendorName,
+        //       orderFormId: savedOrderForm.id,
+        //       orderFormNumber: savedOrderForm.orderFormNumber,
+        //       issueDate: new Date(),
+        //       items: poItems,
+        //       status: 'Draft'
+        //     });
+        //   }
+        // }
     }
     revalidatePath('/orderforms');
     revalidatePath(`/orderforms/${savedOrderForm.id}`);
-    revalidatePath(`/orderforms/${savedOrderForm.id}/terms`);
+    revalidatePath(`/orderforms/${savedOrderForm.id}`);
     revalidatePath('/item-repository');
     revalidatePath('/purchase-orders');
   }
@@ -656,6 +657,7 @@ export async function fetchRepositoryItemById(id: string): Promise<RepositoryIte
 export async function saveRepositoryItem(data: RepositoryItemFormData, id?: string): Promise<RepositoryItem | null> {
   if (id) {
     const updated = await updateRepositoryItemDataLayer(id, data);
+    
     if (updated) {
       revalidatePath('/item-repository');
       revalidatePath(`/item-repository/${id}/edit`);
@@ -677,21 +679,68 @@ export async function removeRepositoryItem(id: string): Promise<boolean> {
 }
 
 // Purchase Order Actions
+
+// Purchase Order Actions
 export async function getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
   return getPurchaseOrdersData();
 }
 
 export async function fetchPurchaseOrderById(id: string): Promise<PurchaseOrder | undefined> {
-  return getPurchaseOrderByIdData(id);
+  return getPurchaseOrderByIdData(id); 
 }
 
+export async function fetchNextPoNumberData(): Promise<string> {
+  return getNextPoNumberData();
+}
+
+export async function savePurchaseOrder(data: PurchaseOrderFormData, id?: string): Promise<PurchaseOrder | null> {
+  let savedPO: PurchaseOrder | null = null;
+
+  const poDataForLayer = {
+    poNumber: data.poNumber,
+    vendorName: data.vendorName,
+    issueDate: data.issueDate,
+    items: data.items.map(item => ({ 
+      description: item.description,
+      quantity: item.quantity,
+      procurementPrice: item.procurementPrice,
+    })),
+    status: data.status,
+    currencyCode: data.currencyCode || 'USD',
+    orderFormId: data.orderFormId, 
+    orderFormNumber: data.orderFormNumber, 
+  };
+
+  if (id) {
+    savedPO = await updatePurchaseOrderDataLayer(id, poDataForLayer);
+  } else {
+    const nextPoNumber = await getNextPoNumberData();
+    savedPO = await createPurchaseOrderDataLayer({
+      ...poDataForLayer,
+      poNumber: nextPoNumber, 
+    });
+  }
+
+  if (savedPO) {
+    revalidatePath('/purchase-orders');
+    if (id) {
+      revalidatePath(`/purchase-orders/${id}`);
+    } else if (savedPO.id) {
+       revalidatePath(`/purchase-orders/${savedPO.id}`);
+    }
+  }
+  return savedPO;
+}
+
+
 export async function removePurchaseOrder(id: string): Promise<boolean> {
-  const success = await deletePurchaseOrderData(id);
+  const success = await deletePurchaseOrderDataLayer(id);
   if (success) {
     revalidatePath('/purchase-orders');
   }
   return success;
 }
+
 
 // User Actions (for Admin)
 export async function getAllUsers(): Promise<User[]> {

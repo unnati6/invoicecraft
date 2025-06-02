@@ -40,7 +40,7 @@ function DeleteCustomerButton({ customerId, customerName, onDeleted }: { custome
       onConfirm={handleDelete}
       itemName={customerName}
       trigger={
-        <ShadCNButton variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Delete Customer">
+        <ShadCNButton variant="ghost" size="icon" onClick={(e) => { e.stopPropagation()}} title="Delete Customer">
           <ClientTrash2Icon className="h-4 w-4 text-destructive" />
         </ShadCNButton>
       }
@@ -79,9 +79,9 @@ export default function CustomersPage() {
       accessorKey: 'actions',
       header: 'Actions',
       cell: (row: Customer) => (
-        <div className="flex space-x-2">
-          <Link href={`/customers/${row.id}/edit`}>
-            <ShadCNButton variant="ghost" size="icon" title="Edit Customer" onClick={(e) => e.stopPropagation()}>
+        <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+          <Link href={`/customers/${row.id}/edit`}  >
+            <ShadCNButton variant="ghost" size="icon" title="Edit Customer" onClick={(e) => e.stopPropagation()}> 
               <Edit className="h-4 w-4" />
             </ShadCNButton>
           </Link>

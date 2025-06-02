@@ -11,11 +11,11 @@ const addressSchema = z.object({
 
 export const customerSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  email: z.string().email({ message: "Invalid email address." }),
+  email: z.string().email({ message: "Invalid email address." }).optional(),
   phone: z.string().optional(),
   currency: z.string().optional(), // Stores currency code like 'USD', 'INR'
-  billingAddress: addressSchema,
-  shippingAddress: addressSchema,
+  billingAddress: addressSchema.optional(),
+  shippingAddress: addressSchema.optional(),
 });
 
 export type CustomerFormData = z.infer<typeof customerSchema>;
@@ -190,15 +190,30 @@ export type OrderFormFormData = z.infer<typeof orderFormSchema>;
 export const termsTemplateSchema = z.object({
   name: z.string().min(2, { message: "Template name must be at least 2 characters." }),
   content: z.string().optional().default('<p></p>'),
+
 });
 export type TermsTemplateFormData = z.infer<typeof termsTemplateSchema>;
 
 export const brandingSettingsSchema = z.object({
   invoicePrefix: z.string().optional().default("INV-"),
   orderFormPrefix: z.string().optional().default("OF-"),
+  name: z.string().optional(),
+  street: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zip: z.string().optional(),
+  country: z.string().optional(),
+  phone: z.string().optional(), // Changed to string to match TEXT in DB
+  email: z.string().email().optional(),
+  logoUrl: z.string().url().optional().nullable(),      // New: for storing image URL
+  signatureUrl: z.string().url().optional().nullable(), // New: for storing signature URL
 });
 export type BrandingSettingsFormData = z.infer<typeof brandingSettingsSchema>;
-
+export type BrandingSettings = BrandingSettingsFormData & {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
 export const repositoryItemSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, { message: "Item name cannot be empty." }),
@@ -211,24 +226,25 @@ export const repositoryItemSchema = z.object({
 });
 export type RepositoryItemFormData = z.infer<typeof repositoryItemSchema>;
 
-export const purchaseOrderItemSchema = z.object({
-  id: z.string().optional(), 
-  description: z.string(),
-  quantity: z.number(),
-  procurementPrice: z.number(),
+export const purchaseOrderItemFormSchema = z.object({
+  id: z.string().optional(),
+  description: z.string().min(1, { message: "Description cannot be empty." }),
+  quantity: z.number().min(0.01, { message: "Quantity must be positive." }),
+  procurementPrice: z.number().min(0, { message: "Procurement price must be non-negative." }),
 });
-export type PurchaseOrderItemFormData = z.infer<typeof purchaseOrderItemSchema>;
+export type PurchaseOrderItemFormData = z.infer<typeof purchaseOrderItemFormSchema>;
 
-export const purchaseOrderSchema = z.object({
-  poNumber: z.string(),
+export const purchaseOrderFormSchema = z.object({
+  poNumber: z.string().min(1, "PO Number is required."),
   vendorName: z.string().min(1, "Vendor name is required."),
-  orderFormId: z.string(),
-  orderFormNumber: z.string(),
-  issueDate: z.date(),
-  items: z.array(purchaseOrderItemSchema).min(1, "At least one item is required for a PO."),
+  issueDate: z.date({ required_error: "Issue date is required." }),
+  items: z.array(purchaseOrderItemFormSchema).min(1, { message: "At least one item is required for a PO." }),
   status: z.enum(['Draft', 'Issued', 'Fulfilled', 'Cancelled']).default('Draft'),
+  currencyCode: z.string().default('USD'),
+  orderFormId: z.string().optional(),
+  orderFormNumber: z.string().optional(),
 });
-export type PurchaseOrderFormData = z.infer<typeof purchaseOrderSchema>;
+export type PurchaseOrderFormData = z.infer<typeof purchaseOrderFormSchema>;
 
 // Schemas for Admin Dashboard SMTP and Email Template Settings
 export const smtpSettingsSchema = z.object({

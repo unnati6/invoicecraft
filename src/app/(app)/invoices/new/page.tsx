@@ -19,7 +19,7 @@ export default function NewInvoicePage() {
       const newInvoice = await saveInvoice(data);
       if (newInvoice) {
         toast({ title: "Success", description: "Invoice created successfully." });
-        router.push(`/invoices/${newInvoice.id}`); // Navigate to the new invoice's detail page
+        router.push(`/invoices`); // Navigate to the new invoice's detail page
       } else {
         toast({ title: "Error", description: "Failed to create invoice. Please try again.", variant: "destructive" });
       }

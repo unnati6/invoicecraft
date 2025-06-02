@@ -12,7 +12,7 @@ import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialo
 import { Badge } from '@/components/ui/badge';
 import { PlusCircle, Edit, Eye, Trash2, ChevronDown, Download, CheckSquare } from 'lucide-react';
 import type { Invoice, Customer } from '@/types';
-import { getAllInvoices, removeInvoice, fetchCustomerById, markInvoiceAsPaid } from '@/lib/actions';
+import { getAllInvoices,getAllCustomers, removeInvoice, fetchCustomerById, markInvoiceAsPaid } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog';
@@ -35,14 +35,26 @@ export default function InvoicesPage() {
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isDownloading, setIsDownloading] = React.useState(false);
   const [isMarkingPaid, setIsMarkingPaid] = React.useState<string | null>(null);
-
+  const [customers,setCustomers] = React.useState<Customer[]>([]);
+  
 
   React.useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
         const data = await getAllInvoices();
-        setInvoices(data);
+        const customerdata = await getAllCustomers();
+        
+        setCustomers(customerdata);
+        const enrichedOrderForms = data.map(form => {
+          const customer = customerdata.find(cust => cust.id === form.customerId);
+          return {
+            ...form,
+            customerName: customer ? customer.name : 'Unknown Customer', // नई प्रॉपर्टी जोड़ें
+            
+          };
+        });
+        setInvoices(enrichedOrderForms);
       } catch (error) {
         toast({ title: "Error", description: "Failed to fetch invoices.", variant: "destructive" });
       } finally {
@@ -50,22 +62,29 @@ export default function InvoicesPage() {
       }
     }
     fetchData();
-  }, [toast, pathname]);
+  }, []);
 
   const handleDeleteInvoice = async (id: string) => {
     try {
-      await removeInvoice(id);
-      setInvoices(prev => prev.filter(inv => inv.id !== id));
-      setRowSelection(prev => {
-        const newSelection = {...prev};
-        delete newSelection[id];
-        return newSelection;
-      });
-      toast({ title: "Success", description: "Invoice deleted successfully." });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to delete invoice.", variant: "destructive" });
+        const success = await removeInvoice(id); // Capture the boolean result
+      if (success) {
+            setInvoices(prev => prev.filter(inv => inv.id !== id));
+            setRowSelection(prev => {
+                const newSelection = {...prev};
+                delete newSelection[id];
+                return newSelection;
+            });
+            toast({ title: "Success", description: "Invoice deleted successfully." });
+        } else {
+            // This 'else' block handles cases where the action returns false (e.g., due to an error in data.ts being caught and returning false)
+            toast({ title: "Error", description: "Failed to delete invoice. (Action returned false)", variant: "destructive" });
+        }
+    } catch (error) { // This block handles actual exceptions thrown by removeInvoice
+        console.error("Error deleting invoice:", error);
+        toast({ title: "Error", description: "Failed to delete invoice. (An unexpected error occurred)", variant: "destructive" });
     }
-  };
+};
+
 
   const handleMarkAsPaid = async (invoiceId: string) => {
     setIsMarkingPaid(invoiceId);
@@ -100,7 +119,7 @@ export default function InvoicesPage() {
     if (selectedInvoices.length === 0) {
       toast({ title: "No Selection", description: "Please select invoices to download.", variant: "destructive" });
       return;
-    }
+}
 
     setIsDownloading(true);
     toast({ title: "Processing PDFs...", description: `Preparing ${selectedInvoices.length} invoice(s) for download.` });
@@ -113,7 +132,7 @@ export default function InvoicesPage() {
         }
         await downloadPdfForDocument(invoice, customer);
         if (selectedInvoices.length > 1) await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (error) {
+    } catch (error) {
         console.error("Error downloading PDF for invoice:", invoice.invoiceNumber, error);
         toast({ title: "Download Error", description: `Failed to download PDF for ${invoice.invoiceNumber}.`, variant: "destructive" });
       }
@@ -153,10 +172,35 @@ export default function InvoicesPage() {
   const columns: any[] = [
     { accessorKey: 'invoiceNumber', header: 'Number', cell: (row: Invoice) => row.invoiceNumber, size: 100 },
     { accessorKey: 'customerName', header: 'Customer', cell: (row: Invoice) => row.customerName || 'N/A', size: 150 },
-    { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: Invoice) => format(new Date(row.issueDate), 'PP'), size: 120 },
-    { accessorKey: 'dueDate', header: 'Due Date', cell: (row: Invoice) => format(new Date(row.dueDate), 'PP'), size: 120 },
-    { accessorKey: 'total', header: 'Total', cell: (row: Invoice) => `${getCurrencySymbol(row.currencyCode)}${row.total.toFixed(2)}`, size: 100 },
-    { 
+    { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: Invoice) =>{
+            return row.issueDate ? format(row.issueDate, 'PP') : 'N/A';
+          
+        },
+        size:120 },
+    {
+        accessorKey: 'dueDate',
+        header: 'Due Date',
+        cell: (row: Invoice) => {
+            // यह भी
+            return row.dueDate ? format(row.dueDate, 'PP') : 'N/A';
+        },
+        size: 120
+    },   {
+        accessorKey: 'total',
+        header: 'Total',
+        cell: (row: Invoice) => {
+            // **यहां नल और प्रकार जांच लागू करें**
+            // यदि row.total null या undefined है, तो डिफ़ॉल्ट मान 0.00 का उपयोग करें
+            const displayTotal = row.total != null && typeof row.total === 'number'
+                                 ? row.total
+                                 : 0; // यदि total null है, तो 0 का उपयोग करें
+
+            const currencySymbol = getCurrencySymbol(row.currencyCode || 'USD'); // डिफ़ॉल्ट USD यदि currencyCode अनुपस्थित है
+
+            return `${currencySymbol}${displayTotal.toFixed(2)}`;
+        },
+        size: 100
+    },  { 
       accessorKey: 'status', 
       header: 'Status', 
       cell: (row: Invoice) => (
@@ -170,7 +214,7 @@ export default function InvoicesPage() {
       accessorKey: 'actions',
       header: 'Actions',
       cell: (row: Invoice) => (
-        <div className="flex space-x-1">
+        <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
           <InvoicePreviewDialog 
             invoice={row} 
             trigger={
@@ -179,8 +223,10 @@ export default function InvoicesPage() {
               </Button>
             }
           />
-          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/invoices/${row.id}`); }} title="Edit Invoice">
-            <Edit className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation();
+             router.push(`/invoices/${row.id}/`); }} 
+             title="Edit Invoice">
+              <Edit className="h-4 w-4" />
           </Button>
           {row.status !== 'Paid' && (
             <Button
