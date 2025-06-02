@@ -600,7 +600,7 @@ export async function getOrderFormByIdData(id: string): Promise<OrderForm | unde
       };
 
       const newOrderForm = await securedApiCall<OrderForm>('/api/order-forms', {
-        method: 'PUT',
+        method: 'POST',
         body: JSON.stringify(payload), // payload को JSON स्ट्रिंग के रूप में भेजें
         headers: {
           'Content-Type': 'application/json',

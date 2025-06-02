@@ -1,6 +1,7 @@
 
 //import { auth } from './firebase'; 
 const BACKEND_BASE_URL = 'https://invoicecraft-backend.onrender.com'; 
+//const BACKEND_BASE_URL = 'http://localhost:5000';
 
 // async function getAuthToken(): Promise<string | null> {
 //     if (typeof window !== 'undefined' && auth.currentUser) {
