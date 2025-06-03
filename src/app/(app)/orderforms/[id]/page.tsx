@@ -66,6 +66,7 @@ export default function EditOrderFormPage() { // Changed
             setCustomer(customerData);
         }
         toast({ title: "Success", description: "Order Form updated successfully." }); // Changed
+        router.push('/orderforms')
       } else {
         toast({ title: "Error", description: "Failed to update order form.", variant: "destructive" }); // Changed
       }

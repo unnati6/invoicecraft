@@ -10,19 +10,10 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**', // Allow any path for placehold.co
-      },
-      {
-        protocol: 'https',
-        hostname: 'revynox.com',
-        port: '',
-        pathname: '/**', // Allow any path for revynox.com
-      },
+    domains: [ // <-- 'remotePatterns' को 'domains' से बदलें
+      'placehold.co',
+      'revynox.com',
+      'zezgtccnyfohfwhzfzix.supabase.co', // <-- आपका Supabase डोमेन यहाँ जोड़ें
     ],
   },
 };

@@ -1,3 +1,4 @@
+import type { BrandingSettingsFormData as BrandingSettingsFormDataType } from '@/lib/schemas';
 
 export interface Customer {
   id: string;
@@ -141,6 +142,7 @@ export interface OrderForm {
   serviceEndDate: Date | null;
   createdAt: Date | null;
   
+  
 }
 
 export interface TermsTemplate {
@@ -204,3 +206,9 @@ export interface User {
   planType: PlanType;
   isActive: boolean;
 }
+
+export type BrandingSettings = BrandingSettingsFormDataType & {
+  id: string; // Typically a fixed ID for global settings or an ID if multiple profiles were supported
+  createdAt: Date;
+  updatedAt: Date;
+};

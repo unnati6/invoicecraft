@@ -1,6 +1,6 @@
 
-import type { Customer, Invoice, InvoiceItem, OrderForm, OrderFormItem, AdditionalChargeItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, PurchaseOrderItem, User, PlanType ,RepositoryItemFormData} from '@/types';
-import type { AdditionalChargeFormData } from './schemas';
+import type { Customer, Invoice, InvoiceItem, OrderForm,BrandingSettings, OrderFormItem, AdditionalChargeItem, TermsTemplate, MsaTemplate, CoverPageTemplate, RepositoryItem, PurchaseOrder, PurchaseOrderItem, User, PlanType ,RepositoryItemFormData} from '@/types';
+import type { AdditionalChargeFormData , BrandingSettingsFormData} from './schemas';
 import { securedApiCall } from './api';
 import { format } from 'date-fns';
 const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -93,7 +93,23 @@ let mockPurchaseOrders: PurchaseOrder[] = [
   }
 ];
 
-
+let mockBrandingSettings: BrandingSettings = {
+  id: 'global_branding_settings', // Fixed ID for the single global settings object
+  invoicePrefix: "INV-",
+  orderFormPrefix: "OF-",
+  name: "Your Awesome Company LLC",
+  street: "123 Main Street",
+  city: "Anytown",
+  state: "CA",
+  zip: "90210",
+  country: "USA",
+  phone: "(555) 123-4567",
+  email: "contact@example.com",
+  logoUrl: null, // Default to null, can be set via UI
+  signatureUrl: null, // Default to null, can be set via UI
+  createdAt: new Date('2023-01-01T00:00:00.000Z'),
+  updatedAt: new Date('2023-01-01T00:00:00.000Z'),
+};
 
 let mockUsers: User[] = [
   { id: 'user_1', name: 'Admin User', email: 'admin@example.com', signupDate: new Date('2023-01-01'), planType: 'Enterprise', isActive: true },
@@ -636,30 +652,33 @@ export async function getOrderFormByIdData(id: string): Promise<OrderForm | unde
   }
 
   // --- Update Order Form (PUT) ---
-    export type UpdateOrderFormInputData = Omit<OrderForm,
-    'createdAt' | 'updatedAt' | 'total' | 'subtotal' | 'taxAmount' | 'discountAmount' | // ये बैकएंड द्वारा गणना किए जाते हैं
-    'currencyCode' | 'customerActualName' // ये बैकएंड द्वारा ग्राहक से प्राप्त/उत्पन्न किए जाते हैं
-  > & {
-    items: OrderFormItem[]; // API को सीधे OrderFormItem[] भेजें
-    additionalCharges?: AdditionalChargeFormData[]; // API को सीधे AdditionalChargeFormData[] भेजें
-  };
-
-  export async function updateOrderFormDataLayer(id: string, data: Partial<OrderForm>): Promise<OrderForm | null> {
+ 
+export async function updateOrderFormDataLayer(id: string, data: Partial<OrderForm>): Promise<OrderForm | null> {
     console.log("DEBUG: [data.ts] updateOrderFormDataLayer called for ID:", id, "with data:", data);
 
     try {
+        // First, get the existing order form to ensure we have all required data
+        const existingOrderForm = await getOrderFormByIdData(id);
+        if (!existingOrderForm) {
+            console.error("Order form not found for update:", id);
+            return null;
+        }
+
+        // Prepare the payload with proper data handling
         const payload = {
-    ...data,
+            ...data,
             // Format Date objects to ISO strings before sending to API
             issueDate: data.issueDate instanceof Date ? format(data.issueDate, 'yyyy-MM-dd') : data.issueDate,
             validUntilDate: data.validUntilDate instanceof Date ? format(data.validUntilDate, 'yyyy-MM-dd') : data.validUntilDate,
             serviceStartDate: data.serviceStartDate instanceof Date ? format(data.serviceStartDate, 'yyyy-MM-dd') : data.serviceStartDate,
             serviceEndDate: data.serviceEndDate instanceof Date ? format(data.serviceEndDate, 'yyyy-MM-dd') : data.serviceEndDate,
-            // items and additionalCharges should be stringified if your backend expects JSON strings
-            // If your backend expects arrays, remove JSON.stringify here and ensure the type is correct
-             items: data.items,
-  additionalCharges: data.additionalCharges,     
-};
+            
+            // Ensure items and additionalCharges are always arrays
+            items: data.items || existingOrderForm.items || [],
+            additionalCharges: data.additionalCharges || existingOrderForm.additionalCharges || [],
+        };
+
+        console.log("DEBUG: [data.ts] Sending payload to API:", JSON.stringify(payload, null, 2));
 
         const updatedOrderForm = await securedApiCall<OrderForm>(`/api/order-forms/${id}`, {
             method: 'PUT',
@@ -673,14 +692,14 @@ export async function getOrderFormByIdData(id: string): Promise<OrderForm | unde
             return {
                 ...updatedOrderForm,
                 // Parse API returned data back to Date objects and arrays
-                items: safeParseJsonb(updatedOrderForm.items),
-                additionalCharges: safeParseJsonb(updatedOrderForm.additionalCharges),
+                items: safeParseJsonb(updatedOrderForm.items) || [],
+                additionalCharges: safeParseJsonb(updatedOrderForm.additionalCharges) || [],
                 issueDate: updatedOrderForm.issueDate ? new Date(updatedOrderForm.issueDate) : null,
                 validUntilDate: updatedOrderForm.validUntilDate ? new Date(updatedOrderForm.validUntilDate) : null,
                 serviceStartDate: updatedOrderForm.serviceStartDate ? new Date(updatedOrderForm.serviceStartDate) : null,
                 serviceEndDate: updatedOrderForm.serviceEndDate ? new Date(updatedOrderForm.serviceEndDate) : null,
                 createdAt: updatedOrderForm.createdAt ? new Date(updatedOrderForm.createdAt) : null,
-                  };
+               };
         }
         return null;
     } catch (error) {
@@ -689,6 +708,21 @@ export async function getOrderFormByIdData(id: string): Promise<OrderForm | unde
     }
 }
 
+// Add a helper function to safely parse JSONB data
+// function safeParseJsonb(data: any): any[] {
+//     if (Array.isArray(data)) {
+//         return data;
+//     }
+//     if (typeof data === 'string') {
+//         try {
+//             const parsed = JSON.parse(data);
+//             return Array.isArray(parsed) ? parsed : [];
+//         } catch {
+//             return [];
+//         }
+//     }
+//     return [];
+// }
 
 export async function deleteOrderForm(id: string): Promise<boolean> {
       console.log(`DEBUG: [data.ts] deleteOrderform called for ID: ${id}`);
@@ -830,6 +864,7 @@ export async function getMsaTemplateById(id: string): Promise<MsaTemplate | null
         }
         throw error; // Re-throw for other types of errors
     }
+    
 }
 
 export async function createMsaTemplate(
@@ -1250,4 +1285,65 @@ export async function updateUser(id: string, data: Partial<Omit<User, 'id' | 'si
   return { ...mockUsers[index] };
 }
 //branding setting 
-    
+//     export async function getBrandingSettings(): Promise<any> {
+//     console.log("API: Fetching branding settings...");
+//     try {
+//         const response = await securedApiCall('/api/branding-settings', {
+//             method: 'GET',
+//         });
+//         return response;
+//     } catch (error) {
+//         console.error("API Error: Failed to fetch branding settings:", error);
+//         throw error;
+//     }
+// }
+
+// --- Branding Settings Data Operations ---
+export async function getBrandingSettingsData(): Promise<any> {
+  // Ensure the mockBrandingSettings has the id, createdAt, and updatedAt fields
+ console.log("API: Fetching branding settings...");
+    try {
+        const response = await securedApiCall('/api/branding-settings', {
+            method: 'GET',
+        });
+        return response;
+    } catch (error) {
+        console.error("API Error: Failed to fetch branding settings:", error);
+        throw error;
+    }
+}
+export async function updateBrandingSettingsData(data: BrandingSettingsFormData): Promise<BrandingSettings | null> { // <--- रिटर्न टाइप को बदलें
+    console.log("API: Updating branding settings with data:", data);
+    try {
+        const payloadToSend = {
+            ...data,
+            logoUrl: data.logoUrl === '' ? null : data.logoUrl,
+            signatureUrl: data.signatureUrl === '' ? null : data.signatureUrl,
+        };
+
+        const updatedSettings = await securedApiCall<BrandingSettings | null>('/api/branding-settings', { // <--- यहाँ भी 'null' जोड़ें
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payloadToSend),
+        });
+
+        // यदि updatedSettings null है, तो null लौटाएं
+        if (!updatedSettings) {
+            console.warn("API returned null for branding settings update.");
+            return null;
+        }
+
+        // सुनिश्चित करें कि createdAt और updatedAt हमेशा Date ऑब्जेक्ट हों
+        return {
+            ...updatedSettings,
+            createdAt: updatedSettings.createdAt ? new Date(updatedSettings.createdAt) : new Date(),
+            updatedAt: updatedSettings.updatedAt ? new Date(updatedSettings.updatedAt) : new Date(),
+        };
+    } catch (error) {
+        console.error("API Error: Failed to update branding settings:", error);
+        // त्रुटि को पुनः फेंकें या null लौटाएं, आपके एप्लिकेशन लॉजिक के आधार पर
+        throw error; // अभी के लिए त्रुटि फेंकता है
+    }
+}

@@ -193,27 +193,22 @@ export const termsTemplateSchema = z.object({
 
 });
 export type TermsTemplateFormData = z.infer<typeof termsTemplateSchema>;
-
 export const brandingSettingsSchema = z.object({
   invoicePrefix: z.string().optional().default("INV-"),
   orderFormPrefix: z.string().optional().default("OF-"),
-  name: z.string().optional(),
+  name: z.string().min(1, "Company name is required.").optional().default("Your Company LLC"),
   street: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   zip: z.string().optional(),
   country: z.string().optional(),
-  phone: z.string().optional(), // Changed to string to match TEXT in DB
-  email: z.string().email().optional(),
-  logoUrl: z.string().url().optional().nullable(),      // New: for storing image URL
-  signatureUrl: z.string().url().optional().nullable(), // New: for storing signature URL
+  phone: z.string().optional(),
+  email: z.string().email({ message: "Invalid email address." }).optional(),
+  logoUrl: z.string().url({ message: "Invalid URL for logo." }).or(z.literal('')).optional().nullable(),
+  signatureUrl: z.string().url({ message: "Invalid URL for signature." }).or(z.literal('')).optional().nullable(),
 });
 export type BrandingSettingsFormData = z.infer<typeof brandingSettingsSchema>;
-export type BrandingSettings = BrandingSettingsFormData & {
-  id: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
+
 export const repositoryItemSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, { message: "Item name cannot be empty." }),
@@ -245,7 +240,7 @@ export const purchaseOrderFormSchema = z.object({
   orderFormNumber: z.string().optional(),
 });
 export type PurchaseOrderFormData = z.infer<typeof purchaseOrderFormSchema>;
-
+  
 // Schemas for Admin Dashboard SMTP and Email Template Settings
 export const smtpSettingsSchema = z.object({
   host: z.string().min(1, { message: "SMTP Host is required." }),

@@ -57,11 +57,19 @@ export async function securedApiCall<T>(
     try {
       
       const response = await fetch(url, options); // Pass the options object directly
-  
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+   if (!response.ok) {
+        let errorData: any = {};
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            errorData = await response.json().catch(() => ({}));
+        } else {
+            errorData.message = response.statusText;
+        }
+
         console.error(`API Error (${response.status}):`, errorData);
-        throw new Error(`API call failed: ${errorData.message || response.statusText}`);
+        // Prioritize specific error message from backend, then generic message, then statusText
+        const errorMessage = errorData.error || errorData.message || response.statusText;
+        throw new Error(`API call failed: ${errorMessage}`);
       }
   const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {

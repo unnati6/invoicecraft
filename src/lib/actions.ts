@@ -47,6 +47,8 @@ import {
   updatePurchaseOrderDataLayer, 
   deletePurchaseOrderData as deletePurchaseOrderDataLayer,
   deletePurchaseOrdersByOrderFormIdData,
+  getBrandingSettingsData,
+  updateBrandingSettingsData,
   getNextPoNumberData,
    getUsers as getUsersData,
   updateUser as updateUserData,
@@ -84,15 +86,33 @@ export async function saveCustomer(data: CustomerFormData, id?: string): Promise
   }
 }
 
+// export async function removeCustomer(id: string): Promise<boolean> {
+//   const success = await deleteCustomerData(id);
+//   if (success) {
+//     revalidatePath('/customers');
+//     revalidatePath('/(app)/dashboard', 'page');
+//   }
+//   return success;
+// }
 export async function removeCustomer(id: string): Promise<boolean> {
-  const success = await deleteCustomerData(id);
-  if (success) {
-    revalidatePath('/customers');
-    revalidatePath('/(app)/dashboard', 'page');
-  }
-  return success;
-}
+  try {
+    // deleteCustomer will throw an error if the backend returns a 409 Conflict (or other error)
+    const success = await deleteCustomerData(id);
 
+    if (success) {
+      revalidatePath('/customers');
+      revalidatePath('/(app)/dashboard', 'page');
+      return true; // Return true if deleteCustomer indicated success
+    }
+    // If deleteCustomer returns false for some reason, handle it
+    return false;
+
+  } catch (error: any) {
+    // If deleteCustomer throws, we re-throw it.
+    // The 'error.message' here will contain the specific message from the backend.
+    throw error;
+  }
+}
 // Invoice Actions
 export async function getAllInvoices(): Promise<Invoice[]> {
   return getInvoicesData();
@@ -165,7 +185,7 @@ export async function removeInvoice(id: string): Promise<boolean> {
     revalidatePath('/(app)/dashboard', 'page');
   }
   return success;
-}
+} 
 
 export async function saveInvoiceTerms(id: string, data: TermsFormData): Promise<Invoice | null> {
   const invoice = await getInvoiceByIdData(id);
@@ -229,69 +249,55 @@ export async function saveOrderForm(data: OrderFormFormData, id?: string): Promi
   if (id) {
     const existingOrderForm = await getOrderFormByIdData(id);
     if (!existingOrderForm) return null;
+    
+    // Ensure we preserve existing items and other required fields
     const finalData = {
       ...orderFormDataCore,
+      // Preserve existing items if not provided in update
+      items: data.items || existingOrderForm.items || [],
+      additionalCharges: data.additionalCharges || existingOrderForm.additionalCharges || [],
       termsAndConditions: data.termsAndConditions !== undefined ? data.termsAndConditions : existingOrderForm.termsAndConditions,
     };
+    
     savedOrderForm = await updateOrderFormDataLayer(id, finalData);
   } else {
-    savedOrderForm = await createOrderFormDataLayer(orderFormDataCore);
+    // Ensure items are initialized for new order forms
+    const createData = {
+      ...orderFormDataCore,
+      items: data.items || [],
+      additionalCharges: data.additionalCharges || [],
+    };
+    savedOrderForm = await createOrderFormDataLayer(createData);
   }
   
   if (savedOrderForm && customer) {
     await deletePurchaseOrdersByOrderFormIdData(savedOrderForm.id);
-    for (const item of savedOrderForm.items) {
-          await upsertRepositoryItemFromOrderFormData(
-            {
-                description: item.description,
-                rate: item.rate,
-                procurementPrice: item.procurementPrice,
-                vendorName: item.vendorName,
-            },
-            savedOrderForm.customerId,
-            customer.name,
-            savedOrderForm.currencyCode || 'USD'
+    
+    // Only process items if they exist and are not empty
+    if (savedOrderForm.items && Array.isArray(savedOrderForm.items) && savedOrderForm.items.length > 0) {
+      for (const item of savedOrderForm.items) {
+        await upsertRepositoryItemFromOrderFormData(
+          {
+            description: item.description,
+            rate: item.rate,
+            procurementPrice: item.procurementPrice,
+            vendorName: item.vendorName,
+          },
+          savedOrderForm.customerId,
+          customer.name,
+          savedOrderForm.currencyCode || 'USD'
         );
-
-        // // PO Generation Logic
-        // const itemsByVendor = savedOrderForm.items.reduce((acc, currentItem) => {
-        //   if (currentItem.vendorName && currentItem.procurementPrice !== undefined && currentItem.procurementPrice >= 0) {
-        //     if (!acc[currentItem.vendorName]) {
-        //       acc[currentItem.vendorName] = [];
-        //     }
-        //     acc[currentItem.vendorName].push(currentItem);
-        //   }
-        //   return acc;
-        // }, {} as Record<string, OrderFormItem[]>);
-
-        // for (const vendorName in itemsByVendor) {
-        //   const poItems = itemsByVendor[vendorName].map(ofi => ({
-        //     description: ofi.description,
-        //     quantity: ofi.quantity,
-        //     procurementPrice: ofi.procurementPrice!, // Non-null assertion as it's checked
-        //   }));
-        //   if (poItems.length > 0) {
-        //     const poNumber = await getNextPoNumberData();
-        //     await createPurchaseOrderDataLayer({
-        //       poNumber,
-        //       vendorName,
-        //       orderFormId: savedOrderForm.id,
-        //       orderFormNumber: savedOrderForm.orderFormNumber,
-        //       issueDate: new Date(),
-        //       items: poItems,
-        //       status: 'Draft'
-        //     });
-        //   }
-        // }
+      }
     }
+    
     revalidatePath('/orderforms');
-    revalidatePath(`/orderforms/${savedOrderForm.id}`);
     revalidatePath(`/orderforms/${savedOrderForm.id}`);
     revalidatePath('/item-repository');
     revalidatePath('/purchase-orders');
   }
   return savedOrderForm;
 }
+
 
 
 export async function removeOrderForm(id: string): Promise<boolean> {
@@ -304,16 +310,34 @@ export async function removeOrderForm(id: string): Promise<boolean> {
   return success;
 }
 
-export async function saveOrderFormTerms(id: string, data: TermsFormData): Promise<OrderForm | null> {
-  const orderForm = await getOrderFormByIdData(id);
-  if (!orderForm) return null;
-  const updated = await updateOrderFormDataLayer(id, { termsAndConditions: data.termsAndConditions });
-  if (updated) {
-    revalidatePath(`/orderforms/${id}`);
-    revalidatePath(`/orderforms/${id}/terms`);
+export async function saveOrderFormTerms(id: string, termsAndConditions: string): Promise<OrderForm | null> {
+  console.log("[Action: saveOrderFormTerms] Updating terms for ID:", id);
+  
+  try {
+    // Get existing order form to preserve all other data
+    const existingOrderForm = await getOrderFormByIdData(id);
+    if (!existingOrderForm) {
+      console.error("Order form not found:", id);
+      return null;
+    }
+
+    // Only update the terms and conditions field
+    const updatedOrderForm = await updateOrderFormDataLayer(id, {
+      termsAndConditions: termsAndConditions
+    });
+
+    if (updatedOrderForm) {
+      revalidatePath(`/orderforms/${id}`);
+      revalidatePath(`/orderforms/${id}/terms`);
+    }
+
+    return updatedOrderForm;
+  } catch (error) {
+    console.error("Failed to update order form terms:", error);
+    throw error;
   }
-  return updated;
 }
+
 
 export async function fetchNextOrderFormNumber(): Promise<string> {
     return getNextOrderFormNumberData();
@@ -638,11 +662,15 @@ export async function removeCoverPageTemplate(id: string): Promise<boolean> {
   return success;
 }
 
-// Branding/Settings Actions
-export async function saveBrandingSettings(data: BrandingSettingsFormData): Promise<boolean> {
-  console.log("Branding settings to save (server action):", data);
+// --- Branding Settings Actions ---
+export async function getBrandingSettings(): Promise<BrandingSettings> {
+  return getBrandingSettingsData();
+}
+
+export async function saveBrandingSettings(data: BrandingSettingsFormData): Promise<BrandingSettings> {
+  const updatedSettings = await updateBrandingSettingsData(data);
   revalidatePath('/(app)/branding', 'page');
-  return true;
+  return updatedSettings;
 }
 
 // Repository Item Actions

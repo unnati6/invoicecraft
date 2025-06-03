@@ -56,6 +56,15 @@ export default function EditInvoicePage() {
   const handleSubmit = async (data: InvoiceFormData) => {
     setIsSubmitting(true);
     try {
+       if (!Array.isArray(data.items)) {
+      data.items = [data.items];
+    }
+
+    // ✅ Handle nullable fields properly
+    data.msaCoverPageTemplateId = data.msaCoverPageTemplateId || undefined;
+    data.linkedMsaTemplateId = data.linkedMsaTemplateId || undefined;
+
+    console.log("🚀 Submitting Invoice Data:", data);
       const updatedInvoice = await saveInvoice(data, invoiceId);
       if (updatedInvoice) {
         setInvoice(updatedInvoice); // Update local state with returned data

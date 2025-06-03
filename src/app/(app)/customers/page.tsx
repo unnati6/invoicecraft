@@ -20,21 +20,32 @@ function DeleteCustomerButton({ customerId, customerName, onDeleted }: { custome
   const { toast } = ClientUseToast();
   // No need for ClientRouter here as router.refresh() is not ideal from a deeply nested component
   // Re-fetching data in the parent (CustomersPage) is better.
-
-  const handleDelete = async () => {
+ const handleDelete = async () => {
     try {
+      // ClientRemoveCustomerAction (which calls deleteCustomer) will throw
+      // the specific error message on 409 Conflict.
       const success = await ClientRemoveCustomerAction(customerId);
       if (success) {
         toast({ title: "Success", description: `${customerName} deleted successfully.` });
         onDeleted(); // Call the callback to trigger data re-fetch in parent
       } else {
-        toast({ title: "Error", description: `Failed to delete ${customerName}.`, variant: "destructive" });
+        // This 'else' block would be hit if removeCustomer returns false without throwing.
+        // Given your current setup, it's more likely to throw an error.
+        toast({ title: "Error", description: `Failed to delete ${customerName} (unknown reason).`, variant: "destructive" });
       }
-    } catch (error) {
-      toast({ title: "Error", description: `Failed to delete ${customerName}.`, variant: "destructive" });
+    } catch (error: any) { // Catch the error thrown by ClientRemoveCustomerAction
+      console.error("Frontend Delete Error:", error);
+
+      let errorMessage = `Failed to delete ${customerName}.`;
+
+      // The error object caught here will have the specific message from the backend
+      if (error.message) {
+        errorMessage = error.message; // This will be "Cannot delete customer: Linked orders exist."
+      }
+
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     }
   };
-
   return (
     <ClientDeleteConfirmationDialog
       onConfirm={handleDelete}

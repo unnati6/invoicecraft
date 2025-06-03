@@ -20,7 +20,7 @@ export default function NewOrderFormPage() { // Changed
       const newOrderForm = await saveOrderForm(data); // Changed
       if (newOrderForm) {
         toast({ title: "Success", description: "Order Form created successfully." }); // Changed
-        router.push(`/orderforms/${newOrderForm.id}`);  // Changed
+        router.push(`/orderforms`);  // Changed
       } else {
         toast({ title: "Error", description: "Failed to create order form. Please try again.", variant: "destructive" }); // Changed
       }

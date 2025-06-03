@@ -1,14 +1,13 @@
-
 'use client';
 
 import * as _React from 'react';
-import type { OrderForm, Customer, CoverPageTemplate } from '@/types'; 
+import type { OrderForm, Customer, CoverPageTemplate } from '@/types';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
-import { CoverPageContent } from '@/components/cover-page-content'; 
+import { CoverPageContent } from '@/components/cover-page-content';
 
 const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
 const SIGNATURE_STORAGE_KEY = 'branding_company_signature_data_url';
@@ -68,8 +67,8 @@ function replacePlaceholders(
     '{{customerShippingAddress.zip}}': () => customer?.shippingAddress?.zip,
     '{{customerShippingAddress.country}}': () => customer?.shippingAddress?.country,
     '{{documentNumber}}': () => doc.orderFormNumber,
-    '{{issueDate}}': () => format(new Date(doc.issueDate), 'PPP'),
-    '{{validUntilDate}}': () => format(new Date(doc.validUntilDate), 'PPP'), 
+    '{{issueDate}}': () => doc.issueDate ? format(new Date(doc.issueDate), 'PPP') : '',
+    '{{validUntilDate}}': () => doc.validUntilDate ? format(new Date(doc.validUntilDate), 'PPP') : '',
     '{{totalAmount}}': () => `${currencySymbol}${(doc.total || 0).toFixed(2)}`,
     '{{paymentTerms}}': () => paymentTermsDisplay,
     '{{commitmentPeriod}}': () => commitmentPeriodDisplay,
@@ -79,11 +78,11 @@ function replacePlaceholders(
   };
 
   for (const placeholder in placeholders) {
-    const tag = placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); 
+    const tag = placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     const value = placeholders[placeholder]();
     processedContent = processedContent.replace(new RegExp(tag, 'g'), value || '');
   }
-  
+
   const signaturePanelHtml = `
     <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
       <h4 style="margin-bottom: 15px; font-size: 1.1em;">Signatures</h4>
@@ -124,9 +123,12 @@ function replacePlaceholders(
 
 
 export function OrderFormPreviewContent({ document: orderForm, customer, coverPageTemplate }: OrderFormPreviewContentProps) {
-  console.log("[OrderFormPreviewContent] Received document:", JSON.parse(JSON.stringify(orderForm)));
-  console.log("[OrderFormPreviewContent] Received customer:", JSON.parse(JSON.stringify(customer)));
-  console.log("[OrderFormPreviewContent] Received coverPageTemplate:", JSON.parse(JSON.stringify(coverPageTemplate)));
+  // CORRECTED: Log objects directly. If you need a deep clone for logging to avoid mutation
+  // you can use structuredClone() or JSON.parse(JSON.stringify()) with checks.
+  // But for simple logging, direct object is fine.
+  console.log("[OrderFormPreviewContent] Received document:", orderForm);
+  console.log("[OrderFormPreviewContent] Received customer:", customer);
+  console.log("[OrderFormPreviewContent] Received coverPageTemplate:", coverPageTemplate);
 
   const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
   const [companySignatureUrl, setCompanySignatureUrl] = _React.useState<string | null>(null);
@@ -143,11 +145,11 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
     if (isClient) {
         const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
         if (storedLogo) setCompanyLogoUrl(storedLogo);
-        else setCompanyLogoUrl('/images/revynox_logo_black.png'); 
-        
+        else setCompanyLogoUrl('/images/revynox_logo_black.png');
+
         const storedSignature = localStorage.getItem(SIGNATURE_STORAGE_KEY);
         if (storedSignature) setCompanySignatureUrl(storedSignature);
-        
+
         const name = localStorage.getItem(COMPANY_INFO_KEYS.NAME) || yourCompany.name;
         const street = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_STREET) || '';
         const city = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_CITY) || '';
@@ -174,7 +176,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
     }
   }, [yourCompany.name, yourCompany.email, yourCompany.phone]); // Removed orderForm.msaContent as it's not directly used here
 
-   const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
+    const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
     name: orderForm.customerName || customer?.name || 'N/A',
     email: customer?.email || 'N/A',
     billingAddress: customer?.billingAddress || undefined,
@@ -183,12 +185,12 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
   };
 
   const currencySymbol = getCurrencySymbol(customerToDisplay.currency);
-  const partnerLogoUrl = 'https://placehold.co/150x50.png'; 
-  const totalAdditionalChargesValue = orderForm.additionalCharges?.reduce((sum, charge) => sum + charge.calculatedAmount, 0) || 0;
+  const partnerLogoUrl = 'https://placehold.co/150x50.png';
+  const totalAdditionalChargesValue = orderForm.additionalCharges?.reduce((sum, charge) => sum + (charge.calculatedAmount ?? 0), 0) || 0;
   const hasShippingAddress = customerToDisplay.shippingAddress &&
                              (customerToDisplay.shippingAddress.street ||
                               customerToDisplay.shippingAddress.city);
-  
+
   const processedMsaContent = orderForm.msaContent ? replacePlaceholders(orderForm.msaContent, orderForm, customer) : undefined;
   const processedTermsAndConditions = orderForm.termsAndConditions ? replacePlaceholders(orderForm.termsAndConditions, orderForm, customer) : undefined;
 
@@ -199,11 +201,10 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
   const commitmentPeriodText = (orderForm.commitmentPeriod === 'Custom')
     ? (orderForm.customCommitmentPeriod?.trim() ? orderForm.customCommitmentPeriod : 'Custom (Not specified)')
     : orderForm.commitmentPeriod;
-  
+
   const paymentFrequencyText = (orderForm.paymentFrequency === 'Custom')
     ? (orderForm.customPaymentFrequency?.trim() ? orderForm.customPaymentFrequency : 'Custom (Not specified)')
     : orderForm.paymentFrequency;
-  
 
   return (
     <div className="p-6 bg-card text-foreground font-sans text-sm">
@@ -215,7 +216,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
       )}
       {processedMsaContent && (
         <>
-          <div className="mb-4 prose prose-sm max-w-none break-words"> 
+          <div className="mb-4 prose prose-sm max-w-none break-words">
             <ReactMarkdown rehypePlugins={[rehypeRaw]}>{processedMsaContent}</ReactMarkdown>
           </div>
           <hr className="my-6 border-border" />
@@ -264,8 +265,8 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
         )}
 
         <div className={`text-left ${hasShippingAddress ? 'md:text-right md:col-span-1' : 'md:text-right md:col-start-3 md:col-span-1'}`}>
-          <p><span className="font-semibold text-muted-foreground">Issue Date:</span> {format(new Date(orderForm.issueDate), 'PPP')}</p>
-          <p><span className="font-semibold text-muted-foreground">Valid Until:</span> {format(new Date(orderForm.validUntilDate), 'PPP')}</p>
+          <p><span className="font-semibold text-muted-foreground">Issue Date:</span> {orderForm.issueDate ? format(new Date(orderForm.issueDate), 'PPP') : 'N/A'}</p>
+          <p><span className="font-semibold text-muted-foreground">Valid Until:</span> {orderForm.validUntilDate ? format(new Date(orderForm.validUntilDate), 'PPP') : 'N/A'}</p>
            <p className="mt-2"><span className="font-semibold text-muted-foreground">Status:</span> <span className={`px-2 py-1 rounded-full text-xs font-medium ${orderForm.status === 'Accepted' ? 'bg-primary/10 text-primary' : orderForm.status === 'Declined' || orderForm.status === 'Expired' ? 'bg-destructive/10 text-destructive-foreground' : 'bg-secondary text-secondary-foreground'}`}>{orderForm.status}</span></p>
            {customerToDisplay.currency && <p><span className="font-semibold text-muted-foreground">Currency:</span> {customerToDisplay.currency}</p>}
         </div>
@@ -284,31 +285,37 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
         </div>
       )}
 
-      <div className="mb-4">
-        <table className="w-full border-collapse">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="p-2 text-left font-semibold border border-border">Description</th>
-              <th className="p-2 text-right font-semibold border border-border">Quantity</th>
-              <th className="p-2 text-right font-semibold border border-border">Rate</th>
-              <th className="p-2 text-right font-semibold border border-border">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orderForm.items.map((item) => (
-              <tr key={item.id} className="border-b border-border">
-                <td className="p-2 border border-border">{item.description}</td>
-                <td className="p-2 text-right border border-border">{item.quantity.toFixed(2)}</td>
-                <td className="p-2 text-right border border-border">{currencySymbol}{item.rate.toFixed(2)}</td>
-                <td className="p-2 text-right border border-border">{currencySymbol}{item.amount.toFixed(2)}</td>
+      {/* Order Form Items */}
+      {orderForm.items && orderForm.items.length > 0 && (
+        <div className="mb-8">
+          <h3 className="font-semibold mb-2 text-muted-foreground">Items & Services</h3>
+          <table className="w-full border border-border">
+            <thead>
+              <tr className="bg-muted/50 text-muted-foreground">
+                <th className="p-2 text-left border border-border">Description</th>
+                <th className="p-2 text-right border border-border">Quantity</th>
+                <th className="p-2 text-right border border-border">Rate ({currencySymbol})</th>
+                <th className="p-2 text-right border border-border">Amount ({currencySymbol})</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {orderForm.items.map((item) => (
+                <tr key={item.id} className="border-b border-border">
+                  <td className="p-2 border border-border">{item.description}</td>
+                  <td className="p-2 text-right border border-border">{item.quantity}</td>
+                  <td className="p-2 text-right border border-border">{item.rate.toFixed(2)}</td>
+                  <td className="p-2 text-right border border-border">{item.amount.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
+      {/* Additional Charges */}
       {orderForm.additionalCharges && orderForm.additionalCharges.length > 0 && (
         <div className="mb-8">
+          <h3 className="font-semibold mb-2 text-muted-foreground">Additional Charges</h3>
           <table className="w-full border-collapse">
             <tbody>
               {orderForm.additionalCharges.map((charge) => (
@@ -317,7 +324,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
                     {charge.description}
                     {charge.valueType === 'percentage' && ` (${charge.value}%)`}
                   </td>
-                  <td className="p-2 text-right border border-border">{currencySymbol}{charge.calculatedAmount.toFixed(2)}</td>
+                  <td className="p-2 text-right border border-border">{currencySymbol}{(charge.calculatedAmount ?? 0).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -325,55 +332,76 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
         </div>
       )}
 
-      {partnerLogoUrl && ( 
-        <div className="mb-8 mt-4 py-4 border-t border-b border-dashed flex justify-start"> 
-            <Image src={partnerLogoUrl} alt="Partner Logo" width={150} height={50} style={{ objectFit: 'contain', maxHeight: '50px' }} data-ai-hint="partner logo"/>
-        </div>
-      )}
 
+      {/* Totals Section */}
       <div className="flex justify-end mb-8">
-        <div className="w-full max-w-xs space-y-2">
-          <div className="flex justify-between"><span className="text-muted-foreground">Subtotal (Items):</span><span>{currencySymbol}{(isFinite(orderForm.subtotal) ? orderForm.subtotal : 0).toFixed(2)}</span></div>
-          {totalAdditionalChargesValue > 0 && (<div className="flex justify-between"><span className="text-muted-foreground">Total Additional Charges:</span><span>{currencySymbol}{(isFinite(totalAdditionalChargesValue) ? totalAdditionalChargesValue : 0).toFixed(2)}</span></div>)}
-           {orderForm.discountEnabled && orderForm.discountAmount && orderForm.discountAmount > 0 && (
-            <div className="flex justify-between text-destructive">
-              <span>Discount {orderForm.discountDescription ? `(${orderForm.discountDescription})` : ''}:</span>
-              <span>-{currencySymbol}{(isFinite(orderForm.discountAmount) ? orderForm.discountAmount : 0).toFixed(2)}</span>
+        <div className="w-full md:w-1/3 border border-border p-4">
+          <div className="flex justify-between mb-2">
+            <span className="font-semibold">Subtotal:</span>
+            <span>{currencySymbol}{(orderForm.subtotal || 0).toFixed(2)}</span>
+          </div>
+          {orderForm.discountType && orderForm.discountValue !== undefined && (
+            <div className="flex justify-between mb-2">
+              <span className="font-semibold">Discount ({orderForm.discountType === 'percentage' ? `${orderForm.discountValue}%` : currencySymbol}):</span>
+              <span>-{currencySymbol}{(orderForm.discountAmount || 0).toFixed(2)}</span>
             </div>
           )}
-          <div className="flex justify-between"><span className="text-muted-foreground">Taxable Amount:</span><span>{currencySymbol}{(isFinite(orderForm.subtotal + totalAdditionalChargesValue - (orderForm.discountAmount || 0)) ? (orderForm.subtotal + totalAdditionalChargesValue - (orderForm.discountAmount || 0)) : 0 ).toFixed(2)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Tax ({orderForm.taxRate}%):</span><span>{currencySymbol}{(isFinite(orderForm.taxAmount) ? orderForm.taxAmount : 0).toFixed(2)}</span></div>
-          <div className="flex justify-between border-t border-border pt-2 mt-2"><span className="font-bold text-lg">Total:</span><span className="font-bold text-lg">{currencySymbol}{(isFinite(orderForm.total) ? orderForm.total : 0).toFixed(2)}</span></div>
+          {totalAdditionalChargesValue > 0 && (
+            <div className="flex justify-between mb-2">
+              <span className="font-semibold">Additional Charges:</span>
+              <span>{currencySymbol}{(totalAdditionalChargesValue).toFixed(2)}</span>
+            </div>
+          )}
+          {orderForm.taxRate !== undefined && orderForm.taxRate > 0 && (
+            <div className="flex justify-between mb-2">
+              <span className="font-semibold">Tax ({orderForm.taxRate}%):</span>
+              <span>{currencySymbol}{(orderForm.taxAmount || 0).toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-bold text-lg border-t pt-2 border-border">
+            <span>Total:</span>
+            <span>{currencySymbol}{(orderForm.total || 0).toFixed(2)}</span>
+          </div>
         </div>
       </div>
 
+      {/* Payment Instructions / Notes */}
+      {/* {orderForm.notes && (
+        <div className="mb-8">
+          <h3 className="font-semibold mb-2 text-muted-foreground">Notes:</h3>
+          <p className="text-sm whitespace-pre-wrap">{orderForm.notes}</p>
+        </div>
+      )} */}
+
+      {/* Terms and Conditions */}
       {processedTermsAndConditions && (
-        <div className="mb-8 prose prose-sm max-w-none break-words">
+        <div className="mb-8">
           <h3 className="font-semibold mb-2 text-muted-foreground">Terms & Conditions:</h3>
-          <ReactMarkdown rehypePlugins={[rehypeRaw]}>{processedTermsAndConditions}</ReactMarkdown>
+          <div className="prose prose-sm max-w-none break-words">
+            <ReactMarkdown rehypePlugins={[rehypeRaw]}>{processedTermsAndConditions}</ReactMarkdown>
+          </div>
         </div>
       )}
 
-      <div className="mt-12 pt-8 border-t">
-        <div className="grid grid-cols-2 gap-8">
-            <div>
-                <p className="font-semibold mb-1">Prepared By ({yourCompany.name}):</p>
-                 {companySignatureUrl ? (<div className="relative h-20 mb-2"><Image src={companySignatureUrl} alt="Company Signature" fill={true} style={{ objectFit: 'contain' }} className="border-b border-gray-400"/></div>) : (<div className="h-16 border-b border-gray-400 mb-2"></div>)}
-                <p className="text-xs text-muted-foreground">{yourCompany.name}</p>
-            </div>
-            <div>
-                <p className="font-semibold mb-1">Client Acknowledgement (Optional):</p>
-                 <div className="h-16 border-b border-gray-400 mb-2"></div>
-                <p className="text-xs text-muted-foreground">{customerToDisplay.name}</p>
-            </div>
+      {/* Final Signatures */}
+      <div className="mt-12 pt-6 border-t border-border">
+        <div className="flex justify-between items-end text-sm">
+          <div className="w-1/2 pr-4">
+            <p className="font-semibold text-muted-foreground">For {yourCompany.name}:</p>
+            {companySignatureUrl ? (
+              <Image src={companySignatureUrl} alt="Company Signature" width={200} height={80} className="mt-4 mb-2" style={{ objectFit: 'contain', maxHeight: '80px' }} data-ai-hint="company signature"/>
+            ) : (
+              <div className="mt-4 mb-2 w-[200px] h-[80px] bg-muted rounded flex items-center justify-center text-muted-foreground text-xs">Signature Area</div>
+            )}
+            <p className="border-t border-border pt-2">Authorized Signature</p>
+          </div>
+          <div className="w-1/2 pl-4 text-right">
+            <p className="font-semibold text-muted-foreground">For Customer:</p>
+            <div className="mt-4 mb-2 w-full h-[80px] bg-muted rounded inline-flex items-center justify-center text-muted-foreground text-xs">Customer Signature Area</div>
+            <p className="border-t border-border pt-2">Client Signature</p>
+          </div>
         </div>
-      </div>
-
-      <div className="text-center text-sm text-muted-foreground mt-12">
-        <p>Thank you for considering our services! Questions? Contact {yourCompany.email}</p>
       </div>
     </div>
   );
 }
-
-OrderFormPreviewContent.displayName = "OrderFormPreviewContent";
