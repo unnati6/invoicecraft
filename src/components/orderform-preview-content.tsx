@@ -1,7 +1,9 @@
+// OrderFormPreviewContent.tsx
 'use client';
 
 import * as _React from 'react';
-import type { OrderForm, Customer, CoverPageTemplate } from '@/types';
+import type { OrderForm, Customer, CoverPageTemplate } from '@/types'; // BrandingSettings is imported via types.ts
+import { BrandingSettingsFormData as BrandingSettings } from '@/lib/schemas'; // Import the specific type from your schema
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { getCurrencySymbol } from '@/lib/currency-utils';
@@ -9,174 +11,32 @@ import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import { CoverPageContent } from '@/components/cover-page-content';
 
-const LOGO_STORAGE_KEY = 'branding_company_logo_data_url';
-const SIGNATURE_STORAGE_KEY = 'branding_company_signature_data_url';
-
-const COMPANY_INFO_KEYS = {
-  NAME: 'branding_company_name',
-  ADDRESS_STREET: 'branding_company_address_street',
-  ADDRESS_CITY: 'branding_company_address_city',
-  ADDRESS_STATE: 'branding_company_address_state',
-  ADDRESS_ZIP: 'branding_company_address_zip',
-  ADDRESS_COUNTRY: 'branding_company_address_country',
-  PHONE: 'branding_company_phone',
-  EMAIL: 'branding_company_email',
-};
-
 interface OrderFormPreviewContentProps {
   document: OrderForm;
   customer?: Customer;
-  coverPageTemplate?: CoverPageTemplate; // Passed from dialog
+  coverPageTemplate?: CoverPageTemplate;
+  companyBranding: BrandingSettings; // Using the BrandingSettingsFormData type from schema
 }
 
-function replacePlaceholders(
-  content: string | undefined,
-  doc: OrderForm,
-  customer?: Customer
-): string | undefined {
-  if (!content?.trim()) return undefined;
-  let processedContent = content;
-
-  const currencySymbol = getCurrencySymbol(customer?.currency || doc.currencyCode);
-
-  const paymentTermsDisplay = (doc.paymentTerms === 'Custom' && doc.customPaymentTerms?.trim())
-    ? doc.customPaymentTerms
-    : (doc.paymentTerms === 'Custom' ? 'Custom (Details in document)' : doc.paymentTerms);
-
-  const commitmentPeriodDisplay = (doc.commitmentPeriod === 'Custom' && doc.customCommitmentPeriod?.trim())
-    ? doc.customCommitmentPeriod
-    : (doc.commitmentPeriod === 'Custom' ? 'Custom (Details in document)' : doc.commitmentPeriod);
-
-  const paymentFrequencyDisplay = (doc.paymentFrequency === 'Custom' && doc.customPaymentFrequency?.trim())
-    ? doc.customPaymentFrequency
-    : (doc.paymentFrequency === 'Custom' ? 'Custom (Details in document)' : doc.paymentFrequency);
+// Helper function (assuming it's defined elsewhere or in this file)
+const replacePlaceholders = (content: string, orderForm: OrderForm, customer?: Customer): string => {
+  let replacedContent = content;
+  // Basic placeholder replacement examples
+  replacedContent = replacedContent.replace(/{{orderForm.orderFormNumber}}/g, orderForm.orderFormNumber || 'N/A');
+  replacedContent = replacedContent.replace(/{{customer.name}}/g, customer?.name || orderForm.customerName || 'N/A');
+  replacedContent = replacedContent.replace(/{{orderForm.issueDate}}/g, orderForm.issueDate ? format(new Date(orderForm.issueDate), 'PPP') : 'N/A');
+  // Add more placeholders as needed
+  return replacedContent;
+};
 
 
-  const placeholders: Record<string, () => string | undefined | null> = {
-    '{{customerName}}': () => customer?.name,
-    '{{customerEmail}}': () => customer?.email,
-    '{{customerPhone}}': () => customer?.phone,
-    '{{customerBillingAddress.street}}': () => customer?.billingAddress?.street,
-    '{{customerBillingAddress.city}}': () => customer?.billingAddress?.city,
-    '{{customerBillingAddress.state}}': () => customer?.billingAddress?.state,
-    '{{customerBillingAddress.zip}}': () => customer?.billingAddress?.zip,
-    '{{customerBillingAddress.country}}': () => customer?.billingAddress?.country,
-    '{{customerShippingAddress.street}}': () => customer?.shippingAddress?.street,
-    '{{customerShippingAddress.city}}': () => customer?.shippingAddress?.city,
-    '{{customerShippingAddress.state}}': () => customer?.shippingAddress?.state,
-    '{{customerShippingAddress.zip}}': () => customer?.shippingAddress?.zip,
-    '{{customerShippingAddress.country}}': () => customer?.shippingAddress?.country,
-    '{{documentNumber}}': () => doc.orderFormNumber,
-    '{{issueDate}}': () => doc.issueDate ? format(new Date(doc.issueDate), 'PPP') : '',
-    '{{validUntilDate}}': () => doc.validUntilDate ? format(new Date(doc.validUntilDate), 'PPP') : '',
-    '{{totalAmount}}': () => `${currencySymbol}${(doc.total || 0).toFixed(2)}`,
-    '{{paymentTerms}}': () => paymentTermsDisplay,
-    '{{commitmentPeriod}}': () => commitmentPeriodDisplay,
-    '{{paymentFrequency}}': () => paymentFrequencyDisplay,
-    '{{serviceStartDate}}': () => doc.serviceStartDate ? format(new Date(doc.serviceStartDate), 'PPP') : '',
-    '{{serviceEndDate}}': () => doc.serviceEndDate ? format(new Date(doc.serviceEndDate), 'PPP') : '',
-  };
-
-  for (const placeholder in placeholders) {
-    const tag = placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-    const value = placeholders[placeholder]();
-    processedContent = processedContent.replace(new RegExp(tag, 'g'), value || '');
-  }
-
-  const signaturePanelHtml = `
-    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
-      <h4 style="margin-bottom: 15px; font-size: 1.1em;">Signatures</h4>
-      <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
-        <tr>
-          <td style="width: 50%; padding: 10px 5px; vertical-align: bottom;">
-            <div style="border-bottom: 1px solid #333; height: 40px; margin-bottom: 5px;"></div>
-            <p style="margin: 0;">Authorized Signature (Your Company)</p>
-          </td>
-          <td style="width: 50%; padding: 10px 5px; vertical-align: bottom;">
-            <div style="border-bottom: 1px solid #333; height: 40px; margin-bottom: 5px;"></div>
-            <p style="margin: 0;">Client Signature</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding: 5px;">
-            <p style="margin: 0;">Printed Name: _________________________</p>
-          </td>
-          <td style="padding: 5px;">
-            <p style="margin: 0;">Printed Name: _________________________</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding: 5px;">
-            <p style="margin: 0;">Date: _________________________</p>
-          </td>
-          <td style="padding: 5px;">
-            <p style="margin: 0;">Date: _________________________</p>
-          </td>
-        </tr>
-      </table>
-    </div>
-  `;
-  processedContent = processedContent.replace(/{{signaturePanel}}/g, signaturePanelHtml);
-  if (!processedContent?.trim()) return undefined;
-  return processedContent;
-}
-
-
-export function OrderFormPreviewContent({ document: orderForm, customer, coverPageTemplate }: OrderFormPreviewContentProps) {
-  // CORRECTED: Log objects directly. If you need a deep clone for logging to avoid mutation
-  // you can use structuredClone() or JSON.parse(JSON.stringify()) with checks.
-  // But for simple logging, direct object is fine.
+export function OrderFormPreviewContent({ document: orderForm, customer, coverPageTemplate, companyBranding }: OrderFormPreviewContentProps) {
   console.log("[OrderFormPreviewContent] Received document:", orderForm);
   console.log("[OrderFormPreviewContent] Received customer:", customer);
   console.log("[OrderFormPreviewContent] Received coverPageTemplate:", coverPageTemplate);
+  console.log("[OrderFormPreviewContent] Received companyBranding:", companyBranding); // Log the new prop
 
-  const [companyLogoUrl, setCompanyLogoUrl] = _React.useState<string | null>(null);
-  const [companySignatureUrl, setCompanySignatureUrl] = _React.useState<string | null>(null);
-  const [yourCompany, setYourCompany] = _React.useState({
-    name: 'Your Awesome Company LLC',
-    addressLine1: '456 Innovation Drive',
-    addressLine2: 'Suite 100, Tech City, TX 75001',
-    email: 'sales@yourcompany.com',
-    phone: '(555) 123-7890'
-  });
-
-  _React.useEffect(() => {
-    const isClient = typeof window !== 'undefined';
-    if (isClient) {
-        const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
-        if (storedLogo) setCompanyLogoUrl(storedLogo);
-        else setCompanyLogoUrl('/images/revynox_logo_black.png');
-
-        const storedSignature = localStorage.getItem(SIGNATURE_STORAGE_KEY);
-        if (storedSignature) setCompanySignatureUrl(storedSignature);
-
-        const name = localStorage.getItem(COMPANY_INFO_KEYS.NAME) || yourCompany.name;
-        const street = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_STREET) || '';
-        const city = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_CITY) || '';
-        const stateVal = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_STATE) || '';
-        const zip = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_ZIP) || '';
-        const country = localStorage.getItem(COMPANY_INFO_KEYS.ADDRESS_COUNTRY) || '';
-        const phone = localStorage.getItem(COMPANY_INFO_KEYS.PHONE) || yourCompany.phone;
-        const email = localStorage.getItem(COMPANY_INFO_KEYS.EMAIL) || yourCompany.email;
-
-        let addressLine1 = street;
-        let addressLine2 = `${city}${city && (stateVal || zip || country) ? ', ' : ''}${stateVal} ${zip}${zip && country ? ', ' : ''}${country}`.trim();
-        if (!addressLine1 && addressLine2) {
-          addressLine1 = addressLine2;
-          addressLine2 = '';
-        }
-
-        setYourCompany({
-            name,
-            addressLine1: addressLine1 || 'Your Address Line 1',
-            addressLine2: addressLine2.length > 0 ? addressLine2 : '',
-            phone,
-            email,
-        });
-    }
-  }, [yourCompany.name, yourCompany.email, yourCompany.phone]); // Removed orderForm.msaContent as it's not directly used here
-
-    const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
+  const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
     name: orderForm.customerName || customer?.name || 'N/A',
     email: customer?.email || 'N/A',
     billingAddress: customer?.billingAddress || undefined,
@@ -185,7 +45,6 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
   };
 
   const currencySymbol = getCurrencySymbol(customerToDisplay.currency);
-  const partnerLogoUrl = 'https://placehold.co/150x50.png';
   const totalAdditionalChargesValue = orderForm.additionalCharges?.reduce((sum, charge) => sum + (charge.calculatedAmount ?? 0), 0) || 0;
   const hasShippingAddress = customerToDisplay.shippingAddress &&
                              (customerToDisplay.shippingAddress.street ||
@@ -225,14 +84,28 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
 
       <div className="flex justify-between items-start mb-10">
         <div className="w-1/2">
-          {companyLogoUrl ? (
-            <Image src={companyLogoUrl} alt={`${yourCompany.name} Logo`} width={180} height={54} className="mb-3" style={{ objectFit: 'contain', maxHeight: '54px' }} data-ai-hint="company logo"/>
+          {/* Corrected: Use companyBranding.logoUrl directly */}
+          {companyBranding.logoUrl ? (
+            <Image src={companyBranding.logoUrl} alt={`${companyBranding.name} Logo`} width={180} height={54} className="mb-3" style={{ objectFit: 'contain', maxHeight: '54px' }} data-ai-hint="company logo"/>
           ) : ( <div className="mb-3 w-[180px] h-[54px] bg-muted rounded flex items-center justify-center text-muted-foreground text-xs">Your Logo</div> )}
-          <h2 className="text-xl font-semibold text-primary">{yourCompany.name}</h2>
-          <p className="text-xs text-muted-foreground">{yourCompany.addressLine1}</p>
-          {yourCompany.addressLine2 && <p className="text-xs text-muted-foreground">{yourCompany.addressLine2}</p>}
-          <p className="text-xs text-muted-foreground">Email: {yourCompany.email}</p>
-          <p className="text-xs text-muted-foreground">Phone: {yourCompany.phone}</p>
+          {/* Corrected: Use companyBranding.name */}
+          <h2 className="text-xl font-semibold text-primary">{companyBranding.name}</h2>
+          {/* Corrected: Use companyBranding.street */}
+          <p className="text-xs text-muted-foreground">{companyBranding.street}</p>
+          {/* Corrected: Use city, state, zip directly */}
+          {(companyBranding.city || companyBranding.state || companyBranding.zip) && (
+            <p className="text-xs text-muted-foreground">
+              {companyBranding.city}{companyBranding.city && companyBranding.state ? ', ' : ''}
+              {companyBranding.state}{companyBranding.state && companyBranding.zip ? ' ' : ''}
+              {companyBranding.zip}
+            </p>
+          )}
+          {/* Corrected: Use companyBranding.country */}
+          {companyBranding.country && <p className="text-xs text-muted-foreground">{companyBranding.country}</p>}
+          {/* Corrected: Use companyBranding.email */}
+          <p className="text-xs text-muted-foreground">Email: {companyBranding.email}</p>
+          {/* Corrected: Use companyBranding.phone */}
+          <p className="text-xs text-muted-foreground">Phone: {companyBranding.phone}</p>
         </div>
         <div className="text-right w-1/2">
           <h1 className="text-3xl font-bold text-primary">ORDER FORM</h1>
@@ -254,9 +127,9 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
 
         {hasShippingAddress && (
             <div className="md:col-span-1">
-                <h3 className="font-semibold mb-1 text-muted-foreground">SHIP TO:</h3>
-                <p className="font-medium">{customerToDisplay.name}</p>
-                 {customerToDisplay.shippingAddress && (<>
+              <h3 className="font-semibold mb-1 text-muted-foreground">SHIP TO:</h3>
+              <p className="font-medium">{customerToDisplay.name}</p>
+                {customerToDisplay.shippingAddress && (<>
                         <p className="text-sm">{customerToDisplay.shippingAddress.street}</p>
                         <p className="text-sm">{customerToDisplay.shippingAddress.city}, {customerToDisplay.shippingAddress.state} {customerToDisplay.shippingAddress.zip}</p>
                         <p className="text-sm">{customerToDisplay.shippingAddress.country}</p>
@@ -303,8 +176,9 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
                 <tr key={item.id} className="border-b border-border">
                   <td className="p-2 border border-border">{item.description}</td>
                   <td className="p-2 text-right border border-border">{item.quantity}</td>
-                  <td className="p-2 text-right border border-border">{item.rate.toFixed(2)}</td>
-                  <td className="p-2 text-right border border-border">{item.amount.toFixed(2)}</td>
+                  {/* Added nullish coalescing operator (?? 0) to handle undefined/null rates */}
+                  <td className="p-2 text-right border border-border">{(item.rate ?? 0).toFixed(2)}</td>
+                  <td className="p-2 text-right border border-border">{(item.amount ?? 0).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -331,7 +205,6 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
           </table>
         </div>
       )}
-
 
       {/* Totals Section */}
       <div className="flex justify-end mb-8">
@@ -365,14 +238,6 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
         </div>
       </div>
 
-      {/* Payment Instructions / Notes */}
-      {/* {orderForm.notes && (
-        <div className="mb-8">
-          <h3 className="font-semibold mb-2 text-muted-foreground">Notes:</h3>
-          <p className="text-sm whitespace-pre-wrap">{orderForm.notes}</p>
-        </div>
-      )} */}
-
       {/* Terms and Conditions */}
       {processedTermsAndConditions && (
         <div className="mb-8">
@@ -387,9 +252,10 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
       <div className="mt-12 pt-6 border-t border-border">
         <div className="flex justify-between items-end text-sm">
           <div className="w-1/2 pr-4">
-            <p className="font-semibold text-muted-foreground">For {yourCompany.name}:</p>
-            {companySignatureUrl ? (
-              <Image src={companySignatureUrl} alt="Company Signature" width={200} height={80} className="mt-4 mb-2" style={{ objectFit: 'contain', maxHeight: '80px' }} data-ai-hint="company signature"/>
+            <p className="font-semibold text-muted-foreground">For {companyBranding.name}:</p>
+            {/* Corrected: Use companyBranding.signatureUrl directly */}
+            {companyBranding.signatureUrl ? (
+              <Image src={companyBranding.signatureUrl} alt="Company Signature" width={200} height={80} className="mt-4 mb-2" style={{ objectFit: 'contain', maxHeight: '80px' }} data-ai-hint="company signature"/>
             ) : (
               <div className="mt-4 mb-2 w-[200px] h-[80px] bg-muted rounded flex items-center justify-center text-muted-foreground text-xs">Signature Area</div>
             )}

@@ -1,4 +1,4 @@
-
+// OrderFormsPage.tsx
 'use client';
 
 import * as React from 'react';
@@ -12,7 +12,7 @@ import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialo
 import { Badge } from '@/components/ui/badge';
 import { PlusCircle, Edit, Eye, Trash2, Download, ChevronDown, FileSignature, PackageSearch } from 'lucide-react';
 import type { OrderForm, Customer } from '@/types';
-import { getAllOrderForms,getAllCustomers, removeOrderForm, fetchCustomerById, convertMultipleOrderFormsToInvoices } from '@/lib/actions';
+import { getAllOrderForms,getBrandingSettings,getAllCustomers, removeOrderForm, fetchCustomerById, convertMultipleOrderFormsToInvoices } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { OrderFormPreviewDialog } from '@/components/orderform-preview-dialog';
@@ -26,6 +26,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils';
 import { getCurrencySymbol } from '@/lib/currency-utils';
+import { BrandingSettingsFormData as BrandingSettings } from '@/lib/schemas'; // Import BrandingSettings from your schema
+
+// --- New: Function to fetch BrandingSettings ---
+async function fetchCompanyBranding(): Promise<BrandingSettings> {
+  // Replace this with your actual backend API call to get branding settings
+  // Example: Assuming your backend has an endpoint like /api/branding-settings
+  const response = await fetch('/api/branding-settings');
+  if (!response.ok) {
+    throw new Error(`Failed to fetch company branding settings: ${response.statusText}`);
+  }
+  const data = await response.json();
+  console.log("Fetched branding data:", data); // For debugging
+  return data;
+}
+// --- End of New Function ---
 
 export default function OrderFormsPage() {
   const router = useRouter();
@@ -38,19 +53,25 @@ export default function OrderFormsPage() {
   const [isBulkConverting, setIsBulkConverting] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState(''); // Added state for search term
   const [customers,setCustomers] = React.useState<Customer[]>([]);
+
+  // --- New: State for company branding ---
+  const [companyBranding, setCompanyBranding] = React.useState<BrandingSettings | null>(null);
+  const [loadingCompanyBranding, setLoadingCompanyBranding] = React.useState(true);
+  const [companyBrandingError, setCompanyBrandingError] = React.useState<string | null>(null);
+  // --- End of New State ---
+
   React.useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
         const data = await getAllOrderForms();
-               const customerdata = await getAllCustomers();
+        const customerdata = await getAllCustomers();
         setCustomers(customerdata);
-         const enrichedOrderForms = data.map(form => {
+        const enrichedOrderForms = data.map(form => {
           const customer = customerdata.find(cust => cust.id === form.customerId);
           return {
             ...form,
             customerName: customer ? customer.name : 'Unknown Customer', // नई प्रॉपर्टी जोड़ें
-            
           };
         });
         setOrderForms(enrichedOrderForms);
@@ -60,30 +81,46 @@ export default function OrderFormsPage() {
         setLoading(false);
       }
     }
+
+    // --- New: Fetch company branding settings ---
+    async function getCompanyBranding() {
+      try {
+        const data = await getBrandingSettings();
+        setCompanyBranding(data);
+      } catch (error) {
+        console.error("Error fetching company branding:", error);
+        setCompanyBrandingError("Failed to load company branding information.");
+      } finally {
+        setLoadingCompanyBranding(false);
+      }
+    }
+    // --- End of New Fetch ---
+
     fetchData();
-  }, []);
+    getCompanyBranding(); // Call the new fetch function here
+  }, []); // Empty dependency array means both run once on component mount
 
   const handleDeleteOrderForm = async (id: string) => {
     try {
-             const success = await removeOrderForm(id); // Capture the boolean result
-        if (success) {
-      setOrderForms(prev => prev.filter(q => q.id !== id));
-      setRowSelection(prev => {
-        const newSelection = {...prev};
-        delete newSelection[id];
-        return newSelection;
-      });
-      toast({ title: "Success", description: "Order Form deleted successfully." });
-           } else {
-            // This 'else' block handles cases where the action returns false (e.g., due to an error in data.ts being caught and returning false)
-            toast({ title: "Error", description: "Failed to delete order form. (Action returned false)", variant: "destructive" });
-        }
+      const success = await removeOrderForm(id); // Capture the boolean result
+      if (success) {
+        setOrderForms(prev => prev.filter(q => q.id !== id));
+        setRowSelection(prev => {
+          const newSelection = {...prev};
+          delete newSelection[id];
+          return newSelection;
+        });
+        toast({ title: "Success", description: "Order Form deleted successfully." });
+      } else {
+        // This 'else' block handles cases where the action returns false (e.g., due to an error in data.ts being caught and returning false)
+        toast({ title: "Error", description: "Failed to delete order form. (Action returned false)", variant: "destructive" });
+      }
     } catch (error) { // This block handles actual exceptions thrown
-        console.error("Error deleting order form:", error);
-        toast({ title: "Error", description: "Failed to delete order form. (An unexpected error occurred)", variant: "destructive" });
- } 
+      console.error("Error deleting order form:", error);
+      toast({ title: "Error", description: "Failed to delete order form. (An unexpected error occurred)", variant: "destructive" });
+    }
   };
-  
+
   const getSelectedOrderForms = (): OrderForm[] => {
     return Object.entries(rowSelection)
       .filter(([_, isSelected]) => isSelected)
@@ -105,9 +142,11 @@ export default function OrderFormsPage() {
       try {
         let customer: Customer | undefined = undefined;
         if (orderForm.customerId) {
-           customer = await fetchCustomerById(orderForm.customerId);
+          customer = await fetchCustomerById(orderForm.customerId);
         }
-        await downloadPdfForDocument(orderForm, customer);
+        // Assuming downloadPdfForDocument internally uses companyBranding
+        // If not, you might need to pass it here as well, depending on its implementation
+        await downloadPdfForDocument(orderForm, customer, companyBranding || undefined); // Pass companyBranding
         if (selectedOrderForms.length > 1) await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error("Error downloading PDF for order form:", orderForm.orderFormNumber, error);
@@ -115,7 +154,7 @@ export default function OrderFormsPage() {
       }
     }
     setIsDownloading(false);
-    setRowSelection({}); 
+    setRowSelection({});
   };
 
   const handleDownloadCombinedPdf = async () => {
@@ -125,10 +164,10 @@ export default function OrderFormsPage() {
       return;
     }
     setIsDownloading(true);
-     const customers = await Promise.all(
-        selectedOrderForms.map(q => q.customerId ? fetchCustomerById(q.customerId) : Promise.resolve(undefined))
+    const customers = await Promise.all(
+      selectedOrderForms.map(q => q.customerId ? fetchCustomerById(q.customerId) : Promise.resolve(undefined))
     );
-    await downloadMultipleDocumentsAsSinglePdf(selectedOrderForms, customers, 'Combined_OrderForms.pdf');
+    await downloadMultipleDocumentsAsSinglePdf(selectedOrderForms, customers, 'Combined_OrderForms.pdf', companyBranding || undefined); // Pass companyBranding
     setIsDownloading(false);
     setRowSelection({});
   };
@@ -155,9 +194,9 @@ export default function OrderFormsPage() {
         toast({ title: "Conversion Partially Failed", description: `${result.errorCount} order form(s) could not be converted.`, variant: "destructive" });
       }
       // Refresh current page by filtering out converted ones or re-fetch
-      setOrderForms(prev => prev.filter(q => !selectedOrderFormIds.includes(q.id))); 
+      setOrderForms(prev => prev.filter(q => !selectedOrderFormIds.includes(q.id)));
       // It might be better to re-fetch all or redirect to invoices, depending on UX preference
-      router.push('/invoices'); 
+      router.push('/invoices');
     } catch (error) {
       console.error("Error converting multiple order forms:", error);
       toast({ title: "Bulk Conversion Error", description: "An unexpected error occurred during bulk conversion.", variant: "destructive" });
@@ -170,9 +209,9 @@ export default function OrderFormsPage() {
 
   const getStatusVariant = (status: OrderForm['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-      case 'Accepted': return 'default'; 
+      case 'Accepted': return 'default';
       case 'Sent': return 'secondary';
-      case 'Declined': 
+      case 'Declined':
       case 'Expired': return 'destructive';
       case 'Draft': return 'outline';
       default: return 'outline';
@@ -181,15 +220,15 @@ export default function OrderFormsPage() {
   const acceptedBadgeClass = "bg-primary text-primary-foreground hover:bg-primary/80";
 
 
-  const columns: any[] = [ 
+  const columns: any[] = [
     { accessorKey: 'orderFormNumber', header: 'Number', cell: (row: OrderForm) => row.orderFormNumber, size: 120 },
     { accessorKey: 'customerName', header: 'Customer', cell: (row: OrderForm) => row.customerName || 'N/A', size: 200 },
-        { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: OrderForm) => format(new Date(row.issueDate || 'N/A'), 'PP'), size: 120 },
+    { accessorKey: 'issueDate', header: 'Issue Date', cell: (row: OrderForm) => format(new Date(row.issueDate || 'N/A'), 'PP'), size: 120 },
     { accessorKey: 'validUntilDate', header: 'Valid Until', cell: (row: OrderForm) => format(new Date(row.validUntilDate || 'N/A'), 'PP'), size: 120 },
-     { accessorKey: 'total', header: 'Total', cell: (row: OrderForm) => `${getCurrencySymbol(row.currencyCode)}${row.total !== undefined && row.total !== null ? row.total.toFixed(2) : 'N/A'}`, size: 100 },
-  { 
-      accessorKey: 'status', 
-      header: 'Status', 
+    { accessorKey: 'total', header: 'Total', cell: (row: OrderForm) => `${getCurrencySymbol(row.currencyCode)}${row.total !== undefined && row.total !== null ? row.total.toFixed(2) : 'N/A'}`, size: 100 },
+    {
+      accessorKey: 'status',
+      header: 'Status',
       cell: (row: OrderForm) => (
         <Badge variant={getStatusVariant(row.status)} className={row.status === 'Accepted' ? acceptedBadgeClass : ''}>
           {row.status}
@@ -201,23 +240,27 @@ export default function OrderFormsPage() {
       accessorKey: 'actions',
       header: 'Actions',
       cell: (row: OrderForm) => (
-                <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
-   <OrderFormPreviewDialog 
-            orderForm={row}
-            trigger={
-              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Preview Order Form">
-                <Eye className="h-4 w-4" />
-              </Button>
-            }
-          />
+        <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
+          {/* Ensure companyBranding is available before rendering OrderFormPreviewDialog */}
+          {companyBranding && (
+            <OrderFormPreviewDialog
+              orderFormId={row.id}
+              companyBranding={companyBranding} // Pass the fetched companyBranding prop
+              trigger={
+                <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); console.log("Preview clicked for OrderForm ID:", row.id);}}>
+                  <Eye className="h-4 w-4" />
+                </Button>
+              }
+            />
+          )}
           <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); router.push(`/orderforms/${row.id}`); }} title="Edit Order Form">
             <Edit className="h-4 w-4" />
           </Button>
-          <DeleteConfirmationDialog 
-            onConfirm={() => handleDeleteOrderForm(row.id)} 
+          <DeleteConfirmationDialog
+            onConfirm={() => handleDeleteOrderForm(row.id)}
             itemName={`order form ${row.orderFormNumber}`}
             trigger={
-               <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Delete Order Form">
+              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Delete Order Form">
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             }
@@ -227,7 +270,7 @@ export default function OrderFormsPage() {
       size: 150
     },
   ];
-  
+
   const numSelected = Object.values(rowSelection).filter(Boolean).length;
 
   const filteredOrderForms = React.useMemo(() => {
@@ -240,7 +283,10 @@ export default function OrderFormsPage() {
     );
   }, [orderForms, searchTerm]);
 
-  if (loading) {
+  // Combine loading states
+  const overallLoading = loading || loadingCompanyBranding;
+
+  if (overallLoading) {
     return (
       <>
         <AppHeader title="Order Forms">
@@ -259,6 +305,30 @@ export default function OrderFormsPage() {
     );
   }
 
+  // Handle error specifically for company branding if it occurs
+  if (companyBrandingError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-center p-6">
+        <h1 className="text-2xl font-bold text-destructive">Error Loading Page</h1>
+        <p className="text-muted-foreground mt-2">{companyBrandingError}</p>
+        <p className="text-muted-foreground">Please check your backend connection or refresh the page.</p>
+        <Button onClick={() => window.location.reload()} className="mt-4">Reload Page</Button>
+      </div>
+    );
+  }
+
+  // Fallback if companyBranding is still null after loading (shouldn't happen with error handling, but good for type safety)
+  if (!companyBranding) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-center p-6">
+        <h1 className="text-2xl font-bold">Configuration Missing</h1>
+        <p className="text-muted-foreground mt-2">Company branding information could not be loaded. This is required for previewing documents.</p>
+        <p className="text-muted-foreground">Please ensure your branding settings are configured in the system.</p>
+      </div>
+    );
+  }
+
+
   return (
     <>
       <AppHeader title="Order Forms">
@@ -269,27 +339,27 @@ export default function OrderFormsPage() {
           onChange={(e) => setSearchTerm(e.target.value)}
           className="h-10 w-64"
         />
-         {numSelected > 0 && (
-          <>
-            <Button onClick={handleBulkConvertToInvoices} disabled={isBulkConverting || isDownloading} variant="outline">
-                <FileSignature className="mr-2 h-4 w-4" />
-                {isBulkConverting ? `Converting ${numSelected}...` : `Convert ${numSelected} to Invoice(s)`}
-            </Button>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={isDownloading || isBulkConverting}>
-                    <Download className="mr-2 h-4 w-4" />
-                    {isDownloading ? `Processing ${numSelected}...` : `Download ${numSelected} Selected`}
-                    <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={handleDownloadIndividualPdfs} disabled={isDownloading || isBulkConverting}>Download as Individual PDFs</DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleDownloadCombinedPdf} disabled={isDownloading || isBulkConverting}>Download as Single PDF</DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-          </>
-        )}
+          {numSelected > 0 && (
+            <>
+              <Button onClick={handleBulkConvertToInvoices} disabled={isBulkConverting || isDownloading} variant="outline">
+                  <FileSignature className="mr-2 h-4 w-4" />
+                  {isBulkConverting ? `Converting ${numSelected}...` : `Convert ${numSelected} to Invoice(s)`}
+              </Button>
+              <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                  <Button variant="outline" disabled={isDownloading || isBulkConverting}>
+                      <Download className="mr-2 h-4 w-4" />
+                      {isDownloading ? `Processing ${numSelected}...` : `Download ${numSelected} Selected`}
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={handleDownloadIndividualPdfs} disabled={isDownloading || isBulkConverting}>Download as Individual PDFs</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={handleDownloadCombinedPdf} disabled={isDownloading || isBulkConverting}>Download as Single PDF</DropdownMenuItem>
+                  </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
         <Link href="/orderforms/new">
           <Button disabled={isBulkConverting || isDownloading}>
             <PlusCircle className="mr-2 h-4 w-4" /> Create Order Form
@@ -300,8 +370,8 @@ export default function OrderFormsPage() {
         <Card>
           <CardHeader><CardTitle>All Order Forms</CardTitle></CardHeader>
           <CardContent>
-            {filteredOrderForms.length === 0 && !loading ? (
-               <div className="flex flex-col items-center justify-center h-[30vh] text-center">
+            {filteredOrderForms.length === 0 && !overallLoading ? ( // Changed to overallLoading
+                <div className="flex flex-col items-center justify-center h-[30vh] text-center">
                 <PackageSearch className="w-16 h-16 text-muted-foreground mb-4" />
                 <h2 className="text-xl font-semibold mb-2">
                   {searchTerm ? "No Matching Order Forms" : "No Order Forms Yet"}
@@ -330,4 +400,3 @@ export default function OrderFormsPage() {
     </>
   );
 }
-

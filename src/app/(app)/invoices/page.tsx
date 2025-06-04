@@ -12,7 +12,7 @@ import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialo
 import { Badge } from '@/components/ui/badge';
 import { PlusCircle, Edit, Eye, Trash2, ChevronDown, Download, CheckSquare } from 'lucide-react';
 import type { Invoice, Customer } from '@/types';
-import { getAllInvoices,getAllCustomers, removeInvoice, fetchCustomerById, markInvoiceAsPaid } from '@/lib/actions';
+import { getAllInvoices,getBrandingSettings,getAllCustomers, removeInvoice, fetchCustomerById, markInvoiceAsPaid } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { InvoicePreviewDialog } from '@/components/invoice-preview-dialog';
@@ -25,6 +25,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils.tsx';
 import { getCurrencySymbol } from '@/lib/currency-utils';
+import { BrandingSettingsFormData as BrandingSettings } from '@/lib/schemas'; // Import BrandingSettings from your schema
+async function fetchCompanyBranding(): Promise<BrandingSettings> {
+  // Replace this with your actual backend API call to get branding settings
+  // Example: Assuming your backend has an endpoint like /api/branding-settings
+  const response = await fetch('/api/branding-settings');
+  if (!response.ok) {
+    throw new Error(`Failed to fetch company branding settings: ${response.statusText}`);
+  }
+  const data = await response.json();
+  console.log("Fetched branding data:", data); // For debugging
+  return data;
+}
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -36,6 +48,11 @@ export default function InvoicesPage() {
   const [isDownloading, setIsDownloading] = React.useState(false);
   const [isMarkingPaid, setIsMarkingPaid] = React.useState<string | null>(null);
   const [customers,setCustomers] = React.useState<Customer[]>([]);
+  // --- New: State for company branding ---
+    const [companyBranding, setCompanyBranding] = React.useState<BrandingSettings | null>(null);
+    const [loadingCompanyBranding, setLoadingCompanyBranding] = React.useState(true);
+    const [companyBrandingError, setCompanyBrandingError] = React.useState<string | null>(null);
+    // --- End of New State ---
   
 
   React.useEffect(() => {
@@ -61,7 +78,23 @@ export default function InvoicesPage() {
         setLoading(false);
       }
     }
+    // --- New: Fetch company branding settings ---
+        async function getCompanyBranding() {
+          try {
+            const data = await getBrandingSettings();
+            setCompanyBranding(data);
+          } catch (error) {
+            console.error("Error fetching company branding:", error);
+            setCompanyBrandingError("Failed to load company branding information.");
+          } finally {
+            setLoadingCompanyBranding(false);
+          }
+        }
+        // --- End of New Fetch ---
+    
+
     fetchData();
+    getCompanyBranding();
   }, []);
 
   const handleDeleteInvoice = async (id: string) => {
@@ -130,7 +163,7 @@ export default function InvoicesPage() {
         if (invoice.customerId) {
            customer = await fetchCustomerById(invoice.customerId);
         }
-        await downloadPdfForDocument(invoice, customer);
+        await downloadPdfForDocument(invoice, customer );
         if (selectedInvoices.length > 1) await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
         console.error("Error downloading PDF for invoice:", invoice.invoiceNumber, error);
@@ -215,14 +248,18 @@ export default function InvoicesPage() {
       header: 'Actions',
       cell: (row: Invoice) => (
         <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
-          <InvoicePreviewDialog 
+          {companyBranding && (
+              <InvoicePreviewDialog 
             invoice={row} 
+             companyBranding={companyBranding} 
             trigger={
               <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()} title="Preview Invoice">
                 <Eye className="h-4 w-4" />
               </Button>
             }
           />
+        
+          )}
           <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation();
              router.push(`/invoices/${row.id}/`); }} 
              title="Edit Invoice">
@@ -256,6 +293,8 @@ export default function InvoicesPage() {
   
   const numSelected = Object.values(rowSelection).filter(Boolean).length;
 
+
+
   if (loading) {
     return (
       <>
@@ -269,6 +308,25 @@ export default function InvoicesPage() {
           </Card>
         </main>
       </>
+    );
+  }
+  if (companyBrandingError) {
+      return (
+        <div className="flex flex-col items-center justify-center h-screen text-center p-6">
+          <h1 className="text-2xl font-bold text-destructive">Error Loading Page</h1>
+          <p className="text-muted-foreground mt-2">{companyBrandingError}</p>
+          <p className="text-muted-foreground">Please check your backend connection or refresh the page.</p>
+          <Button onClick={() => window.location.reload()} className="mt-4">Reload Page</Button>
+        </div>
+      );
+    }
+if (!companyBranding) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-center p-6">
+        <h1 className="text-2xl font-bold">Configuration Missing</h1>
+        <p className="text-muted-foreground mt-2">Company branding information could not be loaded. This is required for previewing documents.</p>
+        <p className="text-muted-foreground">Please ensure your branding settings are configured in the system.</p>
+      </div>
     );
   }
 
