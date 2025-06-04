@@ -1,20 +1,6 @@
 
-//import { auth } from './firebase'; 
 const BACKEND_BASE_URL = 'https://invoicecraft-backend.onrender.com'; 
 //const BACKEND_BASE_URL = 'http://localhost:5000';
-
-// async function getAuthToken(): Promise<string | null> {
-//     if (typeof window !== 'undefined' && auth.currentUser) {
-//         try {
-//             const token = await auth.currentUser.getIdToken();
-//             return token;
-//         } catch (error) {
-//             console.error("Error getting Firebase ID token:", error);
-//             return null;
-//         }
-//     }
-//     return null;
-// }
 
 export async function checkBackendConnection(): Promise<boolean> {
   const url = `${BACKEND_BASE_URL}/api/status`;

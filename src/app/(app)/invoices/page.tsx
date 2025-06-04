@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils.tsx';
+//import { downloadPdfForDocument, downloadMultipleDocumentsAsSinglePdf } from '@/lib/pdf-utils.tsx';
 import { getCurrencySymbol } from '@/lib/currency-utils';
 import { BrandingSettingsFormData as BrandingSettings } from '@/lib/schemas'; // Import BrandingSettings from your schema
 async function fetchCompanyBranding(): Promise<BrandingSettings> {
@@ -147,47 +147,47 @@ export default function InvoicesPage() {
       .filter((inv): inv is Invoice => !!inv);
   };
 
-  const handleDownloadIndividualPdfs = async () => {
-    const selectedInvoices = getSelectedInvoices();
-    if (selectedInvoices.length === 0) {
-      toast({ title: "No Selection", description: "Please select invoices to download.", variant: "destructive" });
-      return;
-}
+//   const handleDownloadIndividualPdfs = async () => {
+//     const selectedInvoices = getSelectedInvoices();
+//     if (selectedInvoices.length === 0) {
+//       toast({ title: "No Selection", description: "Please select invoices to download.", variant: "destructive" });
+//       return;
+// }
 
-    setIsDownloading(true);
-    toast({ title: "Processing PDFs...", description: `Preparing ${selectedInvoices.length} invoice(s) for download.` });
+//     setIsDownloading(true);
+//     toast({ title: "Processing PDFs...", description: `Preparing ${selectedInvoices.length} invoice(s) for download.` });
 
-    for (const invoice of selectedInvoices) {
-      try {
-        let customer: Customer | undefined = undefined;
-        if (invoice.customerId) {
-           customer = await fetchCustomerById(invoice.customerId);
-        }
-        await downloadPdfForDocument(invoice, customer );
-        if (selectedInvoices.length > 1) await new Promise(resolve => setTimeout(resolve, 500));
-    } catch (error) {
-        console.error("Error downloading PDF for invoice:", invoice.invoiceNumber, error);
-        toast({ title: "Download Error", description: `Failed to download PDF for ${invoice.invoiceNumber}.`, variant: "destructive" });
-      }
-    }
-    setIsDownloading(false);
-    setRowSelection({});
-  };
+//     for (const invoice of selectedInvoices) {
+//       try {
+//         let customer: Customer | undefined = undefined;
+//         if (invoice.customerId) {
+//            customer = await fetchCustomerById(invoice.customerId);
+//         }
+//         await downloadPdfForDocument(invoice, customer );
+//         if (selectedInvoices.length > 1) await new Promise(resolve => setTimeout(resolve, 500));
+//     } catch (error) {
+//         console.error("Error downloading PDF for invoice:", invoice.invoiceNumber, error);
+//         toast({ title: "Download Error", description: `Failed to download PDF for ${invoice.invoiceNumber}.`, variant: "destructive" });
+//       }
+//     }
+//     setIsDownloading(false);
+//     setRowSelection({});
+//   };
 
-  const handleDownloadCombinedPdf = async () => {
-    const selectedInvoices = getSelectedInvoices();
-    if (selectedInvoices.length === 0) {
-      toast({ title: "No Selection", description: "Please select invoices for combined PDF.", variant: "destructive" });
-      return;
-    }
-    setIsDownloading(true);
-    const customers = await Promise.all(
-        selectedInvoices.map(inv => inv.customerId ? fetchCustomerById(inv.customerId) : Promise.resolve(undefined))
-    );
-    await downloadMultipleDocumentsAsSinglePdf(selectedInvoices, customers, 'Combined_Invoices.pdf');
-    setIsDownloading(false);
-    setRowSelection({});
-  };
+//   const handleDownloadCombinedPdf = async () => {
+//     const selectedInvoices = getSelectedInvoices();
+//     if (selectedInvoices.length === 0) {
+//       toast({ title: "No Selection", description: "Please select invoices for combined PDF.", variant: "destructive" });
+//       return;
+//     }
+//     setIsDownloading(true);
+//     const customers = await Promise.all(
+//         selectedInvoices.map(inv => inv.customerId ? fetchCustomerById(inv.customerId) : Promise.resolve(undefined))
+//     );
+//     await downloadMultipleDocumentsAsSinglePdf(selectedInvoices, customers, 'Combined_Invoices.pdf');
+//     setIsDownloading(false);
+//     setRowSelection({});
+//   };
 
 
   const getStatusVariant = (status: Invoice['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -342,10 +342,10 @@ if (!companyBranding) {
                 <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            {/* <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={handleDownloadIndividualPdfs} disabled={isDownloading}>Download as Individual PDFs</DropdownMenuItem>
               <DropdownMenuItem onSelect={handleDownloadCombinedPdf} disabled={isDownloading}>Download as Single PDF</DropdownMenuItem>
-            </DropdownMenuContent>
+            </DropdownMenuContent> */}
           </DropdownMenu>
         )}
         <DropdownMenu>
