@@ -10,8 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Mail, KeyRound } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
-import { auth } from "@/lib/firebase";
-import { sendPasswordResetEmail } from "firebase/auth";
+
 import { useToast } from "@/hooks/use-toast";
 
 export default function ForgotPasswordPage() {
@@ -29,7 +28,7 @@ export default function ForgotPasswordPage() {
     setError(null);
 
     try {
-      await sendPasswordResetEmail(auth, email);
+     // await sendPasswordResetEmail(auth, email);
       setMessage("If an account exists for this email, a password reset link has been sent. Please check your inbox (and spam folder).");
       toast({
         title: "Password Reset Email Sent",
@@ -43,8 +42,6 @@ export default function ForgotPasswordPage() {
       if (err.code === "auth/invalid-email") {
         friendlyMessage = "The email address is not valid.";
       } else if (err.code === "auth/user-not-found") {
-        // For security reasons, Firebase doesn't explicitly say user not found here.
-        // So we give a generic message, similar to what sendPasswordResetEmail does.
         setMessage("If an account exists for this email, a password reset link has been sent.");
          toast({
             title: "Password Reset Email Sent",

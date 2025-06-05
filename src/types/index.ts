@@ -2,10 +2,22 @@ import type { BrandingSettingsFormData as BrandingSettingsFormDataType } from '@
 
 export interface Customer {
   id: string;
-  name: string;
+  firstname: string;
+  lastname: string;
   email?: string;
   phone?: string;
   currency?: string;
+  
+  company?:{
+    name?: string;
+    email?: string;
+    street?:string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  
+  }
   billingAddress?: {
     street?: string;
     city?: string;

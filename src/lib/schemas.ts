@@ -8,12 +8,23 @@ const addressSchema = z.object({
   zip: z.string().optional(),
   country: z.string().optional(),
 }).optional();
+const companySchema = z.object({
+  name: z.string().optional(),
+  email:z.string().optional(),
+  street: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zip: z.string().optional(),
+  country: z.string().optional(),
+}).optional();
 
 export const customerSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  firstname: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  lastname: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }).optional(),
   phone: z.string().optional(),
   currency: z.string().optional(), // Stores currency code like 'USD', 'INR'
+  company: companySchema.optional(),
   billingAddress: addressSchema.optional(),
   shippingAddress: addressSchema.optional(),
 });

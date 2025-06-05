@@ -39,6 +39,7 @@ export function OrderFormPreviewContent({ document: orderForm, customer, coverPa
   const customerToDisplay: Partial<Customer> & { name: string; email: string; currency: string } = {
     name: orderForm.customerName || customer?.name || 'N/A',
     email: customer?.email || 'N/A',
+    company: customer?.company || undefined,
     billingAddress: customer?.billingAddress || undefined,
     shippingAddress: customer?.shippingAddress || undefined,
     currency: customer?.currency || orderForm.currencyCode || 'USD'

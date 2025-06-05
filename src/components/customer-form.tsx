@@ -71,10 +71,20 @@ export function CustomerForm({ initialData, formAction }: CustomerFormProps) {
   const form = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
-      name: initialData?.name || '',
+      firstname: initialData?.firstname || '',
+      lastname: initialData?.lastname || '',
       email: initialData?.email || '',
       phone: initialData?.phone || '',
       currency: initialData?.currency || 'USD',
+      company:{
+        name: initialData?.company?.name || '',
+        email: initialData?.company?.email || '',
+        street: initialData?.company?.street || '',
+        city: initialData?.company?.city || '',
+        state: initialData?.company?.state || '',
+        zip: initialData?.company?.name || '',
+        country: initialData?.company?.country || '',
+      },
       billingAddress: {
         street: initialData?.billingAddress?.street || '',
         city: initialData?.billingAddress?.city || '',
@@ -137,17 +147,32 @@ export function CustomerForm({ initialData, formAction }: CustomerFormProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
-                name="name"
+                name="firstname"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Full Name *</FormLabel>
+                    <FormLabel>First Name *</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. John Doe" {...field} suppressHydrationWarning={true} />
+                      <Input placeholder="e.g. John " {...field}  />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              /> <FormField
+                control={form.control}
+                name="lastname"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g.  Doe" {...field}  />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
               <FormField
                 control={form.control}
                 name="email"
@@ -161,8 +186,7 @@ export function CustomerForm({ initialData, formAction }: CustomerFormProps) {
                   </FormItem>
                 )}
               />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
               <FormField
                 control={form.control}
                 name="phone"
@@ -202,6 +226,104 @@ export function CustomerForm({ initialData, formAction }: CustomerFormProps) {
               />
             </div>
 
+            <p className="text-base font-semibold text-foreground pt-4">Company Information</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+<FormField
+                control={form.control}
+                name="company.name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="brandworks worldwide" {...field} suppressHydrationWarning={true} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="company.email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address *</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="e.g. Brandwork@example.com" {...field} suppressHydrationWarning={true} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            
+              <FormField
+                control={form.control}
+                name="company.street"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Street</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 123 Main St" {...field} suppressHydrationWarning={true} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="company.city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Anytown" {...field} suppressHydrationWarning={true} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <FormField
+                control={form.control}
+                name="company.state"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>State/Province</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. CA" {...field} suppressHydrationWarning={true} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="company.zip"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Zip/Postal Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 90210" {...field} suppressHydrationWarning={true} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="company.country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. USA" {...field} suppressHydrationWarning={true} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              </div>
             <p className="text-base font-semibold text-foreground pt-4">Billing Address</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField

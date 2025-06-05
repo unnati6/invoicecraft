@@ -7,9 +7,7 @@ const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().
 
 // --- Mock Data ---
 let mockCustomers: Customer[] = [
-  { id: 'cust_1', name: 'Alice Wonderland', email: 'alice@example.com', phone: '123-456-7890', currency: 'INR', billingAddress: { street: '123 Rabbit Hole', city: 'Wonderland', state: 'WL', zip: '12345', country: 'Fairyland' }, shippingAddress: { street: '123 Rabbit Hole', city: 'Wonderland', state: 'WL', zip: '12345', country: 'Fairyland' }, createdAt: new Date('2023-01-15') },
-  { id: 'cust_2', name: 'Bob The Builder', email: 'bob@example.com', phone: '987-654-3210', currency: 'USD', billingAddress: { street: '456 Construction Way', city: 'Builderville', state: 'BV', zip: '67890', country: 'Tooltopia' }, createdAt: new Date('2023-03-20') },
-  { id: 'cust_3', name: 'Charlie Brown', email: 'charlie@example.com', phone: '555-1212', currency: 'CAD', billingAddress: { street: '789 Kite Hill', city: 'Peanutsville', state: 'PS', zip: '54321', country: 'Cartoonland' }, createdAt: new Date('2023-05-10') },
+  { id: 'cust_1', firstname: '',lastname:'', email: 'alice@example.com', phone: '123-456-7890', currency: 'INR',company:{name:'',email:'',street: '123 Rabbit Hole', city: 'Wonderland', state: 'WL', zip: '12345', country: 'Fairyland'}, billingAddress: { street: '123 Rabbit Hole', city: 'Wonderland', state: 'WL', zip: '12345', country: 'Fairyland' }, shippingAddress: { street: '123 Rabbit Hole', city: 'Wonderland', state: 'WL', zip: '12345', country: 'Fairyland' }, createdAt: new Date('2023-01-15') },
 ];
 
 let mockInvoices: Invoice[] = [
